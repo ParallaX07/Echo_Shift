@@ -1,0 +1,22 @@
+{
+  "colors": [
+    {"index": 0, "hex": "#000000", "role": "transparent key; never draw with it"},
+    {"index": 1, "hex": "#1D2B53", "role": "outlines, darkest shade, screen background"},
+    {"index": 2, "hex": "#7E2553", "role": "dark machine trim, failure accents"},
+    {"index": 3, "hex": "#008751", "role": "console screens, dim power ok"},
+    {"index": 4, "hex": "#AB5236", "role": "wood and rust accents"},
+    {"index": 5, "hex": "#5F574F", "role": "dark walls, dark floor"},
+    {"index": 6, "hex": "#C2C3C7", "role": "metal, wall highlights"},
+    {"index": 7, "hex": "#FFF1E8", "role": "highlights, text"},
+    {"index": 8, "hex": "#FF004D", "role": "failure, unpowered, over-budget"},
+    {"index": 9, "hex": "#FFA300", "role": "player amber"},
+    {"index": 10, "hex": "#FFEC27", "role": "lit-zone light, powered indicators"},
+    {"index": 11, "hex": "#00E436", "role": "active pad, power ok"},
+    {"index": 12, "hex": "#29ADFF", "role": "echo outline"},
+    {"index": 13, "hex": "#83769C", "role": "dim dark tiles, planning overlay"},
+    {"index": 14, "hex": "#FF77A8", "role": "rare hint accent"},
+    {"index": 15, "hex": "#FFCCAA", "role": "skin, lit floor"}
+  ],
+  "transparent_index": 0,
+  "minimum_opaque_pixels": {"character": 64, "tile": 700, "prop": 24, "icon": 16}
+}
