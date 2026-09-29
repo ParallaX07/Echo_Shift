@@ -1,5 +1,6 @@
 """Pyxel input, screens and rendering for the playable chambers."""
 
+import atexit
 import json
 import logging
 from dataclasses import replace
@@ -20,6 +21,7 @@ from echo_shift.paths import resource_path, user_data_dir
 from echo_shift.ui.atlas import Atlas
 from echo_shift.ui.hud import model
 from echo_shift.ui.progress import load_unlocked, save_unlocked
+from echo_shift.ui.telemetry import Attempt, log_path
 
 CELL = 32
 logger = logging.getLogger(__name__)
@@ -65,11 +67,20 @@ class Game:
         self.message = "E POWER  ENTER RECORD  Q LAUNCH"
         self.message_frames = 120
         self.flash = 0
+        self.attempt = None
+        atexit.register(self.finish_attempt)
+
+    def finish_attempt(self, completed: bool = False) -> None:
+        if self.attempt is not None:
+            self.attempt.finish(completed)
+            self.attempt = None
 
     def open_level(self, number: int) -> None:
+        self.finish_attempt()
         path = resource_path("levels", f"chamber_{number:02}.json")
         data = json.loads(path.read_text(encoding="utf-8"))
         self.level = number
+        self.attempt = Attempt(number)
         self.state = initial_state(load(path))
         self.tutorial = data["tutorial"]
         self.hints = data["hints"]
@@ -90,6 +101,7 @@ class Game:
 
     def show_hint(self) -> None:
         if self.hint_index < len(self.hints):
+            self.attempt.hints += 1
             self.seen_hints.add(self.hint_index)
             self.hint_index += 1
             self.modal = "hint"
@@ -123,11 +135,13 @@ class Game:
             logger.warning("%s reason=%s", details, result.reason)
             self.notice(result.reason, True)
         elif isinstance(result, Failed):
+            self.attempt.resets += 1
             logger.warning("%s reason=%s", details, result.reason)
             self.notice(f"FAILED: {result.reason}  R RETRY", True)
         else:
             logger.info("%s", details)
             if result.succeeded:
+                self.finish_attempt(completed=True)
                 self.unlock_next()
                 self.modal = "result"
                 self.notice("ELEVATOR REACHED!")
@@ -167,6 +181,7 @@ class Game:
             return
         if self.modal:
             if pyxel.btnp(pyxel.KEY_L):
+                self.finish_attempt()
                 self.mode = "levels"
                 self.level_cursor = self.level
                 self.modal = None
@@ -180,6 +195,7 @@ class Game:
                 self.modal = None
             return
         if pyxel.btnp(pyxel.KEY_L):
+            self.finish_attempt()
             self.mode = "levels"
             self.level_cursor = self.level
             self.paused = False
@@ -189,6 +205,7 @@ class Game:
             self.paused = not self.paused
         if self.paused:
             if pyxel.btnp(pyxel.KEY_C):
+                self.attempt.resets += 1
                 self.state = recording.clear(self.state)
                 self.paused = False
                 self.notice("CHAMBER CLEARED")
@@ -201,10 +218,13 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_H):
             self.show_hint()
         elif pyxel.btnp(pyxel.KEY_C):
+            self.attempt.resets += 1
             self.state = recording.clear(self.state)
             self.notice("CHAMBER CLEARED")
         elif pyxel.btnp(pyxel.KEY_R):
             retried = recording.retry(self.state)
+            if retried is not self.state:
+                self.attempt.resets += 1
             self.notice(
                 "RETRY FROM LAUNCH" if retried is not self.state else "LAUNCH FIRST",
                 retried is self.state,
@@ -256,6 +276,7 @@ class Game:
             self.pending = frozenset(self.pending ^ {name})
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if not power.apply(self.state.chamber, self.pending).ok:
+                self.attempt.unsafe_power_choices += 1
                 self.notice("OVER BUDGET - REMOVE A CIRCUIT", True)
             elif self.pending == self.state.powered_circuits:
                 self.console = False
@@ -403,6 +424,12 @@ class Game:
             pyxel.text(43, 112 + index * 28, line[:73], 7)
         pyxel.text(43, 250, footer, 11)
 
+    def draw_log_path(self, x: int, y: int) -> None:
+        path = str(log_path())
+        pyxel.text(x, y, "SEND PLAYTEST LOG:", 10)
+        for index in range(0, len(path), 70):
+            pyxel.text(x, y + 10 + index // 70 * 10, path[index : index + 70], 7)
+
     def draw_title(self) -> None:
         pyxel.text(130, 94, "ECHO SHIFT", 12)
         pyxel.text(91, 130, "TURN-BASED LIGHT AND ECHO PUZZLES", 7)
@@ -432,6 +459,7 @@ class Game:
                 self.tutorial,
                 "ENTER/T: CLOSE  H: HINT  L: LEVEL SELECT",
             )
+            self.draw_log_path(43, 207)
         elif self.modal == "hint":
             self.draw_panel(
                 f"HINT {self.hint_index}/{len(self.hints)}  USED {len(self.seen_hints)}",
@@ -460,10 +488,11 @@ class Game:
         if self.console:
             self.draw_console()
         if self.paused:
-            pyxel.rect(90, 106, 204, 72, 1)
-            pyxel.rectb(90, 106, 204, 72, 12)
+            pyxel.rect(28, 106, 328, 120, 1)
+            pyxel.rectb(28, 106, 328, 120, 12)
             pyxel.text(155, 126, "PAUSED", 7)
-            pyxel.text(105, 147, "P RESUME  C CLEAR  L LEVELS", 7)
+            pyxel.text(43, 147, "P RESUME  C CLEAR  L LEVELS", 7)
+            self.draw_log_path(43, 171)
         if self.modal:
             self.draw_modal()
 

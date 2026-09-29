@@ -30,6 +30,13 @@ leads to level select. Completing a chamber unlocks the next one, stored as an
 `unlocked` integer in the per-user progress file. Tutorial text and ordered
 hints live in each chamber JSON; hint reveals are counted for the current run.
 
+The UI writes one local JSONL record per chamber visit when it completes, is
+left through level select, or the game exits normally. The record has a random
+attempt ID, chamber, completion status, elapsed time, resets, hints revealed,
+and over-budget console confirmations. It does not include player inputs or
+personal identifiers. A failed turn, accepted R retry or C clear increments
+the reset count; an over-budget confirmation never advances the engine.
+
 ## Turn resolution
 
 Each accepted action advances one turn in this order:

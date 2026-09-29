@@ -11,6 +11,9 @@ unlocked chamber. Each chamber opens with a dismissible tutorial. Press T to
 read it again or H for counted hints. Progress is saved as `progress.json` in
 the per-user data directory.
 
+For playtests, each chamber visit is written to `playtest.jsonl` in that same
+directory when it ends or the game closes.
+
 During play, use WASD or arrow keys to move, Space to wait, Enter to start or
 commit a recording, Q to launch the echo, E to open the power console, R to
 retry the launched recording, C to restart, P to pause, L for level select,
