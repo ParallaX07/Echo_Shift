@@ -1,9 +1,28 @@
 # As-built rules
 
-The engine follows the rules below. The worked
-sequences below pin down timing for rules implemented with echoes and timed
-pads in the recording phase; they are documentation examples here, not claims
-that those mechanics are already implemented.
+The engine follows the rules below. Recording, echo replay, timed
+pads and chamber loading are implemented in the headless engine.
+
+## Recording and retry
+
+Enter starts a take only from the hub and records that tile as the echo start.
+Enter commits from any tile, resets the player and chamber dynamics to their
+starting positions, and keeps the recording and selected power configuration.
+Preparation and committed movement inside the hub, and power changes at the hub
+console in those phases, are free. A take captures accepted moves and waits up
+to the chamber's `max_turns` limit.
+
+Q from the hub resets dynamic chamber state and the player to the defined start,
+keeps the power configuration and recording, creates an unadvanced echo, then
+captures the retry snapshot. R restores that snapshot. C returns to the
+preparation state and clears power and recording. A replay failure restores the
+launch snapshot; a recording failure discards that take and returns to
+preparation.
+
+Chambers load from JSON through `engine.loader`. Grid tile names use the
+`TileType` values; positions are `[x, y]`. The loader validates all links,
+positions, unique IDs, circuit capacity, hub/start/console/exit requirements,
+pad timer lengths and the 1–12 `max_turns` range.
 
 ## Turn resolution
 
@@ -26,8 +45,8 @@ For a pad with timer length 3, occupying it during step 4 sets its timer to 3.
 After leaving, the next three step-4 updates change the timer 3 → 2 → 1 → 0;
 the pad is active before each of those updates while its timer is above zero.
 At zero it is inactive unless a body occupies it. Occupying the pad again at
-any point resets the timer to 3. Passive pads have timer length 0 and are active
-only while occupied.
+any point resets its configured timer length. JSON pads default to timer length
+3; passive pads use timer length 0 and are active only while occupied.
 
 ## Blocked echo command
 

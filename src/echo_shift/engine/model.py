@@ -20,6 +20,14 @@ class TileType(str, Enum):
     CONSOLE = "console"
 
 
+class Phase(str, Enum):
+    PREPARE = "prepare"
+    RECORDING = "recording"
+    COMMITTED = "committed"
+    REPLAY = "replay"
+    RESULT = "result"
+
+
 @dataclass(frozen=True)
 class Zone:
     id: str
@@ -45,6 +53,7 @@ class Circuit:
 class Pad:
     id: str
     position: Position
+    timer_length: int = 0
 
 
 @dataclass(frozen=True)
@@ -67,6 +76,8 @@ class Chamber:
     circuits: tuple[Circuit, ...] = ()
     pads: tuple[Pad, ...] = ()
     devices: tuple[Device, ...] = ()
+    exit: Position | None = None
+    max_turns: int = 12
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -86,7 +97,14 @@ class Chamber:
             raise ValueError("chamber tiles must be a non-empty rectangle")
         if self.capacity < 0:
             raise ValueError("generator capacity cannot be negative")
-        for position in self.hub | self.consoles | {self.start}:
+        if not 1 <= self.max_turns <= 12:
+            raise ValueError("max_turns must be an integer from 1 to 12")
+        for position in (
+            self.hub
+            | self.consoles
+            | {self.start}
+            | ({self.exit} if self.exit else set())
+        ):
             if not self.contains(position):
                 raise ValueError(f"position outside chamber: {position}")
         for name, values in (
@@ -113,6 +131,10 @@ class Chamber:
                 raise ValueError(
                     f"device {device.id} has a dangling circuit or pad link"
                 )
+            if device.id not in circuits[device.circuit_id].devices:
+                raise ValueError(f"device {device.id} is not linked from its circuit")
+        if any(pad.timer_length < 0 for pad in pads.values()):
+            raise ValueError("pad timer length cannot be negative")
         positions = (
             *(position for zone in zones.values() for position in zone.tiles),
             *(pad.position for pad in pads.values()),
@@ -144,27 +166,59 @@ class State:
     player: Position
     powered_circuits: frozenset[str] = frozenset()
     pad_occupied: frozenset[str] = frozenset()
+    pad_active: frozenset[str] = frozenset()
     gates_open: frozenset[str] = frozenset()
     elevators_running: frozenset[str] = frozenset()
     turns: int = 0
+    phase: Phase = Phase.PREPARE
+    recording: tuple[object, ...] = ()
+    echo_start: Position | None = None
+    echo_position: Position | None = None
+    echo_index: int = 0
+    echo_hold: int = 0
+    pad_timers: tuple[tuple[str, int], ...] = ()
+    retry_snapshot: object | None = None
 
     def __post_init__(self) -> None:
         for name in (
             "powered_circuits",
             "pad_occupied",
+            "pad_active",
             "gates_open",
             "elevators_running",
         ):
             object.__setattr__(self, name, frozenset(getattr(self, name)))
+        object.__setattr__(self, "phase", Phase(self.phase))
+        object.__setattr__(self, "recording", tuple(self.recording))
+        object.__setattr__(self, "pad_timers", tuple(sorted(self.pad_timers)))
 
     def search_key(self) -> tuple[object, ...]:
         """Return all current gameplay state, excluding absolute turn count."""
+        snapshot = self.retry_snapshot
+        snapshot_key = (
+            (
+                getattr(snapshot, "powered_circuits", None),
+                getattr(snapshot, "recording", None),
+                getattr(snapshot, "echo_start", None),
+            )
+            if snapshot is not None
+            else None
+        )
         return (
             self.player,
             self.powered_circuits,
             self.pad_occupied,
+            self.pad_active,
             self.gates_open,
             self.elevators_running,
+            self.phase,
+            self.pad_timers,
+            self.recording,
+            self.echo_start,
+            self.echo_position,
+            self.echo_index,
+            self.echo_hold,
+            snapshot_key,
         )
 
 
@@ -176,7 +230,12 @@ def initial_state(
     configured = apply(chamber, powered_circuits)
     if not configured.ok:
         raise ValueError(configured.error)
-    state = State(chamber, chamber.start, configured.circuits)
+    state = State(
+        chamber,
+        chamber.start,
+        configured.circuits,
+        pad_timers=tuple((pad.id, 0) for pad in chamber.pads),
+    )
     from .turn import refresh_devices
 
     return refresh_devices(state)

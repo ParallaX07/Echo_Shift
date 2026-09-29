@@ -19,3 +19,8 @@ def test_search_key_includes_position_power_pad_and_gate_state(chamber_factory):
     assert all(variant.search_key() != state.search_key() for variant in variants)
     assert hash(state.search_key())
     assert hash(state)
+
+
+def test_search_key_includes_timed_pad_counter(chamber_factory):
+    state = initial_state(chamber_factory())
+    assert state.search_key() != replace(state, pad_timers=(("pad-a", 1),)).search_key()
