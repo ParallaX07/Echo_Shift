@@ -31,7 +31,7 @@ def main() -> None:
     data = json.loads(resource_path("levels", "spike.json").read_text())
     pyxel.colors[:] = PICO8_PALETTE
     pyxel.init(384, 352, title="Echo Shift Feasibility Spike")
-    pyxel.images[0].load(0, 0, str(resource_path("assets", "spike", "atlas.png")))
+    pyxel.images[0].load(0, 0, str(resource_path("assets", "atlas.png")))
     (user_data_dir() / "phase0.txt").write_text("packaged resource smoke test\n")
 
     def draw() -> None:
