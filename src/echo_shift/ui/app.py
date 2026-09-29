@@ -1,6 +1,7 @@
 """Pyxel input and rendering for the prototype chamber."""
 
 import json
+import logging
 from dataclasses import replace
 
 import pyxel
@@ -9,7 +10,6 @@ from echo_shift.engine import lighting, power, recording
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Phase, Position, TileType, initial_state
 from echo_shift.engine.turn import (
-    Accepted,
     Failed,
     InteractAtConsole,
     Move,
@@ -21,6 +21,7 @@ from echo_shift.ui.atlas import Atlas
 from echo_shift.ui.hud import model
 
 CELL = 32
+logger = logging.getLogger(__name__)
 ROOM_H = 288
 DARK_REMAP = (0, 1, 2, 1, 5, 5, 13, 13, 2, 5, 13, 3, 13, 13, 2, 5)
 MOVES = (
@@ -61,12 +62,30 @@ class Game:
     def act(self, action: Move | Wait | InteractAtConsole) -> None:
         result = recording.act(self.state, action)
         self.state = result.state
+        outcome = (
+            "rejected"
+            if isinstance(result, Rejected)
+            else "failed"
+            if isinstance(result, Failed)
+            else "accepted"
+        )
+        details = (
+            f"action={action!r} outcome={outcome} phase={self.state.phase.value} "
+            f"turn={self.state.turns} player=({self.state.player.x},{self.state.player.y}) "
+            f"echo={self.state.echo_position} powered={sorted(self.state.powered_circuits)} "
+            f"gates_open={sorted(self.state.gates_open)} "
+            f"elevators_running={sorted(self.state.elevators_running)}"
+        )
         if isinstance(result, Rejected):
+            logger.warning("%s reason=%s", details, result.reason)
             self.notice(result.reason, True)
         elif isinstance(result, Failed):
+            logger.warning("%s reason=%s", details, result.reason)
             self.notice(f"FAILED: {result.reason}  R RETRY", True)
-        elif isinstance(result, Accepted) and result.succeeded:
-            self.notice("ELEVATOR REACHED!  C RESTART")
+        else:
+            logger.info("%s", details)
+            if result.succeeded:
+                self.notice("ELEVATOR REACHED!  C RESTART")
 
     def update(self) -> None:
         self.message_frames = max(0, self.message_frames - 1)
