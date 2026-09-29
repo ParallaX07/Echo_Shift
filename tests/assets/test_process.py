@@ -61,10 +61,12 @@ def test_process_keys_magenta_snaps_palette_and_preserves_group_anchor(
 
     outputs = [process_asset.process(name) for name in ids]
     first, second, keyed = (Image.open(path).convert("RGBA") for path in outputs)
-    assert first.size == second.size == keyed.size == (32, 32)
+    assert first.size == second.size == keyed.size == (96, 96)
     assert first.getchannel("A").getextrema() == (0, 255)
     assert set(first.get_flattened_data()) <= {(0, 0, 0, 0), (255, 163, 0, 255)}
     assert first.getchannel("A").getbbox() == second.getchannel("A").getbbox()
     bounds = first.getchannel("A").getbbox()
+    assert bounds[0] >= 6 and bounds[1] >= 6 and bounds[2] <= 90
     assert abs((bounds[2] - bounds[0]) / (bounds[3] - bounds[1]) - 13 / 22) < 0.05
+    assert bounds[3] == 87
     assert keyed.getpixel((0, 0))[3] == 255

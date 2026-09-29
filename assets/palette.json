@@ -18,5 +18,5 @@
     {"index": 15, "hex": "#FFCCAA", "role": "skin, lit floor"}
   ],
   "transparent_index": 0,
-  "minimum_opaque_pixels": {"character": 64, "tile": 700, "prop": 24, "icon": 16}
+  "minimum_opaque_pixels": {"character": 576, "tile": 6300, "prop": 216, "icon": 144}
 }

@@ -1,4 +1,4 @@
-"""Crop, fit and palette-snap one manifest asset into a 32×32 PNG."""
+"""Crop, fit and palette-snap one manifest asset into a 96×96 PNG."""
 
 import json
 import sys
@@ -8,6 +8,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 RESAMPLE = Image.Resampling.NEAREST
+SIZE = 96
 
 
 def _palette() -> list[tuple[int, int, int]]:
@@ -51,7 +52,7 @@ def _save(
     asset: dict, source: Image.Image, palette: list[tuple[int, int, int]], scale=None
 ) -> Path:
     if asset["type"] == "tile":
-        small = source.resize((32, 32), RESAMPLE)
+        small = source.resize((SIZE, SIZE), RESAMPLE)
         offset = (0, 0)
     else:
         own_bounds = _bounds(source)
@@ -59,9 +60,9 @@ def _save(
         width = max(1, round(subject.width * scale))
         height = max(1, round(subject.height * scale))
         small = subject.resize((width, height), RESAMPLE)
-        offset = (16 - round(width / 2), 29 - height)
+        offset = (SIZE // 2 - round(width / 2), 87 - height)
 
-    canvas = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    canvas = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     canvas.alpha_composite(small, offset)
     pixels = []
     for r, g, b, alpha in canvas.get_flattened_data():
@@ -95,8 +96,8 @@ def process(asset_id: str) -> Path:
     frames = [(a, _open(a)) for a in raw_group]
     bounds = [_bounds(frame) for _, frame in frames]
     scale = min(
-        28 / max(box[2] - box[0] for box in bounds),
-        28 / max(box[3] - box[1] for box in bounds),
+        (SIZE - 12) / max(box[2] - box[0] for box in bounds),
+        (87 - 6) / max(box[3] - box[1] for box in bounds),
     )
     outputs = {a["id"]: _save(a, frame, palette, scale) for a, frame in frames}
     return outputs[asset_id]

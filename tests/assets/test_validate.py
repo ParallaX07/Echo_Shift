@@ -30,7 +30,7 @@ def test_validator_reports_each_asset_rule(tmp_path, monkeypatch):
         json.dumps(
             {
                 "colors": [{"hex": c} for c in colors],
-                "minimum_opaque_pixels": {"character": 64},
+                "minimum_opaque_pixels": {"character": 576},
             }
         )
     )
@@ -48,29 +48,30 @@ def test_validator_reports_each_asset_rule(tmp_path, monkeypatch):
     Image.new("RGBA", (16, 16), (255, 163, 0, 255)).save(
         root / "assets/sprites/wrong_size.png"
     )
-    Image.new("RGB", (32, 32), "#FFA300").save(root / "assets/sprites/wrong_mode.png")
-    Image.new("RGBA", (32, 32), (255, 163, 0, 128)).save(
+    Image.new("RGB", (96, 96), "#FFA300").save(root / "assets/sprites/wrong_mode.png")
+    Image.new("RGBA", (96, 96), (255, 163, 0, 128)).save(
         root / "assets/sprites/soft_alpha.png"
     )
-    Image.new("RGBA", (32, 32), (0, 0, 0, 0)).save(root / "assets/sprites/blank.png")
-    Image.new("RGBA", (32, 32), (123, 123, 123, 255)).save(
+    Image.new("RGBA", (96, 96), (0, 0, 0, 0)).save(root / "assets/sprites/blank.png")
+    Image.new("RGBA", (96, 96), (123, 123, 123, 255)).save(
         root / "assets/sprites/off_palette.png"
     )
-    small = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    small = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
     small.putpixel((0, 0), (255, 163, 0, 255))
     small.save(root / "assets/sprites/too_small.png")
-    echo = Image.new("RGBA", (32, 32), (255, 163, 0, 255))
+    echo = Image.new("RGBA", (96, 96), (255, 163, 0, 255))
     echo.save(root / "assets/sprites/echo_idle_0.png")
     monkeypatch.setattr(validate_assets, "ROOT", root)
 
     errors = "\n".join(validate_assets.validate())
     for expected in (
         "approved sprite is missing",
-        "expected 32x32 RGBA",
+        "expected 96x96 RGBA",
         "alpha must be binary",
         "sprite is blank",
         "outside the palette",
-        "needs 64",
+        "needs 576",
+        "six-pixel margin and y=87 baseline",
         "echo outline colour",
     ):
         assert expected in errors

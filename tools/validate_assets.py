@@ -23,8 +23,8 @@ def validate() -> list[str]:
                 errors.append(f"{asset['id']}: approved sprite is missing")
             continue
         image = Image.open(path)
-        if image.size != (32, 32) or image.mode != "RGBA":
-            errors.append(f"{asset['id']}: expected 32x32 RGBA")
+        if image.size != (96, 96) or image.mode != "RGBA":
+            errors.append(f"{asset['id']}: expected 96x96 RGBA")
             continue
         pixels = list(image.get_flattened_data())
         alpha = {pixel[3] for pixel in pixels}
@@ -42,6 +42,12 @@ def validate() -> list[str]:
             errors.append(
                 f"{asset['id']}: {len(opaque)} opaque pixels; needs {minimums[asset['type']]}"
             )
+        if asset["type"] != "tile":
+            left, top, right, bottom = image.getchannel("A").getbbox()
+            if left < 6 or top < 6 or right > 90 or bottom != 87:
+                errors.append(
+                    f"{asset['id']}: needs six-pixel margin and y=87 baseline"
+                )
         if asset["id"].startswith("echo_") and tuple(
             bytes.fromhex(palette_data["colors"][12]["hex"][1:])
         ) not in {pixel[:3] for pixel in opaque}:

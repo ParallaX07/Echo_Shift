@@ -2,7 +2,7 @@
 
 ## Fixed prompt prefix
 
-`32x32 game sprite, flat chunky pixel art, top-down three-quarter view, orthographic game-camera view, hard-edged pixels, no anti-aliasing, one-pixel dark navy outline, light from top-left, limited PICO-8 palette, centered subject, transparent background, no text, no border, no cast shadow, consistent scale and anchor.`
+`96x96 game sprite, flat chunky pixel art, top-down three-quarter view, orthographic game-camera view, hard-edged pixels, no anti-aliasing, one-pixel dark navy outline, light from top-left, limited PICO-8 palette, centered subject, transparent background, no text, no border, no cast shadow, consistent scale and anchor.`
 
 ## Locked rendering rules
 
@@ -12,14 +12,14 @@
 - Character feet share baseline y=29. Leave at least 2 px around the subject.
 - Player is an amber technician (index 9) with outline index 1. Echo uses the same silhouette, cyan-blue outline (index 12), and hollow dark interior.
 - Light comes from the top-left. Use clear clusters and chunky pixels; no antialiasing or gradients.
-- Floor tiles fill the entire 32x32 cell and must repeat without seams.
+- Floor tiles fill the entire 96x96 cell and must repeat without seams.
 - Safe areas need both a distinct texture and colour. Do not bake pad/device labels into art.
 - Opaque-pixel floors are 64 for characters, 700 for tiles, 24 for props and 16 for icons. The retained nearest-neighbor spike produced 218 opaque character pixels and 784 floor pixels; these limits allow modest silhouette detail and edge variation while rejecting nearly blank assets.
 
 ## Do
 
 - Match approved reference sprites in silhouette, proportions, palette and pixel scale.
-- Keep every sprite legible at native 32x32 size.
+- Keep every sprite legible at native 96x96 size.
 - Use transparent background; use `#FF00FF` only as a fallback for outputs without usable alpha.
 - Generate a single centered subject per sprite.
 

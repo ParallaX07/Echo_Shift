@@ -20,6 +20,10 @@ retry the launched recording, C to restart, P to pause, L for level select,
 and M to toggle mute. At the console, use Up/Down to select a circuit, Space
 to toggle it, Enter to apply, or E to close.
 
+The game starts windowed at up to 1280×720. Press F11 or Alt+Enter to toggle
+fullscreen; the complete room stays on the left with status and timeline on
+the right.
+
 ## Building for Windows
 
 On Windows 11, from the repository root:

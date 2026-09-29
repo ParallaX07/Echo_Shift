@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
+SIZE = 96
 
 
 def main() -> None:
@@ -25,7 +26,7 @@ def main() -> None:
     preview = ROOT / "assets/preview"
     preview.mkdir(parents=True, exist_ok=True)
     for scale, name in ((4, "contact_sheet.png"), (1, "contact_sheet_1x.png")):
-        cell = 32 * scale
+        cell = SIZE * scale
         cell_width = max(cell, 112)
         row_height = cell + 14 * scale
         sheet = Image.new(
@@ -45,9 +46,9 @@ def main() -> None:
 
     for asset, image in images:
         if asset["type"] == "tile":
-            repeated = Image.new("RGBA", (96, 96))
-            for y in range(0, 96, 32):
-                for x in range(0, 96, 32):
+            repeated = Image.new("RGBA", (SIZE * 3, SIZE * 3))
+            for y in range(0, SIZE * 3, SIZE):
+                for x in range(0, SIZE * 3, SIZE):
                     repeated.alpha_composite(image, (x, y))
             repeated.save(preview / f"{asset['id']}_repeat.png")
 

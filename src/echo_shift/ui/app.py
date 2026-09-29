@@ -3,6 +3,7 @@
 import atexit
 import json
 import logging
+import textwrap
 from dataclasses import replace
 
 import pyxel
@@ -19,13 +20,13 @@ from echo_shift.engine.turn import (
 )
 from echo_shift.paths import resource_path, user_data_dir
 from echo_shift.ui.atlas import Atlas
+from echo_shift.ui.display import Display
 from echo_shift.ui.hud import model
+from echo_shift.ui.layout import Layout
 from echo_shift.ui.progress import load_unlocked, save_unlocked
 from echo_shift.ui.telemetry import Attempt, log_path
 
-CELL = 32
 logger = logging.getLogger(__name__)
-ROOM_H = 288
 LEVEL_COUNT = 3
 DARK_REMAP = (0, 1, 2, 1, 5, 5, 13, 13, 2, 5, 13, 3, 13, 13, 2, 5)
 MOVES = (
@@ -46,7 +47,17 @@ class Game:
             "colors"
         ]
         pyxel.colors[:] = [int(color["hex"][1:], 16) for color in colors]
-        pyxel.init(384, 352, title="Echo Shift", fps=30)
+        self.display = Display()
+        desktop_w, desktop_h = self.display.desktop_size()
+        self.windowed_size = (
+            min(1280, max(640, desktop_w - 48)),
+            min(720, max(480, desktop_h - 72)),
+        )
+        pyxel.init(*self.windowed_size, title="Echo Shift", fps=30, display_scale=1)
+        self.fullscreen = False
+        self.pending_fullscreen = None
+        self.layout = Layout.fit(*self.windowed_size)
+        self.text_cache = {}
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
         self.atlas = Atlas()
         self.unlocked = load_unlocked(LEVEL_COUNT)
@@ -147,6 +158,19 @@ class Game:
                 self.notice("ELEVATOR REACHED!")
 
     def update(self) -> None:
+        self.sync_display()
+        if pyxel.btnp(pyxel.KEY_F11):
+            self.toggle_fullscreen()
+            return
+        if (
+            any(
+                pyxel.btn(key)
+                for key in (pyxel.KEY_ALT, pyxel.KEY_LALT, pyxel.KEY_RALT)
+            )
+            if hasattr(pyxel, "btn")
+            else False
+        ):
+            return
         self.message_frames = max(0, self.message_frames - 1)
         self.flash = max(0, self.flash - 1)
         if pyxel.btnp(pyxel.KEY_M):
@@ -284,11 +308,94 @@ class Game:
                 self.act(InteractAtConsole(self.pending))
                 self.console = False
 
+    def sync_display(self) -> None:
+        measured = self.display.window()
+        if measured is None:
+            return
+        width, height, fullscreen = measured
+        if width <= 0 or height <= 0:
+            return
+        if self.pending_fullscreen is not None:
+            if fullscreen != self.pending_fullscreen:
+                return
+            self.pending_fullscreen = None
+        if fullscreen != self.fullscreen:
+            self.fullscreen = fullscreen
+            if not fullscreen:
+                width, height = self.windowed_size
+                pyxel.resize(width, height)
+        if not fullscreen and (width, height) != self.windowed_size:
+            self.windowed_size = (width, height)
+        if (pyxel.width, pyxel.height) != (width, height):
+            pyxel.resize(width, height)
+        self.layout = Layout.fit(width, height)
+
+    def toggle_fullscreen(self) -> None:
+        if not self.fullscreen:
+            self.windowed_size = (self.layout.width, self.layout.height)
+        self.fullscreen = not self.fullscreen
+        self.pending_fullscreen = self.fullscreen
+        pyxel.fullscreen(self.fullscreen)
+        if not self.fullscreen:
+            pyxel.resize(*self.windowed_size)
+            self.layout = Layout.fit(*self.windowed_size)
+
+    def text(
+        self, x: int, y: int, value: str, color: int = 7, scale: int | None = None
+    ) -> None:
+        scale = scale or self.layout.text_scale
+        if not hasattr(pyxel, "Image"):
+            pyxel.text(x, y, value, color)
+            return
+        key = (value, color)
+        if key not in self.text_cache:
+            image = pyxel.Image(max(1, len(value) * 4), 7)
+            image.cls(0)
+            image.text(0, 0, value, color)
+            self.text_cache[key] = image
+        image = self.text_cache[key]
+        pyxel.blt(
+            x + image.width * (scale - 1) / 2,
+            y + image.height * (scale - 1) / 2,
+            image,
+            0,
+            0,
+            image.width,
+            image.height,
+            0,
+            scale=scale,
+        )
+
+    def wrapped(self, x: int, y: int, value: str, width: int, color: int = 7) -> int:
+        scale = self.layout.text_scale
+        chars = max(8, width // (4 * scale))
+        for line in textwrap.wrap(
+            value, width=chars, break_long_words=True, break_on_hyphens=False
+        ):
+            self.text(x, y, line, color)
+            y += 9 * scale
+        return y
+
+    def centered(
+        self, y: int, value: str, color: int = 7, scale: int | None = None
+    ) -> None:
+        scale = scale or self.layout.text_scale
+        self.text(
+            (self.layout.width - len(value) * 4 * scale) // 2, y, value, color, scale
+        )
+
     def sprite(self, name: str, pos: Position) -> None:
-        self.atlas.draw(name, pos.x * CELL, pos.y * CELL)
+        layout = self.layout
+        self.atlas.draw(
+            name,
+            layout.room_x + pos.x * layout.cell,
+            layout.room_y + pos.y * layout.cell,
+            layout.cell,
+        )
 
     def draw_room(self) -> None:
         state = self.state
+        layout = self.layout
         lit = lighting.lit_tiles(state)
         pads = {pad.position: pad for pad in state.chamber.pads}
         devices = {device.position: device for device in state.chamber.devices}
@@ -334,73 +441,116 @@ class Game:
                 if dark:
                     pyxel.pal()
                 if pos in pads or pos in devices:
-                    pyxel.text(x * CELL + 2, y * CELL + 2, "A", 7)
+                    self.text(
+                        layout.room_x + x * layout.cell + 4,
+                        layout.room_y + y * layout.cell + 4,
+                        "A",
+                        7,
+                        max(1, layout.text_scale - 1),
+                    )
+        frame = getattr(pyxel, "frame_count", 0) // 12 % 2
         if state.echo_position is not None:
-            self.sprite("echo_idle_0", state.echo_position)
-        self.sprite("player_idle_0", state.player)
+            self.sprite(f"echo_idle_{frame}", state.echo_position)
+        self.sprite(f"player_idle_{frame}", state.player)
         if self.flash and self.flash % 4 < 2:
-            pyxel.rectb(0, 0, 384, ROOM_H, 8)
+            pyxel.rectb(layout.room_x, layout.room_y, layout.room_w, layout.room_h, 8)
 
     def draw_hud(self) -> None:
+        layout = self.layout
         info = model(self.state)
-        pyxel.rect(0, ROOM_H, 384, 64, 1)
-        pyxel.rect(0, ROOM_H, 384, 1, 6)
-        pyxel.text(4, 293, f"POWER {info.load}/{info.capacity}", 7)
-        pyxel.rectb(76, 292, 102, 7, 6)
-        pyxel.rect(77, 293, round(100 * info.load / max(1, info.capacity)), 5, 11)
-        pyxel.text(185, 293, "SAFE" if info.safe else "DARK", 11 if info.safe else 8)
-        summary = " ".join(
-            f"{name[:3].upper()}:{'ON' if on else 'OFF'}" for name, on in info.circuits
+        pyxel.rect(layout.panel_x, 0, layout.panel_w, layout.panel_h, 1)
+        pyxel.rect(layout.panel_x, 0, 2, layout.panel_h, 6)
+        x, _, width = layout.panel_content()
+        unit = layout.cell / 96
+        at = lambda value: round(value * unit)
+        self.text(x, at(24), f"POWER {info.load}/{info.capacity}", 10)
+        pyxel.rectb(x, at(55), width, max(8, at(14)), 6)
+        pyxel.rect(
+            x + 2,
+            at(57),
+            round((width - 4) * info.load / max(1, info.capacity)),
+            max(4, at(10)),
+            11,
         )
-        pyxel.text(233, 293, summary[:24], 7)
-        if self.muted:
-            pyxel.text(338, 293, "MUTED", 13)
-        pyxel.text(
-            4,
-            306,
-            (self.message if self.message_frames else self.state.phase.value.upper())[
-                :62
-            ],
-            8 if self.flash else 7,
+        self.text(x, at(91), "CIRCUITS", 10)
+        for index, (name, on) in enumerate(info.circuits):
+            self.wrapped(
+                x,
+                at(119 + index * 34),
+                f"{name.upper()}: {'ON' if on else 'OFF'}",
+                width,
+                11 if on else 8,
+            )
+        self.text(x, at(245), "SAFE" if info.safe else "DARK", 11 if info.safe else 8)
+        self.text(
+            x + at(110), at(245), f"HINTS {len(self.seen_hints)}/{len(self.hints)}", 14
         )
-        pyxel.text(328, 306, f"H:{len(self.seen_hints)}", 14)
-        for index, (kind, current, direction) in enumerate(info.timeline):
-            x = index * 32
-            self.atlas.draw("slot_" + kind, x, 320)
+        self.text(x, at(285), "ACTION", 10)
+        feedback = (
+            self.message if self.message_frames else self.state.phase.value.upper()
+        )
+        self.wrapped(x, at(311), feedback, width, 8 if self.flash else 7)
+        self.text(x, at(385), "CONTROLS", 10)
+        self.wrapped(x, at(410), "WASD/ARROWS MOVE  SPACE WAIT  E POWER", width)
+        self.wrapped(x, at(451), "ENTER RECORD  Q LAUNCH  R RETRY  C CLEAR", width)
+        self.wrapped(
+            x, at(492), "T HELP  H HINT  P PAUSE  L LEVELS  F11 FULLSCREEN", width
+        )
+        self.text(x, at(542), "ECHO TIMELINE", 12)
+        for index, ((kind, current, direction), (sx, sy, slot)) in enumerate(
+            zip(info.timeline, layout.timeline_slots())
+        ):
+            self.atlas.draw("slot_" + kind, sx, sy, slot)
             if direction:
-                pyxel.text(x + 14, 342, direction, 7)
+                self.text(
+                    sx + slot - 5 * layout.text_scale,
+                    sy + slot - 8 * layout.text_scale,
+                    direction,
+                    7,
+                )
             if current:
-                pyxel.rectb(x, 320, 32, 32, 12)
+                pyxel.rectb(sx, sy, slot, slot, 12)
             if index >= self.state.chamber.max_turns:
-                pyxel.rectb(x, 320, 32, 32, 5)
+                pyxel.rectb(sx, sy, slot, slot, 5)
+        if self.muted:
+            self.text(x + width - 5 * 4 * layout.text_scale, at(24), "MUTED", 13)
+
+    def draw_panel(
+        self, title: str, lines: list[str], footer: str, show_log: bool = False
+    ) -> None:
+        x, y, width, height = self.layout.overlay()
+        pad = max(18, self.layout.cell // 4)
+        pyxel.rect(x, y, width, height, 1)
+        pyxel.rectb(x, y, width, height, 12)
+        self.wrapped(x + pad, y + pad, title, width - 2 * pad, 10)
+        cursor = y + pad + 42 * self.layout.text_scale // 2
+        for line in lines:
+            cursor = (
+                self.wrapped(x + pad, cursor, line, width - 2 * pad)
+                + 12 * self.layout.text_scale
+            )
+        if show_log:
+            self.draw_log_path(
+                x + pad,
+                y + height - pad - 75 * self.layout.text_scale // 2,
+                width - 2 * pad,
+            )
+        self.wrapped(
+            x + pad,
+            y + height - pad - 12 * self.layout.text_scale,
+            footer,
+            width - 2 * pad,
+            11,
+        )
+
+    def draw_log_path(self, x: int, y: int, width: int) -> None:
+        self.text(x, y, "SEND PLAYTEST LOG:", 10)
+        self.wrapped(x, y + 10 * self.layout.text_scale, str(log_path()), width)
 
     def draw_console(self) -> None:
-        pyxel.rect(42, 45, 300, 197, 1)
-        pyxel.rectb(42, 45, 300, 197, 12)
-        pyxel.text(56, 56, "POWER CONSOLE", 10)
-        pyxel.text(56, 68, "UP/DOWN SELECT  SPACE TOGGLE  ENTER APPLY  E EXIT", 7)
-        for index, circuit in enumerate(self.state.chamber.circuits):
-            y = 89 + index * 21
-            selected = circuit.id in self.pending
-            pyxel.text(58, y, ">" if index == self.selection else " ", 10)
-            pyxel.text(
-                69,
-                y,
-                f"[{'X' if selected else ' '}] {circuit.id.upper()}  {circuit.load} UNITS",
-                11 if selected else 7,
-            )
+        circuits = self.state.chamber.circuits
         configured = power.apply(self.state.chamber, self.pending)
-        pending_load = sum(
-            c.load for c in self.state.chamber.circuits if c.id in self.pending
-        )
-        pyxel.text(
-            56,
-            166,
-            f"PENDING LOAD {pending_load}/{self.state.chamber.capacity}",
-            11 if configured.ok else 8,
-        )
-        if not configured.ok:
-            pyxel.text(56, 178, "OVER BUDGET - CANNOT APPLY", 8)
+        pending_load = sum(c.load for c in circuits if c.id in self.pending)
         before = lighting.lit_tiles(self.state)
         after = lighting.lit_tiles(replace(self.state, powered_circuits=self.pending))
         dark = sorted(
@@ -408,36 +558,36 @@ class Game:
             for zone in self.state.chamber.zones
             if any(tile in before and tile not in after for tile in zone.tiles)
         )
-        pyxel.text(
-            56,
-            200,
-            "WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"),
-            8 if dark else 11,
+        lines = ["UP/DOWN SELECT  SPACE TOGGLE  ENTER APPLY  E EXIT"]
+        lines += [
+            f"{'>' if index == self.selection else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNITS"
+            for index, circuit in enumerate(circuits)
+        ]
+        lines += [f"PENDING LOAD {pending_load}/{self.state.chamber.capacity}"]
+        if not configured.ok:
+            lines.append("OVER BUDGET - CANNOT APPLY")
+        lines.append("WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"))
+        self.draw_panel(
+            "POWER CONSOLE", lines, "ENTER RECORD  Q LAUNCH  T HELP  H HINT"
         )
-        pyxel.text(56, 220, "ENTER RECORD  Q LAUNCH  T HELP  H HINT", 7)
-
-    def draw_panel(self, title: str, lines: list[str], footer: str) -> None:
-        pyxel.rect(28, 70, 328, 206, 1)
-        pyxel.rectb(28, 70, 328, 206, 12)
-        pyxel.text(43, 84, title, 10)
-        for index, line in enumerate(lines):
-            pyxel.text(43, 112 + index * 28, line[:73], 7)
-        pyxel.text(43, 250, footer, 11)
-
-    def draw_log_path(self, x: int, y: int) -> None:
-        path = str(log_path())
-        pyxel.text(x, y, "SEND PLAYTEST LOG:", 10)
-        for index in range(0, len(path), 70):
-            pyxel.text(x, y + 10 + index // 70 * 10, path[index : index + 70], 7)
 
     def draw_title(self) -> None:
-        pyxel.text(130, 94, "ECHO SHIFT", 12)
-        pyxel.text(91, 130, "TURN-BASED LIGHT AND ECHO PUZZLES", 7)
-        pyxel.text(122, 178, "ENTER TO START", 10)
-        pyxel.text(140, 222, "M: MUTE" if not self.muted else "M: UNMUTE", 13)
+        height = self.layout.height
+        self.centered(height // 6, "ECHO SHIFT", 12, self.layout.text_scale + 4)
+        self.centered(height // 3, "TURN-BASED LIGHT AND ECHO PUZZLES")
+        sprite_size = min(self.layout.cell * 2, height // 3)
+        middle = self.layout.width // 2
+        self.atlas.draw(
+            "player_idle_0", middle - sprite_size - 20, height * 2 // 5, sprite_size
+        )
+        self.atlas.draw("echo_idle_0", middle + 20, height * 2 // 5, sprite_size)
+        self.centered(height * 3 // 4, "ENTER TO START", 10, self.layout.text_scale + 1)
+        self.centered(height * 7 // 8, "M: MUTE" if not self.muted else "M: UNMUTE", 13)
+        self.centered(height * 15 // 16, "F11 FULLSCREEN")
 
     def draw_levels(self) -> None:
-        pyxel.text(135, 72, "SELECT CHAMBER", 12)
+        height = self.layout.height
+        self.centered(height // 6, "SELECT CHAMBER", 12, self.layout.text_scale + 3)
         names = ("SAFE MOVEMENT", "POWER ALLOCATION", "RECORDING")
         for number, name in enumerate(names, 1):
             marker = ">" if self.level_cursor == number else " "
@@ -449,8 +599,15 @@ class Game:
                 if number <= self.unlocked
                 else 5
             )
-            pyxel.text(91, 108 + 36 * number, f"{marker} {number}. {label}", color)
-        pyxel.text(76, 286, "UP/DOWN SELECT  ENTER PLAY  ESC TITLE", 7)
+            self.centered(
+                height * (number + 2) // 7,
+                f"{marker} {number}. {label}",
+                color,
+                self.layout.text_scale + 1,
+            )
+        self.centered(
+            height * 5 // 6, "UP/DOWN SELECT  ENTER PLAY  ESC TITLE  F11 FULLSCREEN"
+        )
 
     def draw_modal(self) -> None:
         if self.modal == "tutorial":
@@ -458,8 +615,8 @@ class Game:
                 f"CHAMBER {self.level} - HOW TO PLAY",
                 self.tutorial,
                 "ENTER/T: CLOSE  H: HINT  L: LEVEL SELECT",
+                show_log=True,
             )
-            self.draw_log_path(43, 207)
         elif self.modal == "hint":
             self.draw_panel(
                 f"HINT {self.hint_index}/{len(self.hints)}  USED {len(self.seen_hints)}",
@@ -467,12 +624,15 @@ class Game:
                 "ENTER: CLOSE  H: NEXT HINT  L: LEVELS",
             )
         elif self.modal == "result":
+            footer = (
+                "ENTER: NEXT  L: LEVELS  C: RESTART"
+                if self.level < LEVEL_COUNT
+                else "ENTER/L: LEVELS  C: RESTART"
+            )
             self.draw_panel(
                 f"CHAMBER {self.level} COMPLETE",
                 [f"HINTS USED: {len(self.seen_hints)}"],
-                "ENTER: NEXT  L: LEVELS  C: RESTART"
-                if self.level < LEVEL_COUNT
-                else "ENTER/L: LEVELS  C: RESTART",
+                footer,
             )
 
     def draw(self) -> None:
@@ -488,11 +648,12 @@ class Game:
         if self.console:
             self.draw_console()
         if self.paused:
-            pyxel.rect(28, 106, 328, 120, 1)
-            pyxel.rectb(28, 106, 328, 120, 12)
-            pyxel.text(155, 126, "PAUSED", 7)
-            pyxel.text(43, 147, "P RESUME  C CLEAR  L LEVELS", 7)
-            self.draw_log_path(43, 171)
+            self.draw_panel(
+                "PAUSED",
+                ["P RESUME  C CLEAR  L LEVELS"],
+                "F11 FULLSCREEN",
+                show_log=True,
+            )
         if self.modal:
             self.draw_modal()
 

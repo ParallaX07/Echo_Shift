@@ -14,7 +14,7 @@ def test_every_approved_asset_has_a_sprite_and_atlas_entry(tmp_path, monkeypatch
             {"assets": [{"id": "one", "status": "ok"}, {"id": "two", "status": "ok"}]}
         )
     )
-    Image.new("RGBA", (32, 32), (255, 163, 0, 255)).save(
+    Image.new("RGBA", (96, 96), (255, 163, 0, 255)).save(
         root / "assets/sprites/one.png"
     )
     monkeypatch.setattr(validate_assets, "ROOT", root)
