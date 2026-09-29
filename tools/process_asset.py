@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 RESAMPLE = Image.Resampling.NEAREST
@@ -52,7 +52,15 @@ def _save(
     asset: dict, source: Image.Image, palette: list[tuple[int, int, int]], scale=None
 ) -> Path:
     if asset["type"] == "tile":
-        small = source.resize((SIZE, SIZE), RESAMPLE)
+        if asset.get("mirror_edges"):
+            quarter = source.resize((SIZE // 2, SIZE // 2), RESAMPLE)
+            small = Image.new("RGBA", (SIZE, SIZE))
+            small.paste(quarter, (0, 0))
+            small.paste(ImageOps.mirror(quarter), (SIZE // 2, 0))
+            small.paste(ImageOps.flip(quarter), (0, SIZE // 2))
+            small.paste(ImageOps.flip(ImageOps.mirror(quarter)), (SIZE // 2, SIZE // 2))
+        else:
+            small = source.resize((SIZE, SIZE), RESAMPLE)
         offset = (0, 0)
     else:
         own_bounds = _bounds(source)

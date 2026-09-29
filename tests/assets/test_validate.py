@@ -75,3 +75,11 @@ def test_validator_reports_each_asset_rule(tmp_path, monkeypatch):
         "echo outline colour",
     ):
         assert expected in errors
+
+
+def test_menu_background_has_matching_tile_edges():
+    image = Image.open(
+        validate_assets.ROOT / "assets/sprites/menu_background.png"
+    ).convert("RGBA")
+    assert all(image.getpixel((0, y)) == image.getpixel((95, y)) for y in range(96))
+    assert all(image.getpixel((x, 0)) == image.getpixel((x, 95)) for x in range(96))

@@ -334,6 +334,35 @@
         "assets/style/reference/concept.png",
         "assets/sprites/player_idle_0.png"
       ]
+    },
+    {
+      "id": "menu_emblem",
+      "type": "icon",
+      "group": "menu_emblem",
+      "description": "Industrial power-gate emblem: amber solid arc and offset cyan echo arc around a dark doorway.",
+      "status": "ok",
+      "attempts": 1,
+      "source": "alpha",
+      "prompt": "96x96 game sprite, flat chunky pixel art, top-down three-quarter view, orthographic game-camera view, hard-edged pixels, no anti-aliasing, one-pixel dark navy outline, light from top-left, limited PICO-8 palette, centered subject, transparent background, no text, no border, no cast shadow, consistent scale and anchor. Industrial power-gate emblem: amber solid arc and offset cyan echo arc around a dark doorway.",
+      "reference_images": [
+        "assets/style/reference/concept.png",
+        "assets/sprites/player_idle_0.png"
+      ]
+    },
+    {
+      "id": "menu_background",
+      "type": "tile",
+      "group": "menu_background",
+      "mirror_edges": true,
+      "description": "Subtle seamless industrial wall and conduit texture for both menu screens.",
+      "status": "ok",
+      "attempts": 1,
+      "source": "alpha",
+      "prompt": "96x96 game sprite, flat chunky pixel art, top-down three-quarter view, orthographic game-camera view, hard-edged pixels, no anti-aliasing, one-pixel dark navy outline, light from top-left, limited PICO-8 palette, centered subject, transparent background, no text, no border, no cast shadow, consistent scale and anchor. Subtle seamless industrial wall and conduit texture for both menu screens; tileable on all four edges with no focal object.",
+      "reference_images": [
+        "assets/style/reference/concept.png",
+        "assets/sprites/player_idle_0.png"
+      ]
     }
   ]
 }

@@ -27,3 +27,19 @@ def test_room_and_timeline_fit(width, height):
     )
     x, y, w, h = layout.overlay()
     assert 0 <= x and 0 <= y and x + w <= width and y + h <= height
+
+
+@pytest.mark.parametrize("width,height", [(1280, 720), (1920, 1080), (640, 480)])
+def test_menu_controls_fit_and_do_not_overlap(width, height):
+    layout = Layout.fit(width, height)
+    controls = (layout.start_button(), *layout.chamber_cards(3))
+    assert all(
+        0 <= x < x + w <= width and 0 <= y < y + h <= height for x, y, w, h in controls
+    )
+    cards = layout.chamber_cards(3)
+    assert all(
+        cards[index][0] + cards[index][2] < cards[index + 1][0] for index in range(2)
+    )
+    future_cards = layout.chamber_cards(6)
+    assert all(0 <= y < y + h <= height for _, y, _, h in future_cards)
+    assert future_cards[2][1] < future_cards[3][1]

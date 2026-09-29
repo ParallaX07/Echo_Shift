@@ -138,5 +138,19 @@
     "v": 192,
     "width": 96,
     "height": 96
+  },
+  "menu_emblem": {
+    "bank": 0,
+    "u": 0,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "menu_background": {
+    "bank": 0,
+    "u": 96,
+    "v": 288,
+    "width": 96,
+    "height": 96
   }
 }

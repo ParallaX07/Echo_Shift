@@ -6,8 +6,9 @@ Install the project and its dependencies with `uv sync`, then run the game with
 Pyxel supports Windows, macOS and Linux. On Linux, run the game from a graphical
 desktop session with the system's graphics and audio libraries available.
 
-The title screen opens a level select screen. Use Up/Down and Enter to choose an
-unlocked chamber. Each chamber opens with a dismissible tutorial. Press T to
+The title screen opens a level select screen. Click Start or press Enter, then
+use WASD/arrow keys and Enter or the mouse to choose an unlocked chamber.
+Each chamber opens with a dismissible tutorial. Press T to
 read it again or H for counted hints. Progress is saved as `progress.json` in
 the per-user data directory.
 

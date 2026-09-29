@@ -26,7 +26,9 @@ pad timer lengths and the 1–12 `max_turns` range.
 
 Chambers 1–3 use the same rules. The first two can be solved after launching an
 empty recording; the third needs an echo on a passive pad. The title screen
-leads to level select. Completing a chamber unlocks the next one, stored as an
+leads to level select by Enter, Space or clicking Start. Chamber selection uses
+WASD/arrow keys and Enter or a mouse click on an unlocked card; menus do not
+advance turns. Completing a chamber unlocks the next one, stored as an
 `unlocked` integer in the per-user progress file. Tutorial text and ordered
 hints live in each chamber JSON; hint reveals are counted for the current run.
 

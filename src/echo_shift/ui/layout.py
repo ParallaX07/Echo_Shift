@@ -50,6 +50,38 @@ class Layout:
         height = min(self.height - 32, max(260, self.height * 2 // 3))
         return (self.width - width) // 2, (self.height - height) // 2, width, height
 
+    def menu_rect(
+        self, x: int, y: int, width: int, height: int
+    ) -> tuple[int, int, int, int]:
+        scale = min(self.width / 1280, self.height / 720)
+        left = (self.width - round(1280 * scale)) // 2
+        top = (self.height - round(720 * scale)) // 2
+        return (
+            left + round(x * scale),
+            top + round(y * scale),
+            round(width * scale),
+            round(height * scale),
+        )
+
+    def start_button(self) -> tuple[int, int, int, int]:
+        return self.menu_rect(480, 560, 320, 64)
+
+    def chamber_cards(self, count: int) -> tuple[tuple[int, int, int, int], ...]:
+        columns = min(3, count)
+        rows = (count + 2) // 3
+        card_height = 320 if rows == 1 else 188
+        top = 214 if rows == 1 else 185
+        left = (1280 - (columns * 300 + (columns - 1) * 24)) // 2
+        return tuple(
+            self.menu_rect(
+                left + (index % 3) * 324,
+                top + (index // 3) * (card_height + 18),
+                300,
+                card_height,
+            )
+            for index in range(count)
+        )
+
     def timeline_slots(self) -> tuple[tuple[int, int, int], ...]:
         x, _, width = self.panel_content()
         unit = self.cell / 96

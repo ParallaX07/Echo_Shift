@@ -3,6 +3,7 @@
 import atexit
 import json
 import logging
+import math
 import textwrap
 from dataclasses import replace
 
@@ -28,7 +29,23 @@ from echo_shift.ui.telemetry import Attempt, log_path
 
 logger = logging.getLogger(__name__)
 LEVEL_COUNT = 3
+CHAMBER_NAMES = ("SAFE MOVEMENT", "POWER ALLOCATION", "RECORDING")
 DARK_REMAP = (0, 1, 2, 1, 5, 5, 13, 13, 2, 5, 13, 3, 13, 13, 2, 5)
+MENU_GLYPHS = {
+    "A": ("01110", "10001", "10001", "11111", "10001", "10001", "10001"),
+    "B": ("11110", "10001", "10001", "11110", "10001", "10001", "11110"),
+    "C": ("01111", "10000", "10000", "10000", "10000", "10000", "01111"),
+    "E": ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
+    "F": ("11111", "10000", "10000", "11110", "10000", "10000", "10000"),
+    "H": ("10001", "10001", "10001", "11111", "10001", "10001", "10001"),
+    "I": ("11111", "00100", "00100", "00100", "00100", "00100", "11111"),
+    "L": ("10000", "10000", "10000", "10000", "10000", "10000", "11111"),
+    "M": ("10001", "11011", "10101", "10101", "10001", "10001", "10001"),
+    "O": ("01110", "10001", "10001", "10001", "10001", "10001", "01110"),
+    "R": ("11110", "10001", "10001", "11110", "10100", "10010", "10001"),
+    "S": ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
+    "T": ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
+}
 MOVES = (
     (pyxel.KEY_W, 0, -1),
     (pyxel.KEY_UP, 0, -1),
@@ -64,6 +81,10 @@ class Game:
         self.level = 1
         self.level_cursor = 1
         self.mode = "title"
+        self.mouse_visible = None
+        self.last_menu_mouse = (-1, -1)
+        self.mouse_active = False
+        self.menu_mouse_moved = False
         self.modal = None
         self.tutorial = []
         self.hints = []
@@ -98,6 +119,7 @@ class Game:
         self.hint_index = 0
         self.seen_hints = set()
         self.mode = "game"
+        self.sync_mouse()
         self.modal = "tutorial"
         self.paused = False
         self.console = False
@@ -159,6 +181,7 @@ class Game:
 
     def update(self) -> None:
         self.sync_display()
+        self.sync_mouse()
         if pyxel.btnp(pyxel.KEY_F11):
             self.toggle_fullscreen()
             return
@@ -175,17 +198,43 @@ class Game:
         self.flash = max(0, self.flash - 1)
         if pyxel.btnp(pyxel.KEY_M):
             self.muted = not self.muted
+        if self.mode in ("title", "levels"):
+            pointer = self.menu_mouse_position()
+            self.menu_mouse_moved = pointer != self.last_menu_mouse
+            if self.menu_mouse_moved:
+                self.mouse_active = True
+            self.last_menu_mouse = pointer
         if self.mode == "title":
-            if pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            if (
+                pyxel.btnp(pyxel.KEY_RETURN)
+                or pyxel.btnp(pyxel.KEY_SPACE)
+                or self.menu_click(self.layout.start_button())
+            ):
                 self.mode = "levels"
             return
         if self.mode == "levels":
+            hovered = self.hovered_chamber()
+            if self.menu_mouse_moved and hovered is not None:
+                self.level_cursor = hovered
             if pyxel.btnp(pyxel.KEY_ESCAPE):
                 self.mode = "title"
             elif pyxel.btnp(pyxel.KEY_UP) or pyxel.btnp(pyxel.KEY_W):
                 self.level_cursor = max(1, self.level_cursor - 1)
+                self.mouse_active = False
             elif pyxel.btnp(pyxel.KEY_DOWN) or pyxel.btnp(pyxel.KEY_S):
                 self.level_cursor = min(LEVEL_COUNT, self.level_cursor + 1)
+                self.mouse_active = False
+            elif pyxel.btnp(pyxel.KEY_LEFT) or pyxel.btnp(pyxel.KEY_A):
+                self.level_cursor = max(1, self.level_cursor - 1)
+                self.mouse_active = False
+            elif pyxel.btnp(pyxel.KEY_RIGHT) or pyxel.btnp(pyxel.KEY_D):
+                self.level_cursor = min(LEVEL_COUNT, self.level_cursor + 1)
+                self.mouse_active = False
+            elif hovered is not None and self.menu_click(
+                self.layout.chamber_cards(LEVEL_COUNT)[hovered - 1]
+            ):
+                if hovered <= self.unlocked:
+                    self.open_level(hovered)
             elif pyxel.btnp(pyxel.KEY_RETURN) and self.level_cursor <= self.unlocked:
                 self.open_level(self.level_cursor)
             return
@@ -307,6 +356,33 @@ class Game:
             else:
                 self.act(InteractAtConsole(self.pending))
                 self.console = False
+
+    def sync_mouse(self) -> None:
+        visible = self.mode == "game"
+        if visible != self.mouse_visible and hasattr(pyxel, "mouse"):
+            pyxel.mouse(visible)
+            self.mouse_visible = visible
+
+    def menu_mouse_position(self) -> tuple[int, int]:
+        return getattr(pyxel, "mouse_x", -1), getattr(pyxel, "mouse_y", -1)
+
+    def menu_hit(self, rect: tuple[int, int, int, int]) -> bool:
+        mx, my = self.menu_mouse_position()
+        x, y, width, height = rect
+        return x <= mx < x + width and y <= my < y + height
+
+    def menu_click(self, rect: tuple[int, int, int, int]) -> bool:
+        return (
+            self.menu_hit(rect)
+            and hasattr(pyxel, "MOUSE_BUTTON_LEFT")
+            and pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT)
+        )
+
+    def hovered_chamber(self) -> int | None:
+        for number, rect in enumerate(self.layout.chamber_cards(LEVEL_COUNT), 1):
+            if self.menu_hit(rect):
+                return number
+        return None
 
     def sync_display(self) -> None:
         measured = self.display.window()
@@ -571,43 +647,225 @@ class Game:
             "POWER CONSOLE", lines, "ENTER RECORD  Q LAUNCH  T HELP  H HINT"
         )
 
-    def draw_title(self) -> None:
-        height = self.layout.height
-        self.centered(height // 6, "ECHO SHIFT", 12, self.layout.text_scale + 4)
-        self.centered(height // 3, "TURN-BASED LIGHT AND ECHO PUZZLES")
-        sprite_size = min(self.layout.cell * 2, height // 3)
-        middle = self.layout.width // 2
-        self.atlas.draw(
-            "player_idle_0", middle - sprite_size - 20, height * 2 // 5, sprite_size
+    def draw_menu_background(self) -> None:
+        width, height = self.layout.width, self.layout.height
+        tile = max(24, self.layout.menu_rect(0, 0, 96, 96)[2])
+        for y in range(0, height, tile):
+            for x in range(0, width, tile):
+                self.atlas.draw("menu_background", x, y, tile)
+        x, y, panel_w, panel_h = self.layout.menu_rect(72, 40, 1136, 640)
+        pyxel.rect(x, y, panel_w, panel_h, 1)
+        pyxel.rectb(x, y, panel_w, panel_h, 6)
+        px, py, pw, _ = self.layout.menu_rect(95, 58, 1090, 2)
+        pyxel.rect(px, py, pw, max(1, self.layout.menu_rect(0, 0, 0, 2)[3]), 5)
+        frame = getattr(pyxel, "frame_count", 0)
+        pulse_x = px + (frame * 3) % max(1, pw - 65)
+        pyxel.rect(pulse_x, py, min(65, pw), max(1, self.layout.text_scale), 12)
+        left, top, rail_w, rail_h = self.layout.menu_rect(94, 652, 1092, 3)
+        pyxel.rect(left, top, rail_w, max(1, rail_h), 5)
+        pyxel.rect(
+            left + rail_w - min(95, rail_w), top, min(95, rail_w), max(1, rail_h), 9
         )
-        self.atlas.draw("echo_idle_0", middle + 20, height * 2 // 5, sprite_size)
-        self.centered(height * 3 // 4, "ENTER TO START", 10, self.layout.text_scale + 1)
-        self.centered(height * 7 // 8, "M: MUTE" if not self.muted else "M: UNMUTE", 13)
-        self.centered(height * 15 // 16, "F11 FULLSCREEN")
+        for side in (110, 1160):
+            sx, sy, sw, sh = self.layout.menu_rect(side, 104, 3, 500)
+            pyxel.rect(sx, sy, max(1, sw), sh, 5)
+            step = self.layout.menu_rect(0, 0, 0, 85)[3]
+            tick = sy + (frame * 2) % max(1, sh - step)
+            pyxel.rect(
+                sx, tick, max(1, sw), max(4, step // 2), 12 if side == 1160 else 9
+            )
+
+    def draw_menu_letters(self, value: str, y: int, pixel: int, color: int) -> None:
+        width = (len(value) * 6 - 1) * pixel
+        x = (self.layout.width - width) // 2
+        for shift, ink in ((max(1, pixel // 2), 5), (0, color)):
+            for index, letter in enumerate(value):
+                for row, bits in enumerate(MENU_GLYPHS.get(letter, ())):
+                    for column, bit in enumerate(bits):
+                        if bit == "1":
+                            pyxel.rect(
+                                x + (index * 6 + column) * pixel + shift,
+                                y + row * pixel + shift,
+                                pixel,
+                                pixel,
+                                ink,
+                            )
+
+    def draw_menu_cursor(self) -> None:
+        x, y = self.menu_mouse_position()
+        if not (0 <= x < self.layout.width and 0 <= y < self.layout.height):
+            return
+        size = max(2, self.layout.menu_rect(0, 0, 3, 3)[2])
+        active = (
+            self.menu_hit(self.layout.start_button())
+            if self.mode == "title"
+            else (self.hovered_chamber() is not None)
+        )
+        ink = 10 if active else 12
+        pyxel.rect(x, y, size, size, 7)
+        pyxel.rect(x + size, y + size, size, size, ink)
+        pyxel.rect(x + 2 * size, y + 2 * size, size, 5 * size, ink)
+        pyxel.rect(x + 3 * size, y + 4 * size, 3 * size, size, ink)
+        pyxel.rect(x + 4 * size, y + 5 * size, size, 3 * size, 9)
+
+    def draw_title(self) -> None:
+        self.draw_menu_background()
+        logo_x, logo_y, logo_size, _ = self.layout.menu_rect(566, 78, 148, 148)
+        self.atlas.draw("menu_emblem", logo_x, logo_y, logo_size)
+        title_y = self.layout.menu_rect(0, 244, 0, 0)[1]
+        pixel = max(2, self.layout.menu_rect(0, 0, 8, 0)[2])
+        self.draw_menu_letters("ECHO SHIFT", title_y, pixel, 7)
+        subtitle_y = self.layout.menu_rect(0, 321, 0, 0)[1]
+        self.centered(subtitle_y, "BEND THE LIGHT. OUTRUN YOUR ECHO.", 12)
+        frame = getattr(pyxel, "frame_count", 0)
+        bob = round(5 * math.sin(frame * math.tau / 90))
+        sprite_size = self.layout.menu_rect(0, 0, 194, 0)[2]
+        player_x, player_y, _, _ = self.layout.menu_rect(414, 351, 0, 0)
+        echo_x, echo_y, _, _ = self.layout.menu_rect(677, 351, 0, 0)
+        self.atlas.draw(
+            f"player_idle_{frame // 15 % 2}", player_x, player_y + bob, sprite_size
+        )
+        self.atlas.draw(
+            f"echo_idle_{frame // 15 % 2}", echo_x, echo_y - bob, sprite_size
+        )
+        button = self.layout.start_button()
+        x, y, width, height = button
+        hovered = self.mouse_active and self.menu_hit(button)
+        pulse = frame // 18 % 2 == 0
+        pyxel.rect(x, y, width, height, 5 if hovered else 1)
+        pyxel.rectb(x, y, width, height, 10 if hovered or pulse else 9)
+        accent = max(2, self.layout.text_scale)
+        pyxel.rect(x + accent, y + accent, max(12, width // 5), accent, 12)
+        label = "ENTER / CLICK" if width < 250 else "CLICK OR ENTER TO START"
+        text_scale = max(1, self.layout.text_scale + 1)
+        self.text(
+            x + (width - len(label) * 4 * text_scale) // 2,
+            y + (height - 7 * text_scale) // 2,
+            label,
+            10,
+            text_scale,
+        )
+        footer_y = self.layout.menu_rect(0, 631, 0, 0)[1]
+        self.centered(footer_y, "M: MUTE / UNMUTE     F11: FULLSCREEN", 13)
+        self.draw_menu_cursor()
 
     def draw_levels(self) -> None:
-        height = self.layout.height
-        self.centered(height // 6, "SELECT CHAMBER", 12, self.layout.text_scale + 3)
-        names = ("SAFE MOVEMENT", "POWER ALLOCATION", "RECORDING")
-        for number, name in enumerate(names, 1):
-            marker = ">" if self.level_cursor == number else " "
-            label = name if number <= self.unlocked else "LOCKED"
-            color = (
-                10
-                if self.level_cursor == number
-                else 7
-                if number <= self.unlocked
-                else 5
+        self.draw_menu_background()
+        logo_x, logo_y, logo_size, _ = self.layout.menu_rect(195, 89, 80, 80)
+        self.atlas.draw("menu_emblem", logo_x, logo_y, logo_size)
+        header_y = self.layout.menu_rect(0, 104, 0, 0)[1]
+        pixel = max(2, self.layout.menu_rect(0, 0, 5, 0)[2])
+        self.draw_menu_letters("SELECT CHAMBER", header_y, pixel, 12)
+        subtitle_y = self.layout.menu_rect(0, 169, 0, 0)[1]
+        self.centered(subtitle_y, "RESTORE THE CIRCUIT. FIND THE EXIT.", 7)
+        frame = getattr(pyxel, "frame_count", 0)
+        cards = self.layout.chamber_cards(LEVEL_COUNT)
+        art = ("player_idle_0", "console", "echo_idle_0")
+        for number, (x, y, width, height) in enumerate(cards, 1):
+            unlocked = number <= self.unlocked
+            selected = number == self.level_cursor
+            hovered = self.mouse_active and self.menu_hit((x, y, width, height))
+            color = 10 if selected and frame // 18 % 2 == 0 else 12 if selected else 6
+            if not unlocked:
+                color = 5 if not selected else 13
+            pyxel.rect(x, y, width, height, 1)
+            pyxel.rectb(x, y, width, height, color)
+            inset = max(3, self.layout.text_scale * 2)
+            pyxel.rectb(x + inset, y + inset, width - 2 * inset, height - 2 * inset, 5)
+            if selected or hovered:
+                bar = max(15, width // 5)
+                travel = max(1, width - 2 * inset - bar)
+                pyxel.rect(x + inset + frame * 2 % travel, y + inset, bar, inset, color)
+            number_scale = max(2, self.layout.text_scale + 4)
+            self.text(
+                x + inset * 3,
+                y + inset * 4,
+                f"{number:02}",
+                9 if unlocked else 13,
+                number_scale,
             )
-            self.centered(
-                height * (number + 2) // 7,
-                f"{marker} {number}. {label}",
+            signal_y = y + height // 2
+            pyxel.rect(
+                x + inset * 3,
+                signal_y,
+                width - inset * 6,
+                max(1, self.layout.text_scale),
+                5,
+            )
+            pyxel.rect(x + inset * 3, signal_y - inset, inset, inset * 2, color)
+            pyxel.rect(
+                x + width - inset * 4,
+                signal_y - inset,
+                inset,
+                inset * 2,
                 color,
-                self.layout.text_scale + 1,
             )
+            if unlocked:
+                size = min(width * 3 // 5, height * 11 // 20)
+                self.atlas.draw(
+                    art[(number - 1) % len(art)],
+                    x + (width - size) // 2,
+                    y + height // 6,
+                    size,
+                )
+            else:
+                lock_width = min(width // 4, height // 4)
+                lock_x = x + (width - lock_width) // 2
+                lock_y = y + height // 3
+                pyxel.rectb(
+                    lock_x + lock_width // 5,
+                    lock_y,
+                    lock_width * 3 // 5,
+                    lock_width // 2,
+                    13,
+                )
+                pyxel.rectb(
+                    lock_x,
+                    lock_y + lock_width // 3,
+                    lock_width,
+                    lock_width * 2 // 3,
+                    13,
+                )
+                pyxel.rect(
+                    lock_x + lock_width // 2,
+                    lock_y + lock_width * 2 // 3,
+                    max(1, inset // 2),
+                    inset,
+                    13,
+                )
+            divider_y = y + height * 2 // 3
+            pyxel.rect(
+                x + inset * 3,
+                divider_y,
+                width - inset * 6,
+                max(1, self.layout.text_scale),
+                12 if unlocked else 5,
+            )
+            name = (
+                CHAMBER_NAMES[number - 1]
+                if number <= len(CHAMBER_NAMES)
+                else f"CHAMBER {number}"
+            )
+            label_scale = max(1, self.layout.text_scale + 1)
+            self.text(
+                x + inset * 3,
+                divider_y + inset * 3,
+                name,
+                7 if unlocked else 13,
+                label_scale,
+            )
+            self.text(
+                x + inset * 3,
+                y + height - inset * 5,
+                "READY  >" if unlocked else "LOCKED",
+                10 if unlocked else 5,
+            )
+        footer_y = self.layout.menu_rect(0, 621, 0, 0)[1]
         self.centered(
-            height * 5 // 6, "UP/DOWN SELECT  ENTER PLAY  ESC TITLE  F11 FULLSCREEN"
+            footer_y,
+            "ARROWS / WASD: SELECT     ENTER / CLICK: PLAY     ESC: TITLE     F11: FULLSCREEN",
         )
+        self.draw_menu_cursor()
 
     def draw_modal(self) -> None:
         if self.modal == "tutorial":
@@ -636,6 +894,7 @@ class Game:
             )
 
     def draw(self) -> None:
+        self.sync_mouse()
         pyxel.cls(1)
         if self.mode == "title":
             self.draw_title()
