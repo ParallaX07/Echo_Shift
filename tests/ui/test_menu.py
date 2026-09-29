@@ -78,7 +78,7 @@ def test_menu_mouse_navigation_and_animation_leave_turns_unchanged(
     click(cards[0])
     assert game.mode == "game" and game.level == 1
     assert game.state.turns == turns
-    assert visibility[-1]
+    assert visibility[-1] is False
 
     pressed.add(keys["KEY_L"])
     game.update()

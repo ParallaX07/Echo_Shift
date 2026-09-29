@@ -46,6 +46,27 @@ MENU_GLYPHS = {
     "S": ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
     "T": ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
 }
+CURSOR_SPRITE = (
+    "A............",
+    "11...........",
+    "1C1..........",
+    "1WC1.........",
+    "1WWC1........",
+    "1WWWC1.......",
+    "1WWWWC1......",
+    "1WWWWWC1.....",
+    "1WWWWWWC1....",
+    "1WWWWWWWC1...",
+    "1WWWWWWWW1...",
+    "1WWWW11......",
+    "1WWW1.11.....",
+    "1WW1...11....",
+    "1W1.....11...",
+    "11.......1...",
+    "...1.....1...",
+    "....11111....",
+)
+CURSOR_COLORS = {"1": 1, "A": 9, "C": 12, "W": 7}
 MOVES = (
     (pyxel.KEY_W, 0, -1),
     (pyxel.KEY_UP, 0, -1),
@@ -360,7 +381,7 @@ class Game:
                 self.console = False
 
     def sync_mouse(self) -> None:
-        visible = self.mode == "game"
+        visible = False
         if visible != self.mouse_visible and hasattr(pyxel, "mouse"):
             pyxel.mouse(visible)
             self.mouse_visible = visible
@@ -893,22 +914,14 @@ class Game:
                                 ink,
                             )
 
-    def draw_menu_cursor(self) -> None:
+    def draw_cursor(self) -> None:
         x, y = self.menu_mouse_position()
         if not (0 <= x < self.layout.width and 0 <= y < self.layout.height):
             return
-        size = max(2, self.layout.menu_rect(0, 0, 3, 3)[2])
-        active = (
-            self.menu_hit(self.layout.start_button())
-            if self.mode == "title"
-            else (self.hovered_chamber() is not None)
-        )
-        ink = 10 if active else 12
-        pyxel.rect(x, y, size, size, 7)
-        pyxel.rect(x + size, y + size, size, size, ink)
-        pyxel.rect(x + 2 * size, y + 2 * size, size, 5 * size, ink)
-        pyxel.rect(x + 3 * size, y + 4 * size, 3 * size, size, ink)
-        pyxel.rect(x + 4 * size, y + 5 * size, size, 3 * size, 9)
+        for row, pixels in enumerate(CURSOR_SPRITE):
+            for column, pixel in enumerate(pixels):
+                if pixel != ".":
+                    pyxel.rect(x + column, y + row, 1, 1, CURSOR_COLORS[pixel])
 
     def draw_title(self) -> None:
         self.draw_menu_background()
@@ -949,7 +962,7 @@ class Game:
         )
         footer_y = self.layout.menu_rect(0, 631, 0, 0)[1]
         self.centered(footer_y, "M: MUTE / UNMUTE     F11: FULLSCREEN", 13)
-        self.draw_menu_cursor()
+        self.draw_cursor()
 
     def draw_levels(self) -> None:
         self.draw_menu_background()
@@ -1067,7 +1080,7 @@ class Game:
             footer_y,
             "ARROWS / WASD: SELECT     ENTER / CLICK: PLAY     ESC: TITLE     F11: FULLSCREEN",
         )
-        self.draw_menu_cursor()
+        self.draw_cursor()
 
     def draw_modal(self) -> None:
         if self.modal == "tutorial":
@@ -1116,6 +1129,7 @@ class Game:
             )
         if self.modal:
             self.draw_modal()
+        self.draw_cursor()
 
 
 def main() -> None:
