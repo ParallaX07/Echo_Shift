@@ -1,4 +1,4 @@
-"""Stage the representative Pyxel application."""
+"""Stage the playable app beside its read-only resources."""
 
 import shutil
 from pathlib import Path
@@ -13,9 +13,12 @@ def main() -> None:
     shutil.copy2(ROOT / "main.py", DEST / "main.py")
     shutil.copytree(ROOT / "src/echo_shift", DEST / "echo_shift", dirs_exist_ok=True)
     shutil.copytree(ROOT / "levels", DEST / "levels", dirs_exist_ok=True)
-    (DEST / "assets/spike").mkdir(parents=True)
-    for name in ("atlas.png", "atlas.json"):
-        shutil.copy2(ROOT / "assets/spike" / name, DEST / "assets/spike" / name)
+    (DEST / "assets").mkdir(parents=True)
+    for name in ("atlas.png", "atlas.json", "palette.json"):
+        shutil.copy2(ROOT / "assets" / name, DEST / "assets" / name)
+    audio = ROOT / "assets/audio"
+    if audio.is_dir():
+        shutil.copytree(audio, DEST / "assets/audio", dirs_exist_ok=True)
 
 
 if __name__ == "__main__":

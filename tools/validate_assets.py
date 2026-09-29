@@ -42,9 +42,9 @@ def validate() -> list[str]:
             errors.append(
                 f"{asset['id']}: {len(opaque)} opaque pixels; needs {minimums[asset['type']]}"
             )
-        if asset["id"].startswith("echo_") and (29, 173, 255) not in {
-            pixel[:3] for pixel in opaque
-        }:
+        if asset["id"].startswith("echo_") and tuple(
+            bytes.fromhex(palette_data["colors"][12]["hex"][1:])
+        ) not in {pixel[:3] for pixel in opaque}:
             errors.append(f"{asset['id']}: echo outline colour #29ADFF is missing")
     return errors
 

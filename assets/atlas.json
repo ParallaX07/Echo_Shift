@@ -12,5 +12,131 @@
     "v": 0,
     "width": 32,
     "height": 32
+  },
+  "echo_idle_0": {
+    "bank": 0,
+    "u": 64,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "echo_idle_1": {
+    "bank": 0,
+    "u": 96,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "floor_lit": {
+    "bank": 0,
+    "u": 128,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "floor_hub": {
+    "bank": 0,
+    "u": 160,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "wall": {
+    "bank": 0,
+    "u": 192,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "console": {
+    "bank": 0,
+    "u": 224,
+    "v": 0,
+    "width": 32,
+    "height": 32
+  },
+  "pad_off": {
+    "bank": 0,
+    "u": 0,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "pad_on": {
+    "bank": 0,
+    "u": 32,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "pad_timed_off": {
+    "bank": 0,
+    "u": 64,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "pad_timed_on": {
+    "bank": 0,
+    "u": 96,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "gate_closed": {
+    "bank": 0,
+    "u": 128,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "gate_open": {
+    "bank": 0,
+    "u": 160,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "elevator_off": {
+    "bank": 0,
+    "u": 192,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "elevator_on": {
+    "bank": 0,
+    "u": 224,
+    "v": 32,
+    "width": 32,
+    "height": 32
+  },
+  "slot_empty": {
+    "bank": 0,
+    "u": 128,
+    "v": 64,
+    "width": 32,
+    "height": 32
+  },
+  "slot_move": {
+    "bank": 0,
+    "u": 160,
+    "v": 64,
+    "width": 32,
+    "height": 32
+  },
+  "slot_wait": {
+    "bank": 0,
+    "u": 192,
+    "v": 64,
+    "width": 32,
+    "height": 32
+  },
+  "slot_current": {
+    "bank": 0,
+    "u": 224,
+    "v": 64,
+    "width": 32,
+    "height": 32
   }
 }
