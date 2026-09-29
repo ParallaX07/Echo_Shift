@@ -47,7 +47,7 @@ class Layout:
 
     def overlay(self) -> tuple[int, int, int, int]:
         width = min(self.width - 32, max(420, self.width * 3 // 5))
-        height = min(self.height - 32, max(260, self.height * 2 // 3))
+        height = min(self.height - 32, max(280, self.height * 3 // 5))
         return (self.width - width) // 2, (self.height - height) // 2, width, height
 
     def menu_rect(
@@ -82,19 +82,20 @@ class Layout:
             for index in range(count)
         )
 
-    def timeline_slots(self) -> tuple[tuple[int, int, int], ...]:
+    def timeline_slots(self, count: int = 12) -> tuple[tuple[int, int, int], ...]:
         x, _, width = self.panel_content()
         unit = self.cell / 96
-        top = round(565 * unit)
+        rows = (count + 2) // 3
+        top = round((610 if rows <= 2 else 565) * unit)
         gap = max(4, round(7 * unit))
         slot = min(
-            round(63 * unit),
+            round((78 if rows <= 2 else 63) * unit),
             (width - 2 * gap) // 3,
-            (self.height - top - 12 - 3 * gap) // 4,
+            (self.height - top - 12 - (rows - 1) * gap) // rows,
         )
         slot = max(1, slot)
         return tuple(
             (x + col * (slot + gap), top + row * (slot + gap), slot)
-            for row in range(4)
+            for row in range(rows)
             for col in range(3)
-        )
+        )[:count]

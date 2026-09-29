@@ -199,10 +199,9 @@
     }
   ],
   "tutorial": [
-    "E: open the console. Power LIFT-POWER with Space, then Enter.",
-    "Enter twice to make an empty recording; Q launches.",
-    "Walk onto the pad, then the lit elevator.",
-    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+    "Stand on the console. Press E, switch on LIFT-POWER, then Enter.",
+    "Press Enter twice to save an empty recording. Press Q to launch.",
+    "Step on the pad, then reach the glowing elevator."
   ],
   "hints": [
     "The pad keeps the lift running for three turns after you leave it.",

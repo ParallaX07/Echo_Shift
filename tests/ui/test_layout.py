@@ -25,6 +25,13 @@ def test_room_and_timeline_fit(width, height):
         layout.panel_x <= x and x + size <= width and 0 <= y and y + size <= height
         for x, y, size in slots
     )
+    compact = layout.timeline_slots(6)
+    assert len(compact) == 6
+    assert len({y for _, y, _ in compact}) == 2
+    assert all(
+        layout.panel_x <= x and x + size <= width and 0 <= y and y + size <= height
+        for x, y, size in compact
+    )
     x, y, w, h = layout.overlay()
     assert 0 <= x and 0 <= y and x + w <= width and y + h <= height
 

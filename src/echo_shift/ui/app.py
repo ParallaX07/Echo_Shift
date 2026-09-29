@@ -25,7 +25,7 @@ from echo_shift.ui.display import Display
 from echo_shift.ui.hud import model
 from echo_shift.ui.layout import Layout
 from echo_shift.ui.progress import load_unlocked, save_unlocked
-from echo_shift.ui.telemetry import Attempt, log_path
+from echo_shift.ui.telemetry import Attempt
 
 logger = logging.getLogger(__name__)
 LEVEL_COUNT = 3
@@ -74,7 +74,9 @@ class Game:
         self.fullscreen = False
         self.pending_fullscreen = None
         self.layout = Layout.fit(*self.windowed_size)
+        self.room_view = (self.layout.cell, self.layout.room_x, self.layout.room_y)
         self.text_cache = {}
+        self.fonts = {}
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
         self.atlas = Atlas()
         self.unlocked = load_unlocked(LEVEL_COUNT)
@@ -96,7 +98,7 @@ class Game:
         self.console = False
         self.selection = 0
         self.pending = self.state.powered_circuits
-        self.message = "E POWER  ENTER RECORD  Q LAUNCH"
+        self.message = "E POWER  ENTER RECORD"
         self.message_frames = 120
         self.flash = 0
         self.attempt = None
@@ -124,7 +126,7 @@ class Game:
         self.paused = False
         self.console = False
         self.pending = self.state.powered_circuits
-        self.notice("E POWER  ENTER RECORD  Q LAUNCH")
+        self.notice("E POWER  ENTER RECORD")
 
     def unlock_next(self) -> None:
         unlocked = min(LEVEL_COUNT, self.level + 1)
@@ -420,6 +422,10 @@ class Game:
         self, x: int, y: int, value: str, color: int = 7, scale: int | None = None
     ) -> None:
         scale = scale or self.layout.text_scale
+        font = self.ui_font(scale)
+        if font is not None:
+            pyxel.text(x, y, value, color, font)
+            return
         if not hasattr(pyxel, "Image"):
             pyxel.text(x, y, value, color)
             return
@@ -442,13 +448,33 @@ class Game:
             scale=scale,
         )
 
-    def wrapped(self, x: int, y: int, value: str, width: int, color: int = 7) -> int:
-        scale = self.layout.text_scale
-        chars = max(8, width // (4 * scale))
+    def ui_font(self, scale: int):
+        if self.mode != "game" or not hasattr(pyxel, "Font"):
+            return None
+        if scale not in self.fonts:
+            path = resource_path("assets", "fonts", "DejaVuSansMono.ttf")
+            self.fonts[scale] = pyxel.Font(str(path), max(12, scale * 6 + 4))
+        return self.fonts[scale]
+
+    def char_width(self, scale: int) -> int:
+        font = self.ui_font(scale)
+        return font.text_width("M") if font is not None else 4 * scale
+
+    def wrapped(
+        self,
+        x: int,
+        y: int,
+        value: str,
+        width: int,
+        color: int = 7,
+        scale: int | None = None,
+    ) -> int:
+        scale = scale or self.layout.text_scale
+        chars = max(8, width // self.char_width(scale))
         for line in textwrap.wrap(
             value, width=chars, break_long_words=True, break_on_hyphens=False
         ):
-            self.text(x, y, line, color)
+            self.text(x, y, line, color, scale)
             y += 9 * scale
         return y
 
@@ -461,12 +487,12 @@ class Game:
         )
 
     def sprite(self, name: str, pos: Position) -> None:
-        layout = self.layout
+        cell, x, y = self.room_view
         self.atlas.draw(
             name,
-            layout.room_x + pos.x * layout.cell,
-            layout.room_y + pos.y * layout.cell,
-            layout.cell,
+            x + pos.x * cell,
+            y + pos.y * cell,
+            cell,
         )
 
     def draw_room(self) -> None:
@@ -475,12 +501,48 @@ class Game:
         lit = lighting.lit_tiles(state)
         pads = {pad.position: pad for pad in state.chamber.pads}
         devices = {device.position: device for device in state.chamber.devices}
+        route = {
+            Position(x, y)
+            for y, row in enumerate(state.chamber.tiles)
+            for x, tile in enumerate(row)
+            if tile is not TileType.WALL
+        }
+        min_x = max(0, min(pos.x for pos in route) - 1)
+        max_x = min(len(state.chamber.tiles[0]) - 1, max(pos.x for pos in route) + 1)
+        min_y = max(0, min(pos.y for pos in route) - 1)
+        max_y = min(len(state.chamber.tiles) - 1, max(pos.y for pos in route) + 1)
+        columns, rows = max_x - min_x + 1, max_y - min_y + 1
+        cell = max(
+            1,
+            min(
+                layout.room_w // (columns + 1),
+                (layout.room_h - 2 * layout.cell) // rows,
+            ),
+        )
+        origin_x = layout.room_x + (layout.room_w - columns * cell) // 2 - min_x * cell
+        origin_y = layout.room_y + (layout.room_h - rows * cell) // 2 - min_y * cell
+        self.room_view = cell, origin_x, origin_y
         for y, row in enumerate(state.chamber.tiles):
             for x, tile in enumerate(row):
+                if not (min_x <= x <= max_x and min_y <= y <= max_y):
+                    continue
                 pos = Position(x, y)
                 dark = pos not in lit and tile is not TileType.WALL
-                if dark:
-                    for source, target in enumerate(DARK_REMAP):
+                distant_wall = tile is TileType.WALL and not any(
+                    abs(pos.x - floor.x) + abs(pos.y - floor.y) <= 1 for floor in route
+                )
+                if distant_wall:
+                    pyxel.rect(
+                        origin_x + x * cell,
+                        origin_y + y * cell,
+                        cell,
+                        cell,
+                        1,
+                    )
+                    continue
+                remap = DARK_REMAP if dark else None
+                if remap:
+                    for source, target in enumerate(remap):
                         pyxel.pal(source, target)
                 base = (
                     "wall"
@@ -514,16 +576,66 @@ class Game:
                         )
                 elif pos in state.chamber.consoles:
                     self.sprite("console", pos)
-                if dark:
+                if remap:
                     pyxel.pal()
                 if pos in pads or pos in devices:
                     self.text(
-                        layout.room_x + x * layout.cell + 4,
-                        layout.room_y + y * layout.cell + 4,
+                        origin_x + x * cell + 4,
+                        origin_y + y * cell + 4,
                         "A",
                         7,
-                        max(1, layout.text_scale - 1),
+                        max(1, round(cell / 48) - 1),
                     )
+        margin = max(12, layout.cell // 3)
+        frame_top = layout.room_y + margin
+        frame_bottom = layout.room_y + layout.room_h - margin
+        pyxel.rect(
+            margin,
+            frame_top + layout.cell,
+            1,
+            frame_bottom - frame_top - layout.cell,
+            5,
+        )
+        pyxel.rect(layout.room_w - margin, frame_top, 1, frame_bottom - frame_top, 5)
+        pyxel.rect(margin, frame_bottom, layout.room_w - 2 * margin, 1, 5)
+        pyxel.rect(
+            layout.cell * 3, frame_top, layout.room_w - margin - layout.cell * 3, 1, 5
+        )
+        pyxel.rect(layout.cell * 3, frame_top, layout.cell * 2, 3, 12)
+        pyxel.rect(
+            layout.room_w - margin - layout.cell * 2,
+            layout.room_y + layout.room_h - margin - 3,
+            layout.cell * 2,
+            3,
+            9,
+        )
+        left = origin_x + min(pos.x for pos in route) * cell
+        right = origin_x + (max(pos.x for pos in route) + 1) * cell
+        top = origin_y + min(pos.y for pos in route) * cell
+        bottom = origin_y + (max(pos.y for pos in route) + 1) * cell
+        rail = max(2, cell // 32)
+        pyxel.rect(left, top - rail * 3, right - left, rail, 5)
+        pyxel.rect(left, bottom + rail * 2, right - left, rail, 5)
+        for edge in (left, right - rail * 2):
+            pyxel.rect(edge, top - rail * 5, rail * 2, rail * 5, 12)
+            pyxel.rect(edge, bottom, rail * 2, rail * 5, 9)
+        label_scale = max(2, layout.text_scale + 1)
+        label_y = layout.room_y + layout.cell // 4
+        self.text(layout.cell // 2, label_y, f"{self.level:02}", 9, label_scale + 3)
+        self.text(
+            layout.cell // 2,
+            label_y + (label_scale + 3) * 9,
+            CHAMBER_NAMES[self.level - 1],
+            7,
+            label_scale,
+        )
+        pyxel.rect(
+            layout.cell // 2,
+            label_y + (label_scale + 3) * 17,
+            layout.cell * 2,
+            rail,
+            12,
+        )
         frame = getattr(pyxel, "frame_count", 0) // 12 % 2
         if state.echo_position is not None:
             self.sprite(f"echo_idle_{frame}", state.echo_position)
@@ -535,93 +647,183 @@ class Game:
         layout = self.layout
         info = model(self.state)
         pyxel.rect(layout.panel_x, 0, layout.panel_w, layout.panel_h, 1)
-        pyxel.rect(layout.panel_x, 0, 2, layout.panel_h, 6)
+        pyxel.rect(layout.panel_x, 0, max(2, layout.cell // 24), layout.panel_h, 12)
         x, _, width = layout.panel_content()
         unit = layout.cell / 96
         at = lambda value: round(value * unit)
-        self.text(x, at(24), f"POWER {info.load}/{info.capacity}", 10)
-        pyxel.rectb(x, at(55), width, max(8, at(14)), 6)
+        small = 1 if width < 240 else 3 if layout.cell >= 90 else 2
+        title = max(2, small + 1)
+
+        def card(start: int, end: int, accent: int) -> None:
+            pyxel.rectb(x, at(start), width, at(end - start), 5)
+            pyxel.rect(x, at(start), min(width // 4, at(54)), max(2, at(3)), accent)
+
+        self.text(
+            x,
+            at(22),
+            f"{self.level:02}  {CHAMBER_NAMES[self.level - 1]}",
+            7,
+            min(3, title),
+        )
+        pyxel.rect(x, at(61), width, max(1, at(2)), 5)
+
+        card(78, 245, 10)
+        self.text(x + at(14), at(91), "POWER", 10, small)
+        self.text(x + at(14), at(120), f"{info.load} / {info.capacity} UNITS", 7, title)
+        pyxel.rectb(x + at(14), at(151), width - at(28), max(8, at(13)), 6)
         pyxel.rect(
-            x + 2,
-            at(57),
-            round((width - 4) * info.load / max(1, info.capacity)),
-            max(4, at(10)),
+            x + at(16),
+            at(153),
+            round((width - at(32)) * info.load / max(1, info.capacity)),
+            max(4, at(9)),
             11,
         )
-        self.text(x, at(91), "CIRCUITS", 10)
+        self.text(x + at(14), at(176), "CIRCUITS", 6, min(2, small))
         for index, (name, on) in enumerate(info.circuits):
-            self.wrapped(
-                x,
-                at(119 + index * 34),
-                f"{name.upper()}: {'ON' if on else 'OFF'}",
-                width,
-                11 if on else 8,
+            cy = at(193 + index * 18)
+            pyxel.rect(
+                x + at(14), cy + at(2), max(4, at(7)), max(4, at(7)), 11 if on else 8
             )
-        self.text(x, at(245), "SAFE" if info.safe else "DARK", 11 if info.safe else 8)
+            self.text(x + at(27), cy, name.upper().replace("-", " "), 7, min(2, small))
+        card(257, 350, 11 if info.safe else 8)
         self.text(
-            x + at(110), at(245), f"HINTS {len(self.seen_hints)}/{len(self.hints)}", 14
+            x + at(14),
+            at(270),
+            "SAFE" if info.safe else "DARK",
+            11 if info.safe else 8,
+            title,
         )
-        self.text(x, at(285), "ACTION", 10)
+        hints = f"HINTS {len(self.seen_hints)}/{len(self.hints)}"
+        self.text(
+            x + width - at(14) - len(hints) * self.char_width(2),
+            at(276),
+            hints,
+            14,
+            2,
+        )
         feedback = (
             self.message if self.message_frames else self.state.phase.value.upper()
         )
-        self.wrapped(x, at(311), feedback, width, 8 if self.flash else 7)
-        self.text(x, at(385), "CONTROLS", 10)
-        self.wrapped(x, at(410), "WASD/ARROWS MOVE  SPACE WAIT  E POWER", width)
-        self.wrapped(x, at(451), "ENTER RECORD  Q LAUNCH  R RETRY  C CLEAR", width)
         self.wrapped(
-            x, at(492), "T HELP  H HINT  P PAUSE  L LEVELS  F11 FULLSCREEN", width
+            x + at(14),
+            at(305),
+            feedback,
+            width - at(28),
+            8 if self.flash else 7,
+            min(2, small),
         )
-        self.text(x, at(542), "ECHO TIMELINE", 12)
-        for index, ((kind, current, direction), (sx, sy, slot)) in enumerate(
-            zip(info.timeline, layout.timeline_slots())
+
+        card(365, 540, 9)
+        self.text(x + at(14), at(376), "CONTROLS", 10, min(2, small))
+        for row, line in enumerate(
+            (
+                "WASD / ARROWS  MOVE",
+                "SPACE WAIT   E POWER",
+                "ENTER RECORD  Q LAUNCH",
+                "R RETRY  C CLEAR",
+                "T HELP  H HINT  P PAUSE",
+                "L LEVELS  F11 FULLSCREEN",
+            )
         ):
-            self.atlas.draw("slot_" + kind, sx, sy, slot)
+            self.text(x + at(14), at(397 + row * 24), line, 7 if row < 3 else 6, small)
+        self.text(x, at(550), "ECHO TIMELINE", 12, small)
+        count = self.state.chamber.max_turns
+        recorded = f"{len(self.state.recording)}/{count}"
+        self.text(
+            x + width - at(14) - len(recorded) * self.char_width(small),
+            at(550),
+            recorded,
+            7,
+            small,
+        )
+        for index, ((kind, current, direction), (sx, sy, slot)) in enumerate(
+            zip(info.timeline[:count], layout.timeline_slots(count))
+        ):
+            pyxel.rectb(sx, sy, slot, slot, 12 if current else 5)
+            if kind != "empty":
+                self.atlas.draw("slot_" + kind, sx, sy, slot)
+            else:
+                self.text(sx + at(7), sy + at(7), f"{index + 1:02}", 13, small)
             if direction:
                 self.text(
-                    sx + slot - 5 * layout.text_scale,
+                    sx + slot - self.char_width(small) - at(4),
                     sy + slot - 8 * layout.text_scale,
                     direction,
                     7,
                 )
             if current:
                 pyxel.rectb(sx, sy, slot, slot, 12)
-            if index >= self.state.chamber.max_turns:
-                pyxel.rectb(sx, sy, slot, slot, 5)
         if self.muted:
-            self.text(x + width - 5 * 4 * layout.text_scale, at(24), "MUTED", 13)
+            self.text(
+                x + width - 5 * self.char_width(small), at(24), "MUTED", 13, small
+            )
 
     def draw_panel(
-        self, title: str, lines: list[str], footer: str, show_log: bool = False
+        self, title: str, lines: list[str], footer: str, numbered: bool = False
     ) -> None:
-        x, y, width, height = self.layout.overlay()
+        _, _, width, max_height = self.layout.overlay()
         pad = max(18, self.layout.cell // 4)
+        scale = self.layout.text_scale + int(numbered)
+        title_scale = max(2, scale + 1)
+        inset = 40 * scale // 2 if numbered else 0
+        line_width = width - 2 * pad - inset
+        line_count = sum(
+            max(
+                1,
+                len(
+                    textwrap.wrap(
+                        line, width=max(8, line_width // self.char_width(scale))
+                    )
+                ),
+            )
+            for line in lines
+        )
+        body_height = line_count * 9 * scale + len(lines) * 12 * scale
+        footer_lines = max(
+            1,
+            len(
+                textwrap.wrap(
+                    footer,
+                    width=max(
+                        8,
+                        (width - 2 * pad) // self.char_width(self.layout.text_scale),
+                    ),
+                )
+            ),
+        )
+        footer_height = footer_lines * 9 * self.layout.text_scale
+        height = min(
+            max_height,
+            2 * pad + 12 * title_scale + body_height + footer_height + 24,
+        )
+        x = (self.layout.width - width) // 2
+        y = (self.layout.height - height) // 2
+        pyxel.rect(x + 6, y + 6, width, height, 5)
         pyxel.rect(x, y, width, height, 1)
         pyxel.rectb(x, y, width, height, 12)
-        self.wrapped(x + pad, y + pad, title, width - 2 * pad, 10)
-        cursor = y + pad + 42 * self.layout.text_scale // 2
-        for line in lines:
+        pyxel.rect(x, y, min(width // 5, pad * 4), max(3, self.layout.text_scale), 9)
+        self.text(x + pad, y + pad, title, 10, title_scale)
+        cursor = y + pad + 12 * title_scale
+        pyxel.rect(x + pad, cursor, width - 2 * pad, max(1, self.layout.text_scale), 5)
+        cursor += 14
+        for index, line in enumerate(lines, 1):
+            if numbered:
+                self.text(x + pad, cursor, f"{index:02}", 9, scale)
             cursor = (
-                self.wrapped(x + pad, cursor, line, width - 2 * pad)
-                + 12 * self.layout.text_scale
+                self.wrapped(x + pad + inset, cursor, line, line_width, 7, scale)
+                + 12 * scale
             )
-        if show_log:
-            self.draw_log_path(
-                x + pad,
-                y + height - pad - 75 * self.layout.text_scale // 2,
-                width - 2 * pad,
-            )
+        footer_y = y + height - pad - footer_height
+        pyxel.rect(
+            x + pad, footer_y - 11, width - 2 * pad, max(1, self.layout.text_scale), 5
+        )
         self.wrapped(
             x + pad,
-            y + height - pad - 12 * self.layout.text_scale,
+            footer_y,
             footer,
             width - 2 * pad,
-            11,
+            12,
         )
-
-    def draw_log_path(self, x: int, y: int, width: int) -> None:
-        self.text(x, y, "SEND PLAYTEST LOG:", 10)
-        self.wrapped(x, y + 10 * self.layout.text_scale, str(log_path()), width)
 
     def draw_console(self) -> None:
         circuits = self.state.chamber.circuits
@@ -870,10 +1072,10 @@ class Game:
     def draw_modal(self) -> None:
         if self.modal == "tutorial":
             self.draw_panel(
-                f"CHAMBER {self.level} - HOW TO PLAY",
+                f"CHAMBER {self.level:02}  /  FIELD GUIDE",
                 self.tutorial,
                 "ENTER/T: CLOSE  H: HINT  L: LEVEL SELECT",
-                show_log=True,
+                numbered=True,
             )
         elif self.modal == "hint":
             self.draw_panel(
@@ -911,7 +1113,6 @@ class Game:
                 "PAUSED",
                 ["P RESUME  C CLEAR  L LEVELS"],
                 "F11 FULLSCREEN",
-                show_log=True,
             )
         if self.modal:
             self.draw_modal()

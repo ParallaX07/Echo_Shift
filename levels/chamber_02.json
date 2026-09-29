@@ -233,10 +233,9 @@
     }
   ],
   "tutorial": [
-    "The generator holds 60 units at once.",
-    "Power PATH-LIGHTS and LIFT-POWER. Leave AUX-POWER off.",
-    "Enter twice, Q, then follow the lit path to the elevator.",
-    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+    "The generator can power 60 units at once.",
+    "Switch on PATH-LIGHTS and LIFT-POWER. Leave AUX-POWER off.",
+    "Press Enter twice, then Q. Follow the lit path to the elevator."
   ],
   "hints": [
     "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55/60.",

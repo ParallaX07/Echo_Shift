@@ -49,7 +49,8 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     press("UP")
     press("RETURN")
     assert game.mode == "game" and game.modal == "tutorial"
-    assert str(tmp_path / "playtest.jsonl") in "".join(drawn_text)
+    assert "PLAYTEST LOG" not in "".join(drawn_text)
+    assert game.room_view[0] > game.layout.cell
     press("H")
     assert game.modal == "hint" and len(game.seen_hints) == 1
     press("RETURN")
@@ -73,7 +74,7 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     drawn_text.clear()
     press("P")
     assert game.paused
-    assert str(tmp_path / "playtest.jsonl") in "".join(drawn_text)
+    assert "PLAYTEST LOG" not in "".join(drawn_text)
     press("P")
     press("C")
     assert not game.paused

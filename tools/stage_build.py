@@ -16,6 +16,7 @@ def main() -> None:
     (DEST / "assets").mkdir(parents=True)
     for name in ("atlas.png", "atlas.json", "palette.json"):
         shutil.copy2(ROOT / "assets" / name, DEST / "assets" / name)
+    shutil.copytree(ROOT / "assets/fonts", DEST / "assets/fonts", dirs_exist_ok=True)
     audio = ROOT / "assets/audio"
     if audio.is_dir():
         shutil.copytree(audio, DEST / "assets/audio", dirs_exist_ok=True)

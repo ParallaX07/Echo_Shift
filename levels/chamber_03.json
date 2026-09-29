@@ -218,10 +218,9 @@
     }
   ],
   "tutorial": [
-    "This pad is passive: its gate closes as soon as it is empty.",
-    "Power LIFT-POWER. Record: Right, then three Waits.",
-    "Enter to commit, Q to launch. Follow the echo to the exit.",
-    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+    "The gate closes when this pad is empty.",
+    "Power LIFT-POWER. Record Right, then three waits with Space.",
+    "Press Enter to save, then Q to launch. Follow your echo to the exit."
   ],
   "hints": [
     "Your echo can stand on the pad while you move through the gate.",
