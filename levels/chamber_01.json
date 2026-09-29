@@ -1,0 +1,211 @@
+{
+  "grid": [
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "pad",
+      "elevator",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ]
+  ],
+  "hub": [
+    [
+      3,
+      4
+    ]
+  ],
+  "consoles": [
+    [
+      3,
+      4
+    ]
+  ],
+  "start": [
+    3,
+    4
+  ],
+  "exit": [
+    5,
+    4
+  ],
+  "capacity": 60,
+  "max_turns": 6,
+  "zones": [
+    {
+      "id": "path",
+      "tiles": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ]
+    }
+  ],
+  "circuits": [
+    {
+      "id": "lift-power",
+      "load": 20,
+      "zones": [
+        "path"
+      ],
+      "devices": [
+        "lift"
+      ]
+    }
+  ],
+  "pads": [
+    {
+      "id": "pad-a",
+      "position": [
+        4,
+        4
+      ],
+      "timer": 3
+    }
+  ],
+  "devices": [
+    {
+      "id": "lift",
+      "kind": "elevator",
+      "position": [
+        5,
+        4
+      ],
+      "circuit": "lift-power",
+      "pad": "pad-a"
+    }
+  ],
+  "tutorial": [
+    "E: open the console. Power LIFT-POWER with Space, then Enter.",
+    "Enter twice to make an empty recording; Q launches.",
+    "Walk onto the pad, then the lit elevator.",
+    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+  ],
+  "hints": [
+    "The pad keeps the lift running for three turns after you leave it.",
+    "Power LIFT-POWER, press Enter twice, Q, then walk right twice."
+  ]
+}

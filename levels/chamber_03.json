@@ -1,0 +1,230 @@
+{
+  "grid": [
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "pad",
+      "floor",
+      "gate",
+      "elevator",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ]
+  ],
+  "hub": [
+    [
+      3,
+      4
+    ]
+  ],
+  "consoles": [
+    [
+      3,
+      4
+    ]
+  ],
+  "start": [
+    3,
+    4
+  ],
+  "exit": [
+    7,
+    4
+  ],
+  "capacity": 60,
+  "max_turns": 6,
+  "zones": [
+    {
+      "id": "path",
+      "tiles": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ]
+      ]
+    }
+  ],
+  "circuits": [
+    {
+      "id": "lift-power",
+      "load": 40,
+      "zones": [
+        "path"
+      ],
+      "devices": [
+        "gate-a",
+        "lift"
+      ]
+    }
+  ],
+  "pads": [
+    {
+      "id": "pad-a",
+      "position": [
+        4,
+        4
+      ],
+      "timer": 0
+    }
+  ],
+  "devices": [
+    {
+      "id": "gate-a",
+      "kind": "gate",
+      "position": [
+        6,
+        4
+      ],
+      "circuit": "lift-power",
+      "pad": "pad-a"
+    },
+    {
+      "id": "lift",
+      "kind": "elevator",
+      "position": [
+        7,
+        4
+      ],
+      "circuit": "lift-power",
+      "pad": "pad-a"
+    }
+  ],
+  "tutorial": [
+    "This pad is passive: its gate closes as soon as it is empty.",
+    "Power LIFT-POWER. Record: Right, then three Waits.",
+    "Enter to commit, Q to launch. Follow the echo to the exit.",
+    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+  ],
+  "hints": [
+    "Your echo can stand on the pad while you move through the gate.",
+    "Record Right, Wait, Wait, Wait. Commit and launch; walk right four times."
+  ]
+}

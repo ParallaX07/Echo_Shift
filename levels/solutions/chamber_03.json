@@ -1,0 +1,20 @@
+{
+  "steps": [
+    {
+      "power": [
+        "lift-power"
+      ]
+    },
+    "enter",
+    "right",
+    "wait",
+    "wait",
+    "wait",
+    "enter",
+    "launch",
+    "right",
+    "right",
+    "right",
+    "right"
+  ]
+}

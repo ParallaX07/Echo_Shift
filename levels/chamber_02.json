@@ -1,0 +1,245 @@
+{
+  "grid": [
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "pad",
+      "floor",
+      "elevator",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ]
+  ],
+  "hub": [
+    [
+      3,
+      4
+    ]
+  ],
+  "consoles": [
+    [
+      3,
+      4
+    ]
+  ],
+  "start": [
+    3,
+    4
+  ],
+  "exit": [
+    6,
+    4
+  ],
+  "capacity": 60,
+  "max_turns": 6,
+  "zones": [
+    {
+      "id": "path",
+      "tiles": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ]
+    },
+    {
+      "id": "exit",
+      "tiles": [
+        [
+          6,
+          4
+        ]
+      ]
+    },
+    {
+      "id": "unused",
+      "tiles": [
+        [
+          1,
+          4
+        ]
+      ]
+    }
+  ],
+  "circuits": [
+    {
+      "id": "path-lights",
+      "load": 20,
+      "zones": [
+        "path"
+      ],
+      "devices": []
+    },
+    {
+      "id": "lift-power",
+      "load": 35,
+      "zones": [
+        "exit"
+      ],
+      "devices": [
+        "lift"
+      ]
+    },
+    {
+      "id": "aux-power",
+      "load": 15,
+      "zones": [
+        "unused"
+      ],
+      "devices": []
+    }
+  ],
+  "pads": [
+    {
+      "id": "pad-a",
+      "position": [
+        4,
+        4
+      ],
+      "timer": 3
+    }
+  ],
+  "devices": [
+    {
+      "id": "lift",
+      "kind": "elevator",
+      "position": [
+        6,
+        4
+      ],
+      "circuit": "lift-power",
+      "pad": "pad-a"
+    }
+  ],
+  "tutorial": [
+    "The generator holds 60 units at once.",
+    "Power PATH-LIGHTS and LIFT-POWER. Leave AUX-POWER off.",
+    "Enter twice, Q, then follow the lit path to the elevator.",
+    "P pause  C restart  R retry  L levels  M mute  T help  H hint"
+  ],
+  "hints": [
+    "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55/60.",
+    "Leave AUX-POWER off. Launch, then walk right three times."
+  ]
+}

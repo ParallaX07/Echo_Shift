@@ -6,11 +6,16 @@ Install the project and its dependencies with `uv sync`, then run the game with
 Pyxel supports Windows, macOS and Linux. On Linux, run the game from a graphical
 desktop session with the system's graphics and audio libraries available.
 
-The prototype opens at the hub console. Use WASD or arrow keys to move, Space to
-wait, Enter to start or commit a recording, Q to launch the echo, E to open the
-power console, R to retry the launched recording, C to clear the chamber, and P
-to pause. In the power console, use Up/Down to select a circuit, Space to
-toggle it, Enter to apply, or E to close.
+The title screen opens a level select screen. Use Up/Down and Enter to choose an
+unlocked chamber. Each chamber opens with a dismissible tutorial. Press T to
+read it again or H for counted hints. Progress is saved as `progress.json` in
+the per-user data directory.
+
+During play, use WASD or arrow keys to move, Space to wait, Enter to start or
+commit a recording, Q to launch the echo, E to open the power console, R to
+retry the launched recording, C to restart, P to pause, L for level select,
+and M to toggle mute. At the console, use Up/Down to select a circuit, Space
+to toggle it, Enter to apply, or E to close.
 
 ## Building for Windows
 

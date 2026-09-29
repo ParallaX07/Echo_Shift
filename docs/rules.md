@@ -24,6 +24,12 @@ Chambers load from JSON through `engine.loader`. Grid tile names use the
 positions, unique IDs, circuit capacity, hub/start/console/exit requirements,
 pad timer lengths and the 1–12 `max_turns` range.
 
+Chambers 1–3 use the same rules. The first two can be solved after launching an
+empty recording; the third needs an echo on a passive pad. The title screen
+leads to level select. Completing a chamber unlocks the next one, stored as an
+`unlocked` integer in the per-user progress file. Tutorial text and ordered
+hints live in each chamber JSON; hint reveals are counted for the current run.
+
 ## Turn resolution
 
 Each accepted action advances one turn in this order:
