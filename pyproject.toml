@@ -1,17 +1,24 @@
 [project]
-name = "echo"
+name = "echo-shift"
 version = "0.1.0"
-description = "Add your description here"
+description = "A single-player turn-based puzzle game"
 readme = "README.md"
 authors = [
     { name = "Saalim Saadman Araf", email = "saalim.araf@gmail.com" }
 ]
-requires-python = ">=3.12"
-dependencies = []
+requires-python = "==3.12.*"
+dependencies = ["pyxel"]
 
 [project.scripts]
-echo = "echo:main"
+echo_shift = "echo_shift.cli:main"
+all_tests = "pytest:main"
+
+[dependency-groups]
+dev = ["pillow", "pytest", "ruff"]
 
 [build-system]
 requires = ["uv_build>=0.12.10,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
