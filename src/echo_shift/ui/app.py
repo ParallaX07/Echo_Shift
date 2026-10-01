@@ -22,10 +22,12 @@ from echo_shift.engine.turn import (
 from echo_shift.paths import resource_path, user_data_dir
 from echo_shift.ui.atlas import Atlas
 from echo_shift.ui.display import Display
+from echo_shift.ui.help import pad_label, room_info, topics
 from echo_shift.ui.hud import model
 from echo_shift.ui.layout import Layout
 from echo_shift.ui.progress import load_unlocked, save_unlocked
 from echo_shift.ui.telemetry import Attempt
+from echo_shift.ui.tutorial import Tutorial, load_steps
 
 logger = logging.getLogger(__name__)
 LEVEL_COUNT = 3
@@ -109,7 +111,16 @@ class Game:
         self.mouse_active = False
         self.menu_mouse_moved = False
         self.modal = None
-        self.tutorial = []
+        self.lesson = None
+        self.lesson_summary = ""
+        self.lesson_steps = ()
+        self.help_index = 0
+        self.modal_stack = []
+        self.release_controls = False
+        self.ui_hits = []
+        self.continue_rect = (0, 0, 0, 0)
+        self.choice_hits = []
+        self.lesson_card_rect = (0, 0, 0, 0)
         self.hints = []
         self.hint_index = 0
         self.seen_hints = set()
@@ -137,13 +148,18 @@ class Game:
         self.level = number
         self.attempt = Attempt(number)
         self.state = initial_state(load(path))
-        self.tutorial = data["tutorial"]
+        self.lesson_steps = load_steps(data.get("tutorial_steps"), self.state.chamber)
+        self.lesson = None
+        self.lesson_summary = data.get("lesson_summary", "Elevator reached.")
+        self.help_index = 0
+        self.modal_stack = []
+        self.release_controls = False
         self.hints = data["hints"]
         self.hint_index = 0
         self.seen_hints = set()
         self.mode = "game"
         self.sync_mouse()
-        self.modal = "tutorial"
+        self.modal = "lesson_choice" if self.lesson_steps else None
         self.paused = False
         self.console = False
         self.pending = self.state.powered_circuits
@@ -155,14 +171,59 @@ class Game:
             save_unlocked(unlocked)
             self.unlocked = unlocked
 
+    def open_help(self) -> None:
+        self.modal_stack.append(self.modal)
+        self.modal = "help"
+
+    def close_reading(self) -> None:
+        self.modal = self.modal_stack.pop() if self.modal_stack else None
+        self.release_controls = True
+
+    def start_lesson(self) -> None:
+        self.lesson = Tutorial(self.lesson_steps)
+        self.attempt.mode = "guided"
+        self.modal = "step"
+        self.release_controls = True
+
+    def reset_chamber(self) -> None:
+        self.attempt.resets += 1
+        self.state = recording.clear(self.state)
+        self.pending = self.state.powered_circuits
+        self.console = False
+        self.paused = False
+        self.modal_stack = []
+        if self.lesson is not None:
+            self.start_lesson()
+        else:
+            self.modal = None
+        self.notice("CHAMBER CLEARED")
+
+    def allow(self, event: str, detail: str | None = None) -> bool:
+        if self.lesson is None or self.lesson.allows(event, detail):
+            return True
+        self.notice("NEXT: " + self.lesson.current.objective, True)
+        return False
+
+    def teach(
+        self, event: str, outcome: str = "accepted", detail: str | None = None
+    ) -> None:
+        if self.lesson is not None and self.lesson.observe(
+            event, self.state, self.pending, self.console, outcome, detail
+        ):
+            self.release_controls = True
+            if self.lesson.current is not None:
+                self.modal = "step"
+
     def show_hint(self) -> None:
+        if self.modal != "hint":
+            self.modal_stack.append(self.modal)
         if self.hint_index < len(self.hints):
             self.attempt.hints += 1
             self.seen_hints.add(self.hint_index)
             self.hint_index += 1
             self.modal = "hint"
         else:
-            self.modal = None
+            self.close_reading()
             self.notice("NO MORE HINTS")
 
     def notice(self, message: str, error: bool = False) -> None:
@@ -171,6 +232,17 @@ class Game:
         self.flash = 12 if error else 0
 
     def act(self, action: Move | Wait | InteractAtConsole) -> None:
+        event = (
+            {(1, 0): "right", (-1, 0): "left", (0, -1): "up", (0, 1): "down"}[
+                (action.dx, action.dy)
+            ]
+            if isinstance(action, Move)
+            else "wait"
+            if isinstance(action, Wait)
+            else "apply"
+        )
+        if not self.allow(event):
+            return
         result = recording.act(self.state, action)
         self.state = result.state
         outcome = (
@@ -201,6 +273,9 @@ class Game:
                 self.unlock_next()
                 self.modal = "result"
                 self.notice("ELEVATOR REACHED!")
+        if isinstance(action, InteractAtConsole) and not isinstance(result, Rejected):
+            self.console = False
+        self.teach(event, outcome)
 
     def update(self) -> None:
         self.sync_display()
@@ -275,49 +350,88 @@ class Game:
             elif pyxel.btnp(pyxel.KEY_C):
                 self.open_level(self.level)
             return
-        if self.modal:
-            if pyxel.btnp(pyxel.KEY_L):
-                self.finish_attempt()
-                self.mode = "levels"
-                self.level_cursor = self.level
-                self.modal = None
-            elif pyxel.btnp(pyxel.KEY_H):
-                self.show_hint()
-            elif (
-                pyxel.btnp(pyxel.KEY_RETURN)
-                or pyxel.btnp(pyxel.KEY_ESCAPE)
-                or (self.modal == "tutorial" and pyxel.btnp(pyxel.KEY_T))
-            ):
-                self.modal = None
-            return
+        # Navigation and reading controls remain available during every lesson step.
         if pyxel.btnp(pyxel.KEY_L):
             self.finish_attempt()
             self.mode = "levels"
             self.level_cursor = self.level
+            self.modal = None
             self.paused = False
             self.console = False
             return
+        if pyxel.btnp(pyxel.KEY_C):
+            self.reset_chamber()
+            return
         if pyxel.btnp(pyxel.KEY_P):
             self.paused = not self.paused
-        if self.paused:
-            if pyxel.btnp(pyxel.KEY_C):
-                self.attempt.resets += 1
-                self.state = recording.clear(self.state)
-                self.paused = False
-                self.notice("CHAMBER CLEARED")
             return
+        if self.paused:
+            return
+        if pyxel.btnp(pyxel.KEY_T):
+            if self.modal == "help":
+                self.close_reading()
+            else:
+                self.open_help()
+            self.release_controls = True
+            return
+        if pyxel.btnp(pyxel.KEY_H) and self.modal != "help":
+            self.show_hint()
+            self.release_controls = True
+            return
+        if self.modal == "lesson_choice":
+            if pyxel.btnp(pyxel.KEY_RETURN) or (
+                self.choice_hits and self.menu_click(self.choice_hits[0])
+            ):
+                self.start_lesson()
+            elif pyxel.btnp(pyxel.KEY_F) or (
+                len(self.choice_hits) > 1 and self.menu_click(self.choice_hits[1])
+            ):
+                self.attempt.mode = "free"
+                self.modal = None
+                self.release_controls = True
+            return
+        if self.modal == "help":
+            count = len(topics(self.state, self.pending, self.console))
+            if pyxel.btnp(pyxel.KEY_RIGHT) or pyxel.btnp(pyxel.KEY_DOWN):
+                self.help_index = (self.help_index + 1) % count
+            elif pyxel.btnp(pyxel.KEY_LEFT) or pyxel.btnp(pyxel.KEY_UP):
+                self.help_index = (self.help_index - 1) % count
+            elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_RETURN):
+                self.close_reading()
+                self.release_controls = True
+            return
+        if self.modal == "step":
+            if pyxel.btnp(pyxel.KEY_RETURN) or self.menu_click(
+                self.lesson_continue_rect()
+            ):
+                self.lesson.explaining = False
+                self.modal = None
+                self.release_controls = True
+            return
+        if self.modal == "hint":
+            if pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_ESCAPE):
+                self.close_reading()
+                self.release_controls = True
+            return
+        # All gameplay keys must be released after reading before another action.
+        if self.release_controls:
+            if hasattr(pyxel, "btn") and any(
+                pyxel.btn(key)
+                for key in [k for k, _, _ in MOVES]
+                + [
+                    pyxel.KEY_RETURN,
+                    pyxel.KEY_SPACE,
+                    pyxel.KEY_E,
+                    pyxel.KEY_Q,
+                    pyxel.KEY_R,
+                ]
+            ):
+                return
+            self.release_controls = False
         if self.console:
             self.console_input()
             return
-        if pyxel.btnp(pyxel.KEY_T):
-            self.modal = "tutorial"
-        elif pyxel.btnp(pyxel.KEY_H):
-            self.show_hint()
-        elif pyxel.btnp(pyxel.KEY_C):
-            self.attempt.resets += 1
-            self.state = recording.clear(self.state)
-            self.notice("CHAMBER CLEARED")
-        elif pyxel.btnp(pyxel.KEY_R):
+        if pyxel.btnp(pyxel.KEY_R):
             retried = recording.retry(self.state)
             if retried is not self.state:
                 self.attempt.resets += 1
@@ -326,14 +440,27 @@ class Game:
                 retried is self.state,
             )
             self.state = retried
+            self.pending = self.state.powered_circuits
+            if self.lesson is not None and self.state.retry_snapshot is not None:
+                if self.lesson.allows("retry"):
+                    self.teach("retry")
+                else:
+                    self.lesson.rewind()
+                    self.modal = "step"
+                    self.release_controls = True
         elif pyxel.btnp(pyxel.KEY_E):
+            if not self.allow("open_console"):
+                return
             if self.state.player in self.state.chamber.consoles:
                 self.console = True
                 self.pending = self.state.powered_circuits
                 self.selection = 0
+                self.teach("open_console")
             else:
                 self.notice("STAND ON THE HUB CONSOLE", True)
         elif pyxel.btnp(pyxel.KEY_RETURN):
+            if not self.allow("enter"):
+                return
             before = self.state.phase
             self.state = recording.enter(self.state)
             if self.state.phase is not before:
@@ -342,7 +469,10 @@ class Game:
                     if self.state.phase is Phase.RECORDING
                     else "COMMITTED: E CHANGE POWER, Q LAUNCH"
                 )
+                self.teach("enter")
         elif pyxel.btnp(pyxel.KEY_Q):
+            if not self.allow("launch"):
+                return
             before = self.state
             self.state = recording.launch(self.state)
             self.notice(
@@ -351,6 +481,8 @@ class Game:
                 else "COMMIT A RECORDING AT THE HUB FIRST",
                 self.state is before,
             )
+            if self.state is not before:
+                self.teach("launch")
         elif pyxel.btnp(pyxel.KEY_SPACE):
             self.act(Wait())
         else:
@@ -362,23 +494,43 @@ class Game:
     def console_input(self) -> None:
         circuits = self.state.chamber.circuits
         if pyxel.btnp(pyxel.KEY_E) or pyxel.btnp(pyxel.KEY_ESCAPE):
-            self.console = False
+            if self.lesson is None:
+                self.console = False
+            else:
+                self.notice("NEXT: " + self.lesson.current.objective, True)
         elif pyxel.btnp(pyxel.KEY_UP) or pyxel.btnp(pyxel.KEY_W):
             self.selection = (self.selection - 1) % len(circuits)
         elif pyxel.btnp(pyxel.KEY_DOWN) or pyxel.btnp(pyxel.KEY_S):
             self.selection = (self.selection + 1) % len(circuits)
         elif pyxel.btnp(pyxel.KEY_SPACE):
             name = circuits[self.selection].id
-            self.pending = frozenset(self.pending ^ {name})
+            if self.allow("toggle", name):
+                self.pending = frozenset(self.pending ^ {name})
+                self.teach("toggle", detail=name)
         elif pyxel.btnp(pyxel.KEY_RETURN):
+            if not self.allow("apply"):
+                return
             if not power.apply(self.state.chamber, self.pending).ok:
                 self.attempt.unsafe_power_choices += 1
                 self.notice("OVER BUDGET - REMOVE A CIRCUIT", True)
+                self.teach("apply", "rejected")
             elif self.pending == self.state.powered_circuits:
                 self.console = False
+                self.teach("apply")
             else:
                 self.act(InteractAtConsole(self.pending))
-                self.console = False
+        elif self.lesson is not None and any(
+            pyxel.btnp(key)
+            for key in (
+                pyxel.KEY_Q,
+                pyxel.KEY_R,
+                pyxel.KEY_LEFT,
+                pyxel.KEY_RIGHT,
+                pyxel.KEY_A,
+                pyxel.KEY_D,
+            )
+        ):
+            self.notice("NEXT: " + self.lesson.current.objective, True)
 
     def sync_mouse(self) -> None:
         visible = False
@@ -496,7 +648,7 @@ class Game:
             value, width=chars, break_long_words=True, break_on_hyphens=False
         ):
             self.text(x, y, line, color, scale)
-            y += 9 * scale
+            y += self.line_height(scale)
         return y
 
     def centered(
@@ -543,6 +695,7 @@ class Game:
         origin_x = layout.room_x + (layout.room_w - columns * cell) // 2 - min_x * cell
         origin_y = layout.room_y + (layout.room_h - rows * cell) // 2 - min_y * cell
         self.room_view = cell, origin_x, origin_y
+        self.room_bounds = min_x, min_y, max_x, max_y
         for y, row in enumerate(state.chamber.tiles):
             for x, tile in enumerate(row):
                 if not (min_x <= x <= max_x and min_y <= y <= max_y):
@@ -603,7 +756,9 @@ class Game:
                     self.text(
                         origin_x + x * cell + 4,
                         origin_y + y * cell + 4,
-                        "A",
+                        pad_label(
+                            state, pads[pos].id if pos in pads else devices[pos].pad_id
+                        ),
                         7,
                         max(1, round(cell / 48) - 1),
                     )
@@ -699,13 +854,13 @@ class Game:
             max(4, at(9)),
             11,
         )
-        self.text(x + at(14), at(176), "CIRCUITS", 6, min(2, small))
+        self.text(x + at(14), at(168), "CIRCUITS", 6, min(2, small))
         for index, (name, on) in enumerate(info.circuits):
-            cy = at(193 + index * 18)
+            cy = at(188 + index * 20)
             pyxel.rect(
                 x + at(14), cy + at(2), max(4, at(7)), max(4, at(7)), 11 if on else 8
             )
-            self.text(x + at(27), cy, name.upper().replace("-", " "), 7, min(2, small))
+            self.text(x + at(27), cy, name.upper().replace("-", " "), 7, 1)
         card(257, 350, 11 if info.safe else 8)
         self.text(
             x + at(14),
@@ -725,14 +880,19 @@ class Game:
         feedback = (
             self.message if self.message_frames else self.state.phase.value.upper()
         )
-        self.wrapped(
-            x + at(14),
-            at(305),
-            feedback,
-            width - at(28),
-            8 if self.flash else 7,
-            min(2, small),
+        feedback_lines = textwrap.wrap(
+            feedback, width=max(8, (width - at(28)) // self.char_width(min(2, small)))
         )
+        if len(feedback_lines) > 2:
+            feedback_lines[1] = feedback_lines[1][:-3] + "..."
+        for row, line in enumerate(feedback_lines[:2]):
+            self.text(
+                x + at(14),
+                at(305) + row * self.line_height(min(2, small)),
+                line,
+                8 if self.flash else 7,
+                min(2, small),
+            )
 
         card(365, 540, 9)
         self.text(x + at(14), at(376), "CONTROLS", 10, min(2, small))
@@ -748,6 +908,20 @@ class Game:
         ):
             self.text(x + at(14), at(397 + row * 24), line, 7 if row < 3 else 6, small)
         self.text(x, at(550), "ECHO TIMELINE", 12, small)
+        self.ui_hits.extend(
+            [
+                ((x, at(78), width, at(167)), "power"),
+                ((x, at(257), width, at(93)), "safety"),
+                ((x, at(22), width, at(40)), "state"),
+            ]
+        )
+        for index, circuit in enumerate(self.state.chamber.circuits):
+            self.ui_hits.append(
+                (
+                    (x + at(12), at(186 + index * 20), width - at(24), at(20)),
+                    "circuit:" + circuit.id,
+                )
+            )
         count = self.state.chamber.max_turns
         recorded = f"{len(self.state.recording)}/{count}"
         self.text(
@@ -760,6 +934,7 @@ class Game:
         for index, ((kind, current, direction), (sx, sy, slot)) in enumerate(
             zip(info.timeline[:count], layout.timeline_slots(count))
         ):
+            self.ui_hits.append(((sx, sy, slot, slot), f"timeline:{index}"))
             pyxel.rectb(sx, sy, slot, slot, 12 if current else 5)
             if kind != "empty":
                 self.atlas.draw("slot_" + kind, sx, sy, slot)
@@ -779,74 +954,99 @@ class Game:
                 x + width - 5 * self.char_width(small), at(24), "MUTED", 13, small
             )
 
-    def draw_panel(
-        self, title: str, lines: list[str], footer: str, numbered: bool = False
-    ) -> None:
-        _, _, width, max_height = self.layout.overlay()
+    def draw_panel(self, title: str, lines: list[str], footer: str) -> None:
+        _, _, width, _ = self.layout.overlay()
         pad = max(18, self.layout.cell // 4)
-        scale = self.layout.text_scale + int(numbered)
-        title_scale = max(2, scale + 1)
-        inset = 40 * scale // 2 if numbered else 0
-        line_width = width - 2 * pad - inset
-        line_count = sum(
-            max(
-                1,
-                len(
-                    textwrap.wrap(
-                        line, width=max(8, line_width // self.char_width(scale))
-                    )
-                ),
+        scale = 1 if self.layout.height < 600 else self.layout.text_scale
+        footer_scale = scale
+        footer_height = self.wrapped_height(footer, width - 2 * pad, footer_scale)
+        while True:
+            title_scale = max(2, scale + 1)
+            title_height = self.wrapped_height(title, width - 2 * pad, title_scale)
+            gap = 12 * scale
+            body_height = sum(
+                self.wrapped_height(line, width - 2 * pad, scale) + gap
+                for line in lines
             )
-            for line in lines
-        )
-        body_height = line_count * 9 * scale + len(lines) * 12 * scale
-        footer_lines = max(
-            1,
-            len(
-                textwrap.wrap(
-                    footer,
-                    width=max(
-                        8,
-                        (width - 2 * pad) // self.char_width(self.layout.text_scale),
-                    ),
-                )
-            ),
-        )
-        footer_height = footer_lines * 9 * self.layout.text_scale
-        height = min(
-            max_height,
-            2 * pad + 12 * title_scale + body_height + footer_height + 24,
-        )
+            height = 2 * pad + title_height + body_height + footer_height + 36
+            if height <= self.layout.height - 32 or scale == 1:
+                break
+            scale -= 1
         x = (self.layout.width - width) // 2
         y = (self.layout.height - height) // 2
         pyxel.rect(x + 6, y + 6, width, height, 5)
         pyxel.rect(x, y, width, height, 1)
         pyxel.rectb(x, y, width, height, 12)
         pyxel.rect(x, y, min(width // 5, pad * 4), max(3, self.layout.text_scale), 9)
-        self.text(x + pad, y + pad, title, 10, title_scale)
-        cursor = y + pad + 12 * title_scale
+        cursor = (
+            self.wrapped(x + pad, y + pad, title, width - 2 * pad, 10, title_scale) + 6
+        )
         pyxel.rect(x + pad, cursor, width - 2 * pad, max(1, self.layout.text_scale), 5)
         cursor += 14
-        for index, line in enumerate(lines, 1):
-            if numbered:
-                self.text(x + pad, cursor, f"{index:02}", 9, scale)
-            cursor = (
-                self.wrapped(x + pad + inset, cursor, line, line_width, 7, scale)
-                + 12 * scale
+        if self.modal == "lesson_choice":
+            self.choice_hits = []
+        for line in lines:
+            line_top = cursor
+            accent = (
+                8
+                if line.startswith("OVER BUDGET")
+                else 10
+                if title == "POWER CONSOLE" and "*" in line
+                else 7
             )
+            cursor = (
+                self.wrapped(x + pad, cursor, line, width - 2 * pad, accent, scale)
+                + gap
+            )
+            if self.modal == "lesson_choice" and line.startswith(
+                ("START GUIDED LESSON:", "PLAY FREELY:")
+            ):
+                rect = (
+                    x + pad - 6,
+                    line_top - 6,
+                    width - 2 * pad + 12,
+                    cursor - line_top,
+                )
+                self.choice_hits.append(rect)
+                pyxel.rectb(
+                    *rect,
+                    10 if len(self.choice_hits) == 1 or self.menu_hit(rect) else 5,
+                )
+            if title == "POWER CONSOLE":
+                for circuit in self.state.chamber.circuits:
+                    if circuit.id.upper() in line and "UNITS" in line:
+                        self.ui_hits.append(
+                            (
+                                (x + pad, line_top, width - 2 * pad, cursor - line_top),
+                                "circuit:" + circuit.id,
+                            )
+                        )
+                if line.startswith("PENDING LOAD"):
+                    self.ui_hits.append(
+                        (
+                            (x + pad, line_top, width - 2 * pad, cursor - line_top),
+                            "power",
+                        )
+                    )
         footer_y = y + height - pad - footer_height
         pyxel.rect(
             x + pad, footer_y - 11, width - 2 * pad, max(1, self.layout.text_scale), 5
         )
-        self.wrapped(
-            x + pad,
-            footer_y,
-            footer,
-            width - 2 * pad,
-            12,
-        )
+        self.wrapped(x + pad, footer_y, footer, width - 2 * pad, 12, footer_scale)
+        self.continue_rect = (x + pad, footer_y - 4, width - 2 * pad, footer_height + 8)
+
+    def wrapped_height(self, value: str, width: int, scale: int) -> int:
+        return len(
+            textwrap.wrap(
+                value,
+                width=max(8, width // self.char_width(scale)),
+                break_long_words=True,
+                break_on_hyphens=False,
+            )
+        ) * self.line_height(scale)
 
     def draw_console(self) -> None:
+        self.ui_hits = []
         circuits = self.state.chamber.circuits
         configured = power.apply(self.state.chamber, self.pending)
         pending_load = sum(c.load for c in circuits if c.id in self.pending)
@@ -858,8 +1058,12 @@ class Game:
             if any(tile in before and tile not in after for tile in zone.tiles)
         )
         lines = ["UP/DOWN SELECT  SPACE TOGGLE  ENTER APPLY  E EXIT"]
+        if self.lesson is not None and self.lesson.current is not None:
+            lines = [
+                f"STEP {self.lesson.index + 1}/{len(self.lesson.steps)}: {self.lesson.current.objective}"
+            ] + lines
         lines += [
-            f"{'>' if index == self.selection else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNITS"
+            f"{'>' if index == self.selection else ' '} {'*' if self.lesson is not None and self.lesson.current is not None and self.lesson.current.target.get('id') == circuit.id else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNITS"
             for index, circuit in enumerate(circuits)
         ]
         lines += [f"PENDING LOAD {pending_load}/{self.state.chamber.capacity}"]
@@ -1082,13 +1286,120 @@ class Game:
         )
         self.draw_cursor()
 
+    def line_height(self, scale: int) -> int:
+        return max(9 * scale, max(12, scale * 6 + 4) + 2)
+
+    def lesson_continue_rect(self) -> tuple[int, int, int, int]:
+        return self.continue_rect
+
+    def draw_lesson_card(self) -> None:
+        if self.lesson is None or self.lesson.current is None:
+            return
+        step = self.lesson.current
+        target = step.target
+        cell, ox, oy = self.room_view
+        if target["kind"] == "tile":
+            tx, ty = target["position"]
+            px, py = ox + tx * cell, oy + ty * cell
+            for inset in (2, 4):
+                pyxel.rectb(
+                    px + inset, py + inset, cell - 2 * inset, cell - 2 * inset, 10
+                )
+        elif target["kind"] == "timeline":
+            sx, sy, size = self.layout.timeline_slots(self.state.chamber.max_turns)[
+                target["index"]
+            ]
+            pyxel.rectb(sx - 2, sy - 2, size + 4, size + 4, 10)
+        elif target["kind"] in {"power", "state"}:
+            for rect, topic in self.ui_hits:
+                if topic == target["kind"]:
+                    pyxel.rectb(*rect, 10)
+        if self.console:
+            return  # The console carries the same persistent objective.
+        x, y = self.layout.room_x + 12, self.layout.room_y + 12
+        width = self.layout.room_w - 24
+        scale = 1 if self.layout.width < 900 else 2
+        heading = f"STEP {self.lesson.index + 1}/{len(self.lesson.steps)} / {step.title.upper()}"
+        chars = max(8, (width - 24) // self.char_width(scale))
+        rows = (
+            len(textwrap.wrap(heading, chars))
+            + len(textwrap.wrap(step.objective, chars))
+            + 1
+        )
+        height = rows * self.line_height(scale) + 38
+        self.lesson_card_rect = (x, y, width, height)
+        pyxel.rect(x, y, width, height, 1)
+        pyxel.rectb(x, y, width, height, 12)
+        cy = self.wrapped(x + 12, y + 12, heading, width - 24, 10, scale) + 8
+        cy = self.wrapped(x + 12, cy, step.objective, width - 24, 7, scale) + 6
+        self.text(x + 12, cy, "T HELP / H HINT / P PAUSE / C RESTART / L LEVELS", 6, 1)
+
+    def hovered_topic(self) -> tuple[str, str] | None:
+        for rect, key in reversed(self.ui_hits):
+            if self.menu_hit(rect):
+                for topic_key, title, detail in topics(
+                    self.state, self.pending, self.console
+                ):
+                    if key == topic_key:
+                        return title, detail
+        if self.console or (
+            self.lesson is not None and self.menu_hit(self.lesson_card_rect)
+        ):
+            return None
+        mx, my = self.menu_mouse_position()
+        cell, ox, oy = self.room_view
+        position = Position((mx - ox) // cell, (my - oy) // cell)
+        if (
+            self.layout.room_x <= mx < self.layout.room_x + self.layout.room_w
+            and self.layout.room_y <= my < self.layout.room_y + self.layout.room_h
+            and self.room_bounds[0] <= position.x <= self.room_bounds[2]
+            and self.room_bounds[1] <= position.y <= self.room_bounds[3]
+        ):
+            return room_info(self.state, position)
+        return None
+
+    def draw_hover(self) -> None:
+        topic = self.hovered_topic()
+        if topic is None:
+            return
+        title, detail = topic
+        width = min(560, self.layout.room_w - 24)
+        scale = 1
+        chars = max(8, (width - 24) // self.char_width(scale))
+        height = (
+            len(textwrap.wrap(detail, chars, break_on_hyphens=False))
+            + len(textwrap.wrap(title, chars))
+        ) * self.line_height(scale) + 36
+        x, y = self.layout.room_x + 12, self.layout.height - height - 12
+        pyxel.rect(x, y, width, height, 1)
+        pyxel.rectb(x, y, width, height, 12)
+        cy = self.wrapped(x + 12, y + 10, title, width - 24, 10, scale) + 8
+        self.wrapped(x + 12, cy, detail, width - 24, 7, scale)
+
     def draw_modal(self) -> None:
-        if self.modal == "tutorial":
+        if self.modal == "lesson_choice":
             self.draw_panel(
-                f"CHAMBER {self.level:02}  /  FIELD GUIDE",
-                self.tutorial,
-                "ENTER/T: CLOSE  H: HINT  L: LEVEL SELECT",
-                numbered=True,
+                f"CHAMBER {self.level:02} / LEARN TO PLAY",
+                [
+                    "START GUIDED LESSON: step-by-step explanations with checked actions.",
+                    "PLAY FREELY: solve the chamber independently. T help and H hints are always available.",
+                ],
+                "ENTER: START GUIDED LESSON   F: PLAY FREELY   L: LEVELS",
+            )
+        elif self.modal == "step":
+            step = self.lesson.current
+            self.draw_panel(
+                f"STEP {self.lesson.index + 1}/{len(self.lesson.steps)} / {step.title.upper()}",
+                [step.explanation, "YOUR NEXT ACTION: " + step.objective],
+                "ENTER: READY TO TRY   T: HELP   H: HINT   P: PAUSE",
+            )
+        elif self.modal == "help":
+            entries = topics(self.state, self.pending, self.console)
+            _, title, detail = entries[self.help_index % len(entries)]
+            self.draw_panel(
+                f"HELP {self.help_index + 1}/{len(entries)} / {title}",
+                [detail],
+                "ARROWS: PREVIOUS/NEXT TOPIC   T/ESC/ENTER: RETURN",
             )
         elif self.modal == "hint":
             self.draw_panel(
@@ -1104,7 +1415,12 @@ class Game:
             )
             self.draw_panel(
                 f"CHAMBER {self.level} COMPLETE",
-                [f"HINTS USED: {len(self.seen_hints)}"],
+                [
+                    self.lesson_summary
+                    if self.lesson is not None
+                    else "You reached the running elevator. Choose a guided lesson on your next visit to review each mechanic.",
+                    f"HINTS USED: {len(self.seen_hints)}",
+                ],
                 footer,
             )
 
@@ -1117,8 +1433,10 @@ class Game:
         if self.mode == "levels":
             self.draw_levels()
             return
+        self.ui_hits = []
         self.draw_room()
         self.draw_hud()
+        self.draw_lesson_card()
         if self.console:
             self.draw_console()
         if self.paused:
@@ -1127,8 +1445,10 @@ class Game:
                 ["P RESUME  C CLEAR  L LEVELS"],
                 "F11 FULLSCREEN",
             )
-        if self.modal:
+        if self.modal and not self.paused:
             self.draw_modal()
+        if not self.modal and not self.paused:
+            self.draw_hover()
         self.draw_cursor()
 
 

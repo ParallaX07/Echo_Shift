@@ -48,12 +48,13 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert game.mode == "levels"  # Chamber 2 is locked.
     press("UP")
     press("RETURN")
-    assert game.mode == "game" and game.modal == "tutorial"
+    assert game.mode == "game" and game.modal == "lesson_choice"
     assert "PLAYTEST LOG" not in "".join(drawn_text)
     assert game.room_view[0] > game.layout.cell
     press("H")
     assert game.modal == "hint" and len(game.seen_hints) == 1
     press("RETURN")
+    press("F")
     press("E")
     press("SPACE")
     press("RETURN")
@@ -67,8 +68,8 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert game.unlocked == 2
     assert progress.load_unlocked(3) == 2
     press("RETURN")
-    assert game.level == 2 and game.modal == "tutorial"
-    press("RETURN")
+    assert game.level == 2 and game.modal == "lesson_choice"
+    press("F")
     press("M")
     assert game.muted
     drawn_text.clear()
@@ -90,7 +91,7 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     press("L")
     assert game.mode == "levels"
     press("RETURN")
-    assert game.level == 2 and game.modal == "tutorial"
+    assert game.level == 2 and game.modal == "lesson_choice"
     press("L")
     records = [
         json.loads(line)

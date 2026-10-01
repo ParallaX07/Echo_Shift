@@ -8,8 +8,11 @@ desktop session with the system's graphics and audio libraries available.
 
 The title screen opens a level select screen. Click Start or press Enter, then
 use WASD/arrow keys and Enter or the mouse to choose an unlocked chamber.
-Each chamber opens with a dismissible tutorial. Press T to
-read it again or H for counted hints. Progress is saved as `progress.json` in
+Each chamber offers a guided lesson (Enter) or free play (F). Guided lessons
+explain and check each action; acknowledge a step with Enter, then perform it
+with a separate key press. Press T for keyboard-accessible contextual help,
+hover objects and HUD fields for live explanations, or H for counted hints.
+See [the guided lesson controls](docs/tutorials.md). Progress is saved as `progress.json` in
 the per-user data directory.
 
 For playtests, each chamber visit is written to `playtest.jsonl` in that same

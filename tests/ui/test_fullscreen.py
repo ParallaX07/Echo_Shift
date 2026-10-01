@@ -14,7 +14,9 @@ from echo_shift.ui import app
     [
         ("title", None, False, False, Phase.PREPARE),
         ("levels", None, False, False, Phase.PREPARE),
-        ("game", "tutorial", False, False, Phase.PREPARE),
+        ("game", "lesson_choice", False, False, Phase.PREPARE),
+        ("game", "step", False, False, Phase.RECORDING),
+        ("game", "help", False, True, Phase.PREPARE),
         ("game", None, False, False, Phase.RECORDING),
         ("game", None, False, False, Phase.REPLAY),
         ("game", None, True, False, Phase.PREPARE),

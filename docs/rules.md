@@ -29,13 +29,19 @@ empty recording; the third needs an echo on a passive pad. The title screen
 leads to level select by Enter, Space or clicking Start. Chamber selection uses
 WASD/arrow keys and Enter or a mouse click on an unlocked card; menus do not
 advance turns. Completing a chamber unlocks the next one, stored as an
-`unlocked` integer in the per-user progress file. Tutorial text and ordered
-hints live in each chamber JSON; hint reveals are counted for the current run.
+`unlocked` integer in the per-user progress file. Validated guided steps, lesson summaries and ordered hints live in each chamber
+JSON. Each visit offers a guided lesson (Enter) or free play (F). Guided steps
+explain a mechanic, then check the player's action and resulting state before
+advancing; unrelated gameplay inputs are inert. T opens keyboard-selectable
+contextual help; room and HUD hover explanations use the same live state. Hint
+reveals are counted for the current run. Reading and hovering never advance
+turns. C restarts a guided lesson; R keeps the launch-snapshot semantics and
+returns guidance to the replay objective. See `docs/tutorials.md` for controls.
 
 The UI writes one local JSONL record per chamber visit when it completes, is
 left through level select, or the game exits normally. The record has a random
 attempt ID, chamber, completion status, elapsed time, resets, hints revealed,
-and over-budget console confirmations. It does not include player inputs or
+over-budget console confirmations, and guided/free mode. It does not include player inputs or
 personal identifiers. A failed turn, accepted R retry or C clear increments
 the reset count; an over-budget confirmation never advances the engine.
 

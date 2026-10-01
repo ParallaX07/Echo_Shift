@@ -23,6 +23,7 @@ class Attempt:
     hints: int = 0
     unsafe_power_choices: int = 0
     finished: bool = False
+    mode: str = "free"
 
     def finish(self, completed: bool) -> None:
         if self.finished:
@@ -31,6 +32,7 @@ class Attempt:
         record = {
             "attempt_id": self.id,
             "chamber": self.chamber,
+            "mode": self.mode,
             "completed": completed,
             "completion_time_seconds": duration if completed else None,
             "duration_seconds": duration,

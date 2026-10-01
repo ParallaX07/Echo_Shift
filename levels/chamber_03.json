@@ -217,13 +217,281 @@
       "pad": "pad-a"
     }
   ],
-  "tutorial": [
-    "The gate closes when this pad is empty.",
-    "Power LIFT-POWER. Record Right, then three waits with Space.",
-    "Press Enter to save, then Q to launch. Follow your echo to the exit."
-  ],
   "hints": [
     "Your echo can stand on the pad while you move through the gate.",
     "Record Right, Wait, Wait, Wait. Commit and launch; walk right four times."
-  ]
+  ],
+  "tutorial_steps": [
+    {
+      "id": "console",
+      "title": "Your power console",
+      "explanation": "This room has a passive pad and a gate. A passive pad has no countdown: it is active only while the player or echo stands on it. You need an echo to hold it while you cross.",
+      "objective": "Press E to open the console.",
+      "action": "open_console",
+      "expected": {
+        "console": true
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "switch-lift-power",
+      "title": "Choose lift power",
+      "explanation": "This circuit supplies the route lights, gate and elevator for 40 units. A machine still needs active pad A as well as power. An echo presses pads but never supplies electricity.",
+      "objective": "Use Up/Down to select LIFT-POWER, then Space to switch it on.",
+      "action": "toggle",
+      "expected": {
+        "pending": [
+          "lift-power"
+        ]
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "lift-power"
+      }
+    },
+    {
+      "id": "apply",
+      "title": "Power the equipment",
+      "explanation": "Applying this circuit makes the route safe. The gate and elevator stay closed until pad A is occupied. Their matching A labels show the connection.",
+      "objective": "Press Enter to apply 40/60 units.",
+      "action": "apply",
+      "expected": {
+        "powered": [
+          "lift-power"
+        ],
+        "console": false
+      },
+      "target": {
+        "kind": "power"
+      }
+    },
+    {
+      "id": "record",
+      "title": "Record your helper",
+      "explanation": "Enter at the hub starts a take. The echo will repeat accepted moves and waits, one command for every accepted replay turn. This chamber has 6 recording slots.",
+      "objective": "Press Enter to begin recording.",
+      "action": "enter",
+      "expected": {
+        "phase": "recording",
+        "recorded": 0
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 0
+      }
+    },
+    {
+      "id": "record-right",
+      "title": "Record the pad route",
+      "explanation": "Move onto passive pad A. This saves Right in slot 1. The gate becomes open after pad activation, ready for movement on the following turn.",
+      "objective": "Press Right or D onto pad A.",
+      "action": "right",
+      "expected": {
+        "player": [
+          4,
+          4
+        ],
+        "recorded": 1,
+        "active_pad": "pad-a",
+        "open_gate": "gate-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "id": "wait-one",
+      "title": "Save the first wait",
+      "explanation": "Space spends one turn without moving. Slot 2 will contain Wait. The echo must remain on A while you walk ahead.",
+      "objective": "Press Space to record Wait in slot 2.",
+      "action": "wait",
+      "expected": {
+        "recorded": 2,
+        "player": [
+          4,
+          4
+        ]
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 1
+      }
+    },
+    {
+      "id": "wait-two",
+      "title": "Give yourself crossing time",
+      "explanation": "Record another Wait in slot 3. The replay will give you time to reach the gate while the echo stays on the pad.",
+      "objective": "Press Space to record Wait in slot 3.",
+      "action": "wait",
+      "expected": {
+        "recorded": 3,
+        "player": [
+          4,
+          4
+        ]
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 2
+      }
+    },
+    {
+      "id": "wait-three",
+      "title": "Give yourself exit time",
+      "explanation": "A third Wait fills slot 4. After this wait, your take will be Right, Wait, Wait, Wait: four commands for the four moves to the exit.",
+      "objective": "Press Space to record Wait in slot 4.",
+      "action": "wait",
+      "expected": {
+        "recorded": 4,
+        "player": [
+          4,
+          4
+        ]
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 3
+      }
+    },
+    {
+      "id": "commit",
+      "title": "Commit the useful recording",
+      "explanation": "Enter saves the take and resets your position and pad state. Power stays selected, but the passive pad becomes empty, so the gate closes. Your four commands stay on the timeline.",
+      "objective": "Press Enter to commit your take.",
+      "action": "enter",
+      "expected": {
+        "phase": "committed",
+        "recorded": 4,
+        "player": [
+          3,
+          4
+        ]
+      },
+      "target": {
+        "kind": "state"
+      }
+    },
+    {
+      "id": "launch",
+      "title": "Launch your echo",
+      "explanation": "Q resets the room and creates one unadvanced echo at the recorded start. It keeps power and your take. R can restore exactly this launch configuration.",
+      "objective": "Press Q to launch the echo.",
+      "action": "launch",
+      "expected": {
+        "phase": "replay",
+        "echo_index": 0,
+        "player": [
+          3,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-pad",
+      "title": "Walk together",
+      "explanation": "Your next move also executes the echo's Right. You may share a tile. Both reach A; the linked gate opens after this turn.",
+      "objective": "Press Right or D onto pad A.",
+      "action": "right",
+      "expected": {
+        "player": [
+          4,
+          4
+        ],
+        "echo_index": 1,
+        "active_pad": "pad-a",
+        "open_gate": "gate-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-floor",
+      "title": "Let the echo hold A",
+      "explanation": "You move forward while the echo executes its first Wait on A. A blue timeline outline marks its next command. The echo is immune to darkness, but you still need lit tiles.",
+      "objective": "Press Right or D onto the floor.",
+      "action": "right",
+      "expected": {
+        "player": [
+          5,
+          4
+        ],
+        "echo_index": 2,
+        "active_pad": "pad-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-gate",
+      "title": "Cross the open gate",
+      "explanation": "The echo executes its second Wait. Pad A stays occupied, so the powered gate stays open. Walls and closed gates reject player moves without spending a turn; a blocked echo command is consumed.",
+      "objective": "Press Right or D through gate A.",
+      "action": "right",
+      "expected": {
+        "player": [
+          6,
+          4
+        ],
+        "echo_index": 3,
+        "open_gate": "gate-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          6,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-exit",
+      "title": "Finish the shared escape",
+      "explanation": "The echo executes its last Wait while you reach the running elevator. After its final command, it holds that tile for one additional turn; it disappears at the start of the next turn after that.",
+      "objective": "Press Right or D into the elevator.",
+      "action": "right",
+      "expected": {
+        "phase": "result",
+        "player": [
+          7,
+          4
+        ],
+        "echo_index": 4
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    }
+  ],
+  "lesson_summary": "You recorded Right and three Waits, then used the echo to hold a passive pad while crossing the gate. Machines need both power and an active linked pad."
 }
