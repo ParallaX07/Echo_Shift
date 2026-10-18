@@ -14,6 +14,8 @@ gameplay action is refused without changing power, positions, timers, recording
 or turns. Console selection remains available. A step advances only after its
 expected action and actual outcomes match, never merely from pressing a key.
 
+![A guided step explaining how to record the helper echo](screenshots/guided-lesson.png)
+
 Chamber 1 teaches the technician, hub, lighting, console, empty-take launch,
 movement, timed pads, retry and elevator completion. It includes a required
 retry from the launch snapshot. Chamber 2 deliberately tries applying all three
@@ -31,6 +33,8 @@ lesson**. **R after launch restores the engine's launch snapshot**; during a
 lesson it returns guidance to the first replay action, except for the required
 retry exercise, which advances to its next action. R before launch has no effect.
 **L returns to chamber selection**. F11 and Alt+Enter remain fullscreen shortcuts.
+
+![The contextual help topic for the blue echo](screenshots/contextual-help.png)
 
 Hover room objects, circuit rows, the power meter, safety state, chamber heading
 or timeline slots for live explanations. Timed pads show occupied and active

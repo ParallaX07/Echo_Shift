@@ -10,6 +10,8 @@ yourself that walks the recorded route while you take a different one.
 The game is written in Python with [Pyxel](https://github.com/kitao/pyxel). It
 runs on Windows, macOS and Linux; the primary target is Windows 11.
 
+![The blue echo replays a recorded route and holds a pad while the technician crosses the gate](docs/screenshots/echo-replay.gif)
+
 ## Quick start
 
 You need [Git](https://git-scm.com/) and [uv](https://docs.astral.sh/uv/). uv
@@ -50,6 +52,12 @@ explain and check each action; acknowledge a step with Enter, then perform it
 with a separate key press. Press T for keyboard-accessible contextual help,
 hover objects and HUD fields for live explanations, or H for counted hints.
 See [the guided lesson controls](docs/tutorials.md).
+
+| Title screen | Chamber select |
+|---|---|
+| ![Title screen with the technician and the blue echo](docs/screenshots/title.png) | ![Chamber select with chamber 01 ready and 02-03 locked](docs/screenshots/chamber-select.png) |
+| **Power console** | **Echo on a pad** |
+| ![Power console rejecting a 70/60 load as over budget](docs/screenshots/power-console.png) | ![Chamber 03: the echo holds the pad while the technician crosses](docs/screenshots/echo-holds-pad.png) |
 
 ### Saves and logs
 
