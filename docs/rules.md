@@ -60,6 +60,14 @@ fullscreen; Left and Right (or a click on the left or right half of a row)
 change a value, and every change is saved at once. Controls opens the guide on
 its Controls page.
 
+Moves are eased on screen: a step is a steady glide of about a quarter of a
+second (the game runs at 60 frames per second), a refused move leans toward the
+wall and back, and gates, pads, elevators, the echo, lighting changes, failures
+and clearing a chamber have short animations. The rules step at once on every
+input and a new input ends any running animation first, so nothing is queued or
+lost. With reduced motion on there are no glides, shakes, fades or flashes: each
+change simply shows its end state.
+
 Sound is presentation only. Music plays on channels 0-2 and effects on channel
 3, one effect per step: a failure, then a clear, a rejected input, a recording
 or launch change, a gate, elevator, pad or power change, and last a move or

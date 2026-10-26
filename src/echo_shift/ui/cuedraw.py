@@ -10,6 +10,7 @@ from itertools import pairwise
 import pyxel
 
 from echo_shift.engine.model import Position
+from echo_shift.ui import motion
 from echo_shift.ui.cues import ConsolePreview, DeviceLink
 
 View = tuple[int, int, int]  # cell size, origin x, origin y of tile (0, 0)
@@ -123,9 +124,20 @@ def links(view: View, found: tuple[DeviceLink, ...]) -> None:
         pyxel.circ(x2, y2, max(3, cell // 20), colour)
 
 
-def countdown(view: View, pos: Position, text: Text, value: int, scale: int, char: int):
-    """A number in the top-right corner of a timed pad: turns of power left."""
+def countdown(
+    view: View,
+    pos: Position,
+    text: Text,
+    value: int,
+    scale: int,
+    char: int,
+    lift: float = 0.0,
+):
+    """A number in the top-right corner of a timed pad: turns of power left.
+
+    `lift` (in tiles) hops it up while the timer ticks."""
     x, y, cell, _ = tile(view, pos)
+    y -= round(lift * cell)
     pad = max(2, cell // 40)
     side = char + 2 * pad + 2
     left = x + cell - side - pad
@@ -207,7 +219,7 @@ def console_preview(
     for pos in sorted(found.lit):
         x, y, cell, _ = tile(view, pos)
         pyxel.rectb(x + 2, y + 2, cell - 4, cell - 4, GREEN)
-    beat = frame // 8 % 2 == 0
+    beat = motion.blink(frame, 0.27) == 0
     for ids, colour in ((found.losing, RED), (found.gaining, GREEN)):
         for device_id in sorted(ids):
             x, y, cell, _ = tile(view, devices[device_id])
@@ -216,3 +228,36 @@ def console_preview(
                 pyxel.rectb(
                     x + inset, y + inset, cell - 2 * inset, cell - 2 * inset, colour
                 )
+
+
+def vignette(rect: tuple[int, int, int, int], level: float) -> None:
+    """A red edge that fades towards the middle of `rect`; `level` is 0 to 1."""
+    x, y, width, height = rect
+    rings = 5
+    band = max(2, height // 90)
+    for ring in range(rings):
+        pyxel.dither(level * (1 - ring / rings))
+        inset = ring * band
+        w, h = width - 2 * inset, height - 2 * inset
+        pyxel.rect(x + inset, y + inset, w, band, RED)
+        pyxel.rect(x + inset, y + inset + h - band, w, band, RED)
+        pyxel.rect(x + inset, y + inset + band, band, h - 2 * band, RED)
+        pyxel.rect(x + inset + w - band, y + inset + band, band, h - 2 * band, RED)
+    pyxel.dither(1.0)
+
+
+def burst(view: View, at: tuple[float, float], sparks) -> None:
+    """Square sparks (offsets and sizes in tiles) around tile coordinates `at`."""
+    cell, ox, oy = view
+    for spark in sparks:
+        size = max(2, round(spark.size * cell))
+        cx = ox + (at[0] + 0.5 + spark.dx) * cell
+        cy = oy + (at[1] + 0.5 + spark.dy) * cell
+        pyxel.rect(cx - size / 2, cy - size / 2, size, size, spark.colour)
+
+
+def fade(width: int, height: int, cover: float) -> None:
+    """Cover the screen with the background colour; `cover` is 0 (none) to 1."""
+    pyxel.dither(cover)
+    pyxel.rect(0, 0, width, height, NAVY)
+    pyxel.dither(1.0)

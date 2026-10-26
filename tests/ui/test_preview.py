@@ -420,7 +420,7 @@ def pulses(player, still):
     drawn = []
     player.fake.rectb = lambda *a: drawn.append(a)
     seen = []
-    for frame in (0, 8):
+    for frame in (0, 16):
         player.fake.frame_count = frame
         drawn.clear()
         game.draw()

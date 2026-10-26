@@ -28,6 +28,7 @@ from echo_shift.ui import (
     cues,
     goals,
     guide,
+    motion,
     pointer,
     preview,
     progress,
@@ -112,7 +113,11 @@ SETTINGS_ITEMS = (
     "fullscreen",
     "close",
 )
-INTRO_FRAMES = 150  # about five seconds of highlight for a newly shown button
+FPS = motion.FPS
+INTRO_FRAMES = 5 * FPS  # highlight for a newly shown button
+MESSAGE_FRAMES = 4 * FPS  # how long a feedback line stays up
+FLASH_FRAMES = FPS * 2 // 5  # the red room outline after a refusal
+REPEAT_HOLD, REPEAT_RATE = FPS * 4 // 15, FPS // 6  # held-move key repeat, in frames
 ECHO_EVENTS = {"record": "enter", "save": "enter", "launch": "launch"}
 ENTER_ACTIONS = {"enter", "launch", "apply"}
 GATED_IDS = (
@@ -151,7 +156,7 @@ class Game:
         pyxel.init(
             *self.windowed_size,
             title="Echo Shift",
-            fps=30,
+            fps=FPS,
             quit_key=pyxel.KEY_NONE,
             display_scale=1,
         )
@@ -159,6 +164,7 @@ class Game:
         self.pending_fullscreen = None
         self.layout = Layout.fit(*self.windowed_size)
         self.room_view = (self.layout.cell, self.layout.room_x, self.layout.room_y)
+        self.shaken = self.room_view  # the room view with any failure shake applied
         self.room_bounds = (0, 0, 0, 0)
         self.text_cache = {}
         self.fonts = {}
@@ -167,6 +173,8 @@ class Game:
         self.progress = progress.load(LEVEL_COUNT)
         self.audio = audio.Audio(pyxel)
         self.heard = None
+        self.motion = motion.Motion(self.progress.settings.reduced_motion)
+        self.move_dir = None
         self.goal_targets = goals.targets(resource_path("levels"), LEVEL_COUNT)
         self.run = None
         self.history = History()
@@ -205,7 +213,7 @@ class Game:
         self.selection = 0
         self.pending = self.state.powered_circuits
         self.message = self.play_prompt().upper()
-        self.message_frames = 120
+        self.message_frames = MESSAGE_FRAMES
         self.flash = 0
         self.attempt = None
         atexit.register(self.finish_attempt)
@@ -334,7 +342,7 @@ class Game:
         repeat: bool = False,
         only: tuple[str, ...] | None = None,
     ) -> bool:
-        kwargs = {"hold": 8, "repeat": 5} if repeat else {}
+        kwargs = {"hold": REPEAT_HOLD, "repeat": REPEAT_RATE} if repeat else {}
         return any(
             pyxel.btnp(getattr(pyxel, name), **kwargs)
             for name in only or controls.key_names(action_id)
@@ -448,8 +456,8 @@ class Game:
             self.heard = audio.Refusal(message)
         self.message_error = error
         self.message = message.upper()
-        self.message_frames = 120
-        self.flash = 12 if error else 0
+        self.message_frames = MESSAGE_FRAMES
+        self.flash = FLASH_FRAMES if error else 0
 
     def act(self, action: Move | Wait | InteractAtConsole) -> None:
         event = (
@@ -461,6 +469,8 @@ class Game:
             if isinstance(action, Wait)
             else "apply"
         )
+        if isinstance(action, Move):
+            self.move_dir = (action.dx, action.dy)
         if not self.allow(event):
             return
         if not isinstance(action, InteractAtConsole):
@@ -525,11 +535,36 @@ class Game:
         self.browser.hover = None
         if self.mode == "game" and self.modal != "lesson_choice":
             self.intro_frames = max(0, self.intro_frames - 1)
-        before, seen = self.state, self.ui_marks()
-        self.heard = None
+        self.motion.set_reduced(self.progress.settings.reduced_motion)
+        if self.gameplay_input():
+            self.motion.snap()  # new input ends running animations first
+        before, seen, mode = self.state, self.ui_marks(), self.mode
+        self.heard = self.move_dir = None
         self.step_frame()
         self.track_preview()
+        self.animate(before, mode)
         self.hear(before, seen)
+        self.motion.tick()
+
+    def gameplay_input(self) -> bool:
+        """Whether any gameplay key or mouse button went down this frame."""
+        if not hasattr(pyxel, "btnp"):
+            return False
+        names = (*controls.gameplay_key_names(), "MOUSE_BUTTON_LEFT")
+        return any(pyxel.btnp(getattr(pyxel, n)) for n in names if hasattr(pyxel, n))
+
+    def animate(self, before: State, mode: str) -> None:
+        """Start motion from what this frame changed; presentation only."""
+        if self.mode != mode or self.state.chamber is not before.chamber:
+            self.motion.fade_in()
+        elif isinstance(self.heard, audio.Cue):
+            self.motion.snap()  # undo and restarts show their result at once
+        elif (
+            self.state is not before
+            or self.move_dir is not None
+            or isinstance(self.heard, Failed)
+        ):
+            self.motion.start(before, self.state, self.heard, self.move_dir)
 
     def ui_marks(self) -> tuple:
         """What menus, cards and the console show, to tell what an input changed."""
@@ -1237,14 +1272,10 @@ class Game:
             (self.layout.width - len(value) * 4 * scale) // 2, y, value, color, scale
         )
 
-    def sprite(self, name: str, pos: Position) -> None:
-        cell, x, y = self.room_view
-        self.atlas.draw(
-            name,
-            x + pos.x * cell,
-            y + pos.y * cell,
-            cell,
-        )
+    def sprite(self, name: str, pos: Position | tuple[float, float]) -> None:
+        cell, x, y = self.shaken
+        tx, ty = pos if isinstance(pos, tuple) else (pos.x, pos.y)
+        self.atlas.draw(name, x + tx * cell, y + ty * cell, cell)
 
     def pointer_tile(self, view: cuedraw.View) -> Position | None:
         """The room tile under the pointer, or None off the room or under the drawer."""
@@ -1275,8 +1306,13 @@ class Game:
         self.room_view = view
         self.room_bounds = min_x, min_y, max_x, max_y
         hover = self.pointer_tile(view)
+        shake_x, shake_y = self.motion.shake()
+        origin_x += round(shake_x * cell)
+        origin_y += round(shake_y * cell)
+        view = self.shaken = (cell, origin_x, origin_y)
         turn = self.preview_turn()
         frame = self.projection().at(turn) if turn is not None else None
+        live = frame is None  # motion only shows real steps, not previews
         active = frame.pads_active if frame else state.pad_active
         gates_open = frame.gates_open if frame else state.gates_open
         running = frame.elevators_running if frame else state.elevators_running
@@ -1306,38 +1342,58 @@ class Game:
                         1,
                     )
                     continue
-                remap = DARK_REMAP if dark else None
-                if remap:
-                    for source, target in enumerate(remap):
-                        pyxel.pal(source, target)
-                base = (
+                names = [
                     "wall"
                     if tile is TileType.WALL
                     else "floor_hub"
                     if pos in state.chamber.hub
                     else "floor_lit"
-                )
-                self.sprite(base, pos)
+                ]
                 if pos in pads:
                     pad = pads[pos]
                     prefix = "pad_timed" if pad.timer_length else "pad"
-                    self.sprite(prefix + ("_on" if pad.id in active else "_off"), pos)
+                    names.append(
+                        (live and self.motion.pad(pad.id))
+                        or prefix + ("_on" if pad.id in active else "_off")
+                    )
                 elif pos in devices:
                     device = devices[pos]
                     if device.kind is TileType.GATE:
-                        self.sprite(
-                            "gate_open" if device.id in gates_open else "gate_closed",
-                            pos,
+                        names.append(
+                            (live and self.motion.gate(device.id))
+                            or (
+                                "gate_open"
+                                if device.id in gates_open
+                                else "gate_closed"
+                            )
                         )
                     else:
-                        self.sprite(
-                            "elevator_on" if device.id in running else "elevator_off",
-                            pos,
+                        names.append(
+                            (live and self.motion.elevator(device.id))
+                            or (
+                                "elevator_on"
+                                if device.id in running
+                                else "elevator_off"
+                            )
                         )
                 elif pos in state.chamber.consoles:
-                    self.sprite("console", pos)
-                if remap:
-                    pyxel.pal()
+                    names.append("console")
+                # A tile whose light just changed shows its old look, then fades
+                # to the new one with a dither.
+                looks = ((dark, 1.0),)
+                fading = self.motion.light(pos) if live else None
+                if fading and tile is not TileType.WALL:
+                    looks = ((not fading[0], 1.0), (dark, fading[1]))
+                for look_dark, alpha in looks:
+                    if look_dark:
+                        for source, target in enumerate(DARK_REMAP):
+                            pyxel.pal(source, target)
+                    pyxel.dither(alpha)
+                    for name in names:
+                        self.sprite(name, pos)
+                    pyxel.dither(1.0)
+                    if look_dark:
+                        pyxel.pal()
                 if pos in pads or pos in devices:
                     pad_id = pads[pos].id if pos in pads else devices[pos].pad_id
                     link = focus.get(devices[pos].id) if pos in devices else None
@@ -1362,12 +1418,13 @@ class Game:
             pyxel.rect(edge, top - rail * 5, rail * 2, rail * 5, 12)
             pyxel.rect(edge, bottom, rail * 2, rail * 5, 9)
         self.draw_cues(view, frame, timers, occupied, focus, letter, letter_char)
-        flicker = getattr(pyxel, "frame_count", 0) // 12 % 2
+        flicker = motion.blink(getattr(pyxel, "frame_count", 0), 0.4)
         if frame is not None:
             self.draw_ghosts(view, frame, flicker)
-        elif state.echo_position is not None:
-            self.sprite(f"echo_idle_{flicker}", state.echo_position)
-        self.sprite(f"player_idle_{flicker}", state.player)
+        elif (shown := self.motion.echo(state.echo_position)) is not None:
+            self.sprite(shown[2] or f"echo_idle_{flicker}", shown[:2])
+        x, y, name = self.motion.player(state.player)
+        self.sprite(name or f"player_idle_{flicker}", (x, y))
         if frame is None and (command := preview.next_command(state)):
             cuedraw.arrow(view, state.echo_position, command)
         covered = self.paused or self.failure or self.modal or self.console
@@ -1383,7 +1440,13 @@ class Game:
                 cell - 2,
                 7,
             )
-        if self.flash and self.flash % 4 < 2:
+        if (sparks := self.motion.burst()) is not None:
+            cuedraw.burst(view, (sparks[0].x, sparks[0].y), sparks[1])
+        if edge := self.motion.vignette():
+            cuedraw.vignette(
+                (layout.room_x, layout.room_y, layout.room_w, layout.room_h), edge
+            )
+        if self.flash and not self.progress.settings.reduced_motion:
             pyxel.rectb(layout.room_x, layout.room_y, layout.room_w, layout.room_h, 8)
 
     def draw_cues(
@@ -1405,7 +1468,13 @@ class Game:
             positions = {pad.id: pad.position for pad in state.chamber.pads}
             for pad_id, value in numbers:
                 cuedraw.countdown(
-                    view, positions[pad_id], self.text, value, letter, letter_char
+                    view,
+                    positions[pad_id],
+                    self.text,
+                    value,
+                    letter,
+                    letter_char,
+                    self.motion.tick_lift(pad_id) if frame is None else 0.0,
                 )
             if frame is None:
                 kinds = {d.id: d.kind for d in state.chamber.devices}
@@ -1517,7 +1586,10 @@ class Game:
             return False
         if key.removeprefix("action:") not in controls.introduced(self.level):
             return False
-        return self.progress.settings.reduced_motion or self.intro_frames // 8 % 2 == 0
+        return (
+            self.progress.settings.reduced_motion
+            or motion.blink(self.intro_frames, 0.27) == 0
+        )
 
     def draw_item(self, item: bars.Item, hud: Hud) -> None:
         layout = self.layout
@@ -1766,7 +1838,7 @@ class Game:
         px, py, pw, _ = self.layout.menu_rect(95, 58, 1090, 2)
         pyxel.rect(px, py, pw, max(1, self.layout.menu_rect(0, 0, 0, 2)[3]), 5)
         frame = getattr(pyxel, "frame_count", 0)
-        pulse_x = px + (frame * 3) % max(1, pw - 65)
+        pulse_x = px + (frame * 3 // 2) % max(1, pw - 65)
         pyxel.rect(pulse_x, py, min(65, pw), max(1, self.layout.text_scale), 12)
         left, top, rail_w, rail_h = self.layout.menu_rect(94, 652, 1092, 3)
         pyxel.rect(left, top, rail_w, max(1, rail_h), 5)
@@ -1777,7 +1849,7 @@ class Game:
             sx, sy, sw, sh = self.layout.menu_rect(side, 104, 3, 500)
             pyxel.rect(sx, sy, max(1, sw), sh, 5)
             step = self.layout.menu_rect(0, 0, 0, 85)[3]
-            tick = sy + (frame * 2) % max(1, sh - step)
+            tick = sy + frame % max(1, sh - step)
             pyxel.rect(
                 sx, tick, max(1, sw), max(4, step // 2), 12 if side == 1160 else 9
             )
@@ -1817,20 +1889,23 @@ class Game:
         subtitle_y = self.layout.menu_rect(0, 321, 0, 0)[1]
         self.centered(subtitle_y, "BEND THE LIGHT. OUTRUN YOUR ECHO.", 12)
         frame = getattr(pyxel, "frame_count", 0)
-        bob = round(5 * math.sin(frame * math.tau / 90))
+        bob = round(5 * math.sin(frame * math.tau / (3 * FPS)))
         sprite_size = self.layout.menu_rect(0, 0, 194, 0)[2]
         player_x, player_y, _, _ = self.layout.menu_rect(414, 351, 0, 0)
         echo_x, echo_y, _, _ = self.layout.menu_rect(677, 351, 0, 0)
         self.atlas.draw(
-            f"player_idle_{frame // 15 % 2}", player_x, player_y + bob, sprite_size
+            f"player_idle_{motion.blink(frame, 0.5)}",
+            player_x,
+            player_y + bob,
+            sprite_size,
         )
         self.atlas.draw(
-            f"echo_idle_{frame // 15 % 2}", echo_x, echo_y - bob, sprite_size
+            f"echo_idle_{motion.blink(frame, 0.5)}", echo_x, echo_y - bob, sprite_size
         )
         button = self.layout.start_button()
         x, y, width, height = button
         hovered = self.mouse_active and self.menu_hit(button)
-        pulse = frame // 18 % 2 == 0
+        pulse = motion.blink(frame, 0.6) == 0
         pyxel.rect(x, y, width, height, 5 if hovered else 1)
         pyxel.rectb(x, y, width, height, 10 if hovered or pulse else 9)
         accent = max(2, self.layout.text_scale)
@@ -1869,7 +1944,13 @@ class Game:
             unlocked = number <= self.unlocked
             selected = number == self.level_cursor
             hovered = self.mouse_active and self.menu_hit((x, y, width, height))
-            color = 10 if selected and frame // 18 % 2 == 0 else 12 if selected else 6
+            color = (
+                10
+                if selected and motion.blink(frame, 0.6) == 0
+                else 12
+                if selected
+                else 6
+            )
             if not unlocked:
                 color = 5 if not selected else 13
             pyxel.rect(x, y, width, height, 1)
@@ -1879,7 +1960,7 @@ class Game:
             if selected or hovered:
                 bar = max(15, width // 5)
                 travel = max(1, width - 2 * inset - bar)
-                pyxel.rect(x + inset + frame * 2 % travel, y + inset, bar, inset, color)
+                pyxel.rect(x + inset + frame % travel, y + inset, bar, inset, color)
             number_scale = max(2, self.layout.text_scale + 4)
             self.text(
                 x + inset * 3,
@@ -2217,6 +2298,11 @@ class Game:
     def draw(self) -> None:
         self.sync_mouse()
         pyxel.cls(1)
+        self.draw_screen()
+        if cover := self.motion.fade():
+            cuedraw.fade(self.layout.width, self.layout.height, cover)
+
+    def draw_screen(self) -> None:
         if self.mode == "title":
             self.draw_title()
             return
