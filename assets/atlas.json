@@ -180,5 +180,124 @@
     "v": 288,
     "width": 96,
     "height": 96
+  },
+  "player_step_0": {
+    "bank": 0,
+    "u": 576,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "player_step_1": {
+    "bank": 0,
+    "u": 672,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "echo_step_0": {
+    "bank": 0,
+    "u": 0,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_step_1": {
+    "bank": 0,
+    "u": 96,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_spawn_0": {
+    "bank": 0,
+    "u": 192,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_spawn_1": {
+    "bank": 0,
+    "u": 288,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_spawn_2": {
+    "bank": 0,
+    "u": 384,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_expire_0": {
+    "bank": 0,
+    "u": 480,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_expire_1": {
+    "bank": 0,
+    "u": 576,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "echo_expire_2": {
+    "bank": 0,
+    "u": 672,
+    "v": 384,
+    "width": 96,
+    "height": 96
+  },
+  "gate_mid": {
+    "bank": 0,
+    "u": 0,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "pad_press": {
+    "bank": 0,
+    "u": 96,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "pad_timed_glow_0": {
+    "bank": 0,
+    "u": 192,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "pad_timed_glow_1": {
+    "bank": 0,
+    "u": 288,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "pad_timed_glow_2": {
+    "bank": 0,
+    "u": 384,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "elevator_on_1": {
+    "bank": 0,
+    "u": 480,
+    "v": 480,
+    "width": 96,
+    "height": 96
+  },
+  "console_1": {
+    "bank": 0,
+    "u": 576,
+    "v": 480,
+    "width": 96,
+    "height": 96
   }
 }

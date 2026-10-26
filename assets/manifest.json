@@ -431,6 +431,283 @@
           48
         ]
       }
+    },
+    {
+      "id": "player_step_0",
+      "type": "character",
+      "group": "player_step",
+      "description": "Technician step frame: crouched contact pose, feet planted.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "player_idle_0",
+      "op": "squash",
+      "params": {
+        "rows": 3
+      }
+    },
+    {
+      "id": "player_step_1",
+      "type": "character",
+      "group": "player_step",
+      "description": "Technician step frame: one-pixel sway to the right, feet planted.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "player_idle_1",
+      "op": "offset",
+      "params": {
+        "dx": 1
+      }
+    },
+    {
+      "id": "echo_step_0",
+      "type": "character",
+      "group": "echo_step",
+      "description": "Echo step frame: crouched contact pose, feet planted.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "squash",
+      "params": {
+        "rows": 3
+      }
+    },
+    {
+      "id": "echo_step_1",
+      "type": "character",
+      "group": "echo_step",
+      "description": "Echo step frame: one-pixel sway to the right, feet planted.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_1",
+      "op": "offset",
+      "params": {
+        "dx": 1
+      }
+    },
+    {
+      "id": "echo_spawn_0",
+      "type": "character",
+      "group": "echo_spawn",
+      "description": "Echo appearing: 7 tenths of the sprite still dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 7,
+        "steps": 10,
+        "seed": 11
+      }
+    },
+    {
+      "id": "echo_spawn_1",
+      "type": "character",
+      "group": "echo_spawn",
+      "description": "Echo appearing: 4 tenths of the sprite still dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 4,
+        "steps": 10,
+        "seed": 11
+      }
+    },
+    {
+      "id": "echo_spawn_2",
+      "type": "character",
+      "group": "echo_spawn",
+      "description": "Echo appearing: 2 tenths of the sprite still dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 2,
+        "steps": 10,
+        "seed": 11
+      }
+    },
+    {
+      "id": "echo_expire_0",
+      "type": "character",
+      "group": "echo_expire",
+      "description": "Echo fading out: 2 tenths of the sprite dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 2,
+        "steps": 10,
+        "seed": 23
+      }
+    },
+    {
+      "id": "echo_expire_1",
+      "type": "character",
+      "group": "echo_expire",
+      "description": "Echo fading out: 4 tenths of the sprite dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 4,
+        "steps": 10,
+        "seed": 23
+      }
+    },
+    {
+      "id": "echo_expire_2",
+      "type": "character",
+      "group": "echo_expire",
+      "description": "Echo fading out: 7 tenths of the sprite dissolved.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "echo_idle_0",
+      "op": "dissolve",
+      "params": {
+        "step": 7,
+        "steps": 10,
+        "seed": 23
+      }
+    },
+    {
+      "id": "gate_mid",
+      "type": "prop",
+      "group": "gates",
+      "description": "Gate halfway open: both leaves slid toward their posts.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "gate_closed",
+      "op": "slide",
+      "params": {
+        "moves": [
+          {
+            "box": [
+              20,
+              51,
+              28,
+              32
+            ],
+            "dx": -8,
+            "dy": 0
+          },
+          {
+            "box": [
+              48,
+              51,
+              28,
+              32
+            ],
+            "dx": 8,
+            "dy": 0
+          }
+        ],
+        "behind": true
+      }
+    },
+    {
+      "id": "pad_press",
+      "type": "prop",
+      "group": "pads",
+      "description": "Passive pad pressed down, a few rows shorter.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "pad_on",
+      "op": "squash",
+      "params": {
+        "rows": 4
+      }
+    },
+    {
+      "id": "pad_timed_glow_0",
+      "type": "prop",
+      "group": "pad_timed_glow",
+      "description": "Active timed pad with a palette 3 glow ring, brightening each frame.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "pad_timed_on",
+      "op": "ring",
+      "params": {
+        "index": 3
+      }
+    },
+    {
+      "id": "pad_timed_glow_1",
+      "type": "prop",
+      "group": "pad_timed_glow",
+      "description": "Active timed pad with a palette 11 glow ring, brightening each frame.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "pad_timed_on",
+      "op": "ring",
+      "params": {
+        "index": 11
+      }
+    },
+    {
+      "id": "pad_timed_glow_2",
+      "type": "prop",
+      "group": "pad_timed_glow",
+      "description": "Active timed pad with a palette 10 glow ring, brightening each frame.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "pad_timed_on",
+      "op": "ring",
+      "params": {
+        "index": 10
+      }
+    },
+    {
+      "id": "elevator_on_1",
+      "type": "prop",
+      "group": "elevators",
+      "description": "Running elevator pulse frame: hazard stripes and rail lights brightened.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "elevator_on",
+      "op": "palette_swap",
+      "params": {
+        "map": {
+          "9": 10,
+          "10": 7
+        }
+      }
+    },
+    {
+      "id": "console_1",
+      "type": "prop",
+      "group": "devices",
+      "description": "Console with a brighter screen for a flicker.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "console",
+      "op": "palette_swap",
+      "params": {
+        "map": {
+          "3": 11
+        }
+      }
     }
   ]
 }
