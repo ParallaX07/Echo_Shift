@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from echo_shift.engine.model import Chamber, TileType
 
 Rect = tuple[int, int, int, int]
+ROOM_ROWS = 7  # tile rows the room shows at the smallest tile size
 FONT_ADVANCE = 0.602  # DejaVu Sans Mono advance in em; the width is rounded up.
 
 
@@ -62,7 +63,7 @@ class Layout:
     """Top bar, room and bottom bar for one window size.
 
     `cell` is the reference tile size used to scale paddings; the room's own
-    tile size comes from `room_fit`.
+    tile size comes from `tile_size`.
     """
 
     width: int
@@ -152,19 +153,27 @@ class Layout:
             self.room_h,
         )
 
-    def room_fit(
-        self, columns: int, rows: int, console: bool = False
-    ) -> tuple[int, int, int]:
-        """Largest square cell for a `columns` x `rows` block of tiles.
+    @property
+    def min_tile(self) -> int:
+        """The smallest room tile: seven rows always fit, whatever the chamber."""
+        return max(1, min(self.cell, self.room_h // ROOM_ROWS))
 
-        Returns (cell, x, y) with the block centred in the room. While the
-        console is open the block is fitted left of the drawer instead.
+    def tile_size(self, columns: int, rows: int) -> int:
+        """The room's tile size for a `columns` x `rows` chamber.
+
+        The largest tile that shows the whole chamber in the room (the drawer
+        closed), never below `min_tile` (a bigger chamber scrolls instead) and
+        never above twice the reference cell (a tiny one stays modest).
         """
+        fit = max(1, min(self.room_w // columns, self.room_h // rows))
+        return max(self.min_tile, min(fit, 2 * self.cell))
+
+    def room_viewport(self, console: bool = False) -> Rect:
+        """The part of the room the camera shows; an open console takes the right."""
         x, y, w, h = self.room
         if console:
             w -= self.drawer_width + self.pad
-        cell = max(1, min(w // columns, h // rows))
-        return cell, x + (w - columns * cell) // 2, y + (h - rows * cell) // 2
+        return x, y, w, h
 
     def overlay(self) -> tuple[int, int, int, int]:
         width = min(self.width - 32, max(420, self.width * 3 // 5))

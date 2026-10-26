@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 
 from echo_shift.engine import lighting
 from echo_shift.engine.model import Device, Phase, Position, State, TileType
+from echo_shift.ui import camera
 
 STEPS = ((0, -1), (1, 0), (0, 1), (-1, 0))
 
@@ -107,3 +108,54 @@ def console_preview(state: State, pending: frozenset[str]) -> ConsolePreview:
     return ConsolePreview(
         before - after, after - before, frozenset(losing), frozenset(gaining)
     )
+
+
+@dataclass(frozen=True)
+class Marker:
+    """An edge arrow for something outside the view: `kind`, spot and direction."""
+
+    kind: str
+    x: float
+    y: float
+    dx: float
+    dy: float
+
+
+def offscreen_targets(
+    state: State, echo: tuple[float, float, object] | None = None
+) -> tuple[tuple[str, tuple[float, float]], ...]:
+    """Gates, pads, elevators and the echo as (kind, tile position)."""
+    found = [("pad", (pad.position.x, pad.position.y)) for pad in state.chamber.pads]
+    found += [
+        (
+            "gate" if device.kind is TileType.GATE else "elevator",
+            (device.position.x, device.position.y),
+        )
+        for device in state.chamber.devices
+    ]
+    if echo is not None:
+        found.append(("echo", (echo[0], echo[1])))
+    return tuple(found)
+
+
+def offscreen_markers(
+    view: camera.View,
+    rect: camera.Rect,
+    targets: tuple[tuple[str, tuple[float, float]], ...],
+    inset: int,
+) -> tuple[Marker, ...]:
+    """Arrows on the edge of `rect` for each target whose tile is out of sight.
+
+    Nothing is returned while every target is in view.
+    """
+    cell, origin_x, origin_y = view
+    markers = []
+    for kind, (x, y) in targets:
+        if camera.visible(view, rect, x, y):
+            continue
+        spot = (origin_x + (x + 0.5) * cell, origin_y + (y + 0.5) * cell)
+        found = camera.edge_marker(rect, spot, inset)
+        if found is not None:
+            (at_x, at_y), (dx, dy) = found
+            markers.append(Marker(kind, at_x, at_y, dx, dy))
+    return tuple(markers)

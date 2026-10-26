@@ -10,10 +10,11 @@ from itertools import pairwise
 import pyxel
 
 from echo_shift.engine.model import Position
-from echo_shift.ui import motion
+from echo_shift.ui import camera, cues, motion
 from echo_shift.ui.cues import ConsolePreview, DeviceLink
 
-View = tuple[int, int, int]  # cell size, origin x, origin y of tile (0, 0)
+View = camera.View
+Rect = camera.Rect
 Text = Callable[..., None]  # text(x, y, value, color, scale)
 RED, AMBER, YELLOW, GREEN, BLUE, GREY, LAVENDER, WHITE, NAVY = (
     8,
@@ -112,8 +113,49 @@ def badge(
         bolt(left + 3, y + pad + 3, inner, bolt_lit)
 
 
-def links(view: View, found: tuple[DeviceLink, ...]) -> None:
-    """Lines from each focused gate or elevator to the pad that controls it."""
+def edge_arrow(x: float, y: float, dx: float, dy: float, size: int, colour: int):
+    """A filled arrowhead centred on (x, y) and pointing along the unit (dx, dy)."""
+    side_x, side_y = -dy * size * 0.7, dx * size * 0.7
+    points = (
+        round(x + dx * size),
+        round(y + dy * size),
+        round(x - dx * size * 0.6 + side_x),
+        round(y - dy * size * 0.6 + side_y),
+        round(x - dx * size * 0.6 - side_x),
+        round(y - dy * size * 0.6 - side_y),
+    )
+    pyxel.tri(*points, colour)
+    pyxel.trib(*points, NAVY)
+
+
+MARKER_COLOURS = {
+    "pad": GREEN,
+    "gate": AMBER,
+    "elevator": WHITE,
+    "echo": BLUE,
+    "target": YELLOW,
+}
+
+
+def offscreen(view: View, rect: Rect, targets) -> None:
+    """Edge arrows for the (kind, tile position) targets the view cannot see."""
+    size = max(6, view[0] // 9)
+    for marker in cues.offscreen_markers(view, rect, targets, size + 4):
+        edge_arrow(
+            marker.x,
+            marker.y,
+            marker.dx,
+            marker.dy,
+            size,
+            MARKER_COLOURS[marker.kind],
+        )
+
+
+def links(view: View, found: tuple[DeviceLink, ...], rect: Rect | None = None) -> None:
+    """Lines from each focused gate or elevator to the pad that controls it.
+
+    With a `rect`, a link that runs out of it ends in an arrow on its edge.
+    """
     cell = view[0]
     for link in found:
         x1, y1 = centre(view, link.device.position)
@@ -122,6 +164,17 @@ def links(view: View, found: tuple[DeviceLink, ...]) -> None:
         for offset in range(max(2, cell // 40)):
             pyxel.line(x1, y1 + offset, x2, y2 + offset, colour)
         pyxel.circ(x2, y2, max(3, cell // 20), colour)
+        size = max(6, cell // 9)
+        if rect is not None and (
+            out := camera.exit_point(inset(rect, size + 4), (x1, y1), (x2, y2))
+        ):
+            length = max(1.0, ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5)
+            edge_arrow(*out, (x2 - x1) / length, (y2 - y1) / length, size, colour)
+
+
+def inset(rect: Rect, by: int) -> Rect:
+    x, y, width, height = rect
+    return x + by, y + by, max(1, width - 2 * by), max(1, height - 2 * by)
 
 
 def countdown(
@@ -193,17 +246,19 @@ def arrow(view: View, pos: Position, command: tuple[str, tuple[int, int]]) -> No
     )
 
 
-def hatch(view: View, pos: Position) -> None:
-    """Dim a tile and cross-hatch it: it would go dark."""
+def hatch(view: View, pos: Position, room: Rect) -> None:
+    """Dim a tile and cross-hatch it: it would go dark. Drawing stays in `room`."""
     x, y, cell, _ = tile(view, pos)
     pyxel.dither(0.55)
     pyxel.rect(x, y, cell, cell, NAVY)
     pyxel.dither(1.0)
-    pyxel.clip(x, y, cell, cell)
+    left, top = max(x, room[0]), max(y, room[1])
+    right, bottom = min(x + cell, room[0] + room[2]), min(y + cell, room[1] + room[3])
+    pyxel.clip(left, top, max(0, right - left), max(0, bottom - top))
     gap = max(6, cell // 10)
     for offset in range(0, 2 * cell, gap):
         pyxel.line(x + offset, y, x, y + offset, GREY)
-    pyxel.clip()
+    pyxel.clip(*room)
 
 
 def console_preview(
@@ -212,10 +267,11 @@ def console_preview(
     devices: dict[str, Position],
     frame: int,
     still: bool,
+    room: Rect,
 ) -> None:
     """Dim what would go dark; pulse (or outline, when still) changing devices."""
     for pos in sorted(found.dark):
-        hatch(view, pos)
+        hatch(view, pos, room)
     for pos in sorted(found.lit):
         x, y, cell, _ = tile(view, pos)
         pyxel.rectb(x + 2, y + 2, cell - 4, cell - 4, GREEN)

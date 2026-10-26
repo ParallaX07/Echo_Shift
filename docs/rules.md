@@ -200,6 +200,33 @@ the reset count; an over-budget confirmation never advances the engine. The reco
 also counts undos, refused (disabled) key presses by action, failure-card
 choices and timeline previews.
 
+## Camera and off-screen markers
+
+The camera only changes what is drawn; it never touches the rules or the input.
+
+- **Tile size.** Each window and chamber gets the largest tile that shows the
+  whole framed area (the route plus a one-tile wall border) with the console
+  closed, never below a floor of about seven rows in the room (80 px at
+  1280x720) and never above twice the reference cell. A chamber that fits fills
+  the room and never scrolls. One that would need smaller tiles keeps the floor
+  size and scrolls.
+- **Follow.** The view follows the player's drawn position with a dead zone
+  around the middle, eases towards its target, stays inside the framed area and
+  centres a chamber smaller than the view. Opening the console narrows the view
+  without changing the tile size, so the camera scrolls if the player would be
+  covered. Reduced motion jumps to the target at once. Opening a chamber, a
+  retry, a restart or an undo that moves the player more than one tile snaps the
+  view.
+- **Mouse.** Clicks and hover use the view that is currently drawn, including
+  while the camera moves. Only tiles that are visible, and not under the console
+  drawer, can be hit.
+- **Markers.** A small arrow on the room's edge points at each gate, pad,
+  elevator or echo that is out of view, coloured by kind (amber gate, green pad,
+  white elevator, blue echo). A guided step's target tile gets a yellow one.
+  Nothing is drawn while everything is visible. A linked gate or elevator that
+  is hovered or next to the player draws its link line clipped to the edge and
+  ends it in an arrow when the pad is out of view.
+
 ## Turn resolution
 
 Each accepted action advances one turn in this order:

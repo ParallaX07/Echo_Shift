@@ -11,6 +11,7 @@ from echo_shift.engine.recording import enter
 from echo_shift.engine.turn import Wait
 from echo_shift.paths import resource_path
 from echo_shift.ui import controls, pointer
+from echo_shift.ui.camera import Camera, view_origin
 from echo_shift.ui.layout import Layout, framed_bounds
 
 SIZES = [(640, 480), (1280, 720), (1536, 864), (1920, 1080)]
@@ -27,13 +28,14 @@ def chamber_state(number=3):
 
 
 def fitted(width, height, number=3, console=False):
-    chamber = chamber_state(number).chamber
-    bounds = framed_bounds(chamber)
-    columns, rows = bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1
+    state = chamber_state(number)
+    bounds = framed_bounds(state.chamber)
     layout = Layout.fit(width, height)
-    cell, fit_x, fit_y = layout.room_fit(columns, rows, console)
-    view = (cell, fit_x - bounds[0] * cell, fit_y - bounds[1] * cell)
-    return layout, view, bounds
+    port = layout.room_viewport(console)
+    cell = layout.tile_size(bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1)
+    focus = (state.player.x + 0.5, state.player.y + 0.5)
+    origin = Camera().follow(focus, (port[2] / cell, port[3] / cell), bounds)
+    return layout, (cell, *view_origin(port, cell, origin)), bounds
 
 
 @pytest.mark.parametrize(("width", "height"), SIZES)
@@ -76,14 +78,24 @@ def test_pixels_beyond_the_drawn_tiles_and_the_room_hit_nothing(width, height):
 
 @pytest.mark.parametrize(("width", "height"), SIZES)
 def test_the_console_drawer_hides_the_tiles_under_it(width, height):
-    layout, view, bounds = fitted(width, height, console=True)
-    cell, ox, oy = view
-    drawer_x = layout.console_drawer()[0]
-    tile = Position(bounds[2], bounds[1] + 1)
-    x, y = ox + tile.x * cell + cell // 2, oy + tile.y * cell + cell // 2
-    assert pointer.tile_at(view, bounds, layout.room, x, y, None) == tile
-    assert x < drawer_x  # the fit keeps every tile left of the drawer
-    assert pointer.tile_at(view, bounds, layout.room, drawer_x, y, drawer_x) is None
+    for console in (False, True):
+        layout, view, bounds = fitted(width, height, console=console)
+        drawer_x = layout.console_drawer()[0]
+        y = layout.room_y + layout.room_h // 2
+        x = drawer_x + layout.drawer_width // 2  # inside the drawer strip
+        tile = pointer.tile_at(view, bounds, layout.room, x, y, None)
+        if tile is not None:  # the world reaches under the strip
+            assert pointer.tile_at(view, bounds, layout.room, x, y, drawer_x) is None
+    layout, view, bounds = fitted(width, height)
+    last = Position(bounds[2], bounds[1] + 1)  # the right-most column
+    x = view[1] + last.x * view[0] + view[0] // 2
+    y = view[2] + last.y * view[0] + view[0] // 2
+    assert x >= layout.console_drawer()[0]
+    assert pointer.tile_at(view, bounds, layout.room, x, y, None) == last
+    assert (
+        pointer.tile_at(view, bounds, layout.room, x, y, layout.console_drawer()[0])
+        is None
+    )
 
 
 def test_click_actions_match_the_arrow_keys():

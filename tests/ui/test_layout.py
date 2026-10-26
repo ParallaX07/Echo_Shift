@@ -9,6 +9,7 @@ from echo_shift.engine.recording import act, enter
 from echo_shift.engine.turn import Move, Wait
 from echo_shift.paths import resource_path
 from echo_shift.ui import bars, controls
+from echo_shift.ui.camera import Camera, view_origin
 from echo_shift.ui.hud import model
 from echo_shift.ui.layout import (
     Layout,
@@ -36,12 +37,19 @@ def inside(inner, outer):
 
 
 def route_rect(layout, chamber, console):
-    min_x, min_y, max_x, max_y = framed_bounds(chamber)
-    cell, fit_x, fit_y = layout.room_fit(max_x - min_x + 1, max_y - min_y + 1, console)
+    """Pixel rect of the route with the camera centred on the chamber's start."""
+    bounds = framed_bounds(chamber)
+    port = layout.room_viewport(console)
+    cell = layout.tile_size(bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1)
+    start = initial_state(chamber).player
+    view = Camera().follow(
+        (start.x + 0.5, start.y + 0.5), (port[2] / cell, port[3] / cell), bounds
+    )
+    origin_x, origin_y = view_origin(port, cell, view)
     left, top, right, bottom = route_bounds(chamber)
     return (
-        fit_x + (left - min_x) * cell,
-        fit_y + (top - min_y) * cell,
+        origin_x + left * cell,
+        origin_y + top * cell,
         (right - left + 1) * cell,
         (bottom - top + 1) * cell,
     )
@@ -69,25 +77,50 @@ def test_bars_grow_with_text_scale():
 
 
 @pytest.mark.parametrize("width,height", SIZES)
+def test_tile_size_fits_the_chamber_between_a_floor_and_a_cap(width, height):
+    layout = Layout.fit(width, height)
+    floor = layout.min_tile
+    assert 1 <= floor <= layout.cell and floor * 7 <= layout.room_h
+    assert floor == min(layout.cell, layout.room_h // 7)
+    # A chamber that fits uses the largest tile that shows all of it, no scrolling.
+    for columns, rows in ((5, 3), (12, 9), (8, 7)):
+        size = layout.tile_size(columns, rows)
+        fit = min(layout.room_w // columns, layout.room_h // rows)
+        assert size == max(floor, min(fit, 2 * layout.cell))
+        if fit >= floor:
+            assert columns * size <= layout.room_w and rows * size <= layout.room_h
+    # A tiny chamber is capped; a chamber too big to fit keeps the floor.
+    assert layout.tile_size(1, 1) == 2 * layout.cell
+    assert layout.tile_size(60, 40) == floor
+    assert inside(layout.room_viewport(True), layout.room)
+    assert layout.room_viewport(True)[2] == layout.room_w - layout.drawer_width - (
+        layout.pad
+    )
+
+
+@pytest.mark.parametrize("width,height", SIZES)
 @pytest.mark.parametrize("chamber", CHAMBERS, ids=lambda c: f"{len(c.circuits)}c")
-def test_room_fit_keeps_route_clear_of_bars_and_drawer(width, height, chamber):
+def test_route_stays_clear_of_bars_and_drawer_when_the_chamber_fits(
+    width, height, chamber
+):
     layout = Layout.fit(width, height)
     drawer = layout.console_drawer()
     assert inside(drawer, layout.room)
+    min_x, min_y, max_x, max_y = framed_bounds(chamber)
     for console in (False, True):
+        port = layout.room_viewport(console)
+        size = layout.tile_size(max_x - min_x + 1, max_y - min_y + 1)
+        fits = (max_x - min_x + 1) * size <= port[2] and (
+            max_y - min_y + 1
+        ) * size <= port[3]
+        if not fits:
+            continue  # a bigger chamber scrolls instead
         route = route_rect(layout, chamber, console)
         assert inside(route, layout.room)
         assert not intersects(route, layout.top) and not intersects(
             route, layout.bottom
         )
         assert console is False or not intersects(route, drawer)
-    min_x, min_y, max_x, max_y = framed_bounds(chamber)
-    cell = layout.room_fit(max_x - min_x + 1, max_y - min_y + 1)[0]
-    assert cell * (max_x - min_x + 1) <= layout.room_w
-    assert cell * (max_y - min_y + 1) <= layout.room_h
-    assert cell + 1 > layout.room_h // (max_y - min_y + 1) or cell + 1 > (
-        layout.room_w // (max_x - min_x + 1)
-    )
 
 
 def states(chamber):

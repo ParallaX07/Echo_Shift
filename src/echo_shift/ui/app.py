@@ -23,6 +23,7 @@ from echo_shift.paths import resource_path, user_data_dir
 from echo_shift.ui import (
     audio,
     bars,
+    camera,
     controls,
     cuedraw,
     cues,
@@ -167,6 +168,7 @@ class Game:
         self.room_view = (self.layout.cell, self.layout.room_x, self.layout.room_y)
         self.shaken = self.room_view  # the room view with any failure shake applied
         self.room_bounds = (0, 0, 0, 0)
+        self.camera = camera.Camera()
         self.text_cache = {}
         self.fonts = {}
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
@@ -281,6 +283,7 @@ class Game:
         self.browser = preview.Browser()
         self.hint_index = 0
         self.seen_hints = set()
+        self.camera.reset()
         self.mode = "game"
         self.sync_mouse()
         self.modal = "lesson_choice" if self.lesson_steps else None
@@ -1329,20 +1332,29 @@ class Game:
             for x, tile in enumerate(row)
             if tile is not TileType.WALL
         }
-        min_x, min_y, max_x, max_y = framed_bounds(state.chamber)
-        cell, fit_x, fit_y = layout.room_fit(
-            max_x - min_x + 1, max_y - min_y + 1, self.console
+        bounds = framed_bounds(state.chamber)
+        port = layout.room_viewport(self.console)
+        cell = layout.tile_size(bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1)
+        shown_x, shown_y, _ = self.motion.player(state.player)
+        view_at = self.camera.follow(
+            (shown_x + 0.5, shown_y + 0.5),
+            (port[2] / cell, port[3] / cell),
+            bounds,
+            (cell, layout.room),
+            self.progress.settings.reduced_motion,
         )
-        origin_x = fit_x - min_x * cell
-        origin_y = fit_y - min_y * cell
+        origin_x, origin_y = camera.view_origin(port, cell, view_at)
         view = (cell, origin_x, origin_y)
         self.room_view = view
-        self.room_bounds = min_x, min_y, max_x, max_y
+        self.room_bounds = bounds
         hover = self.pointer_tile(view)
         shake_x, shake_y = self.motion.shake()
         origin_x += round(shake_x * cell)
         origin_y += round(shake_y * cell)
         view = self.shaken = (cell, origin_x, origin_y)
+        pyxel.clip(*layout.room)
+        seen = camera.visible_tiles(view, layout.room, bounds)
+        min_x, min_y, max_x, max_y = seen if seen else (0, 0, -1, -1)
         turn = self.preview_turn()
         frame = self.projection().at(turn) if turn is not None else None
         live = frame is None  # motion only shows real steps, not previews
@@ -1357,14 +1369,14 @@ class Game:
         }
         letter = max(1, min(4, cell // 40))
         letter_char = self.char_width(letter)
-        for y, row in enumerate(state.chamber.tiles):
-            for x, tile in enumerate(row):
-                if not (min_x <= x <= max_x and min_y <= y <= max_y):
-                    continue
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                tile = state.chamber.tiles[y][x]
                 pos = Position(x, y)
                 dark = pos not in lit and tile is not TileType.WALL
                 distant_wall = tile is TileType.WALL and not any(
-                    abs(pos.x - floor.x) + abs(pos.y - floor.y) <= 1 for floor in route
+                    Position(x + dx, y + dy) in route
+                    for dx, dy in ((0, 0), *cues.STEPS)
                 )
                 if distant_wall:
                     pyxel.rect(
@@ -1504,12 +1516,18 @@ class Game:
             )
         if (sparks := self.motion.burst()) is not None:
             cuedraw.burst(view, (sparks[0].x, sparks[0].y), sparks[1])
+        cuedraw.offscreen(
+            view,
+            port,
+            cues.offscreen_targets(state, self.motion.echo(state.echo_position)),
+        )
         if edge := self.motion.vignette():
             cuedraw.vignette(
                 (layout.room_x, layout.room_y, layout.room_w, layout.room_h), edge
             )
         if self.flash and not self.progress.settings.reduced_motion:
             pyxel.rectb(layout.room_x, layout.room_y, layout.room_w, layout.room_h, 8)
+        pyxel.clip()
 
     def draw_dust(self, lit: frozenset[Position], bounds, view) -> None:
         """A few motes drifting over the lit floor."""
@@ -1543,7 +1561,7 @@ class Game:
             for tile in cues.unsafe_neighbours(state):
                 cuedraw.unsafe_outline(view, tile, warn)
             for link in focus.values():
-                cuedraw.links(view, (link,))
+                cuedraw.links(view, (link,), self.layout.room)
             marks = preview.markers(state)
             numbers = preview.countdowns(state.chamber, timers, occupied)
             positions = {pad.id: pad.position for pad in state.chamber.pads}
@@ -1574,6 +1592,7 @@ class Game:
                 devices,
                 getattr(pyxel, "frame_count", 0),
                 self.progress.settings.reduced_motion,
+                self.layout.room,
             )
 
     def draw_ghosts(self, view, frame: preview.Frame, flicker: int) -> None:
@@ -2197,10 +2216,17 @@ class Game:
         if target["kind"] == "tile":
             tx, ty = target["position"]
             px, py = ox + tx * cell, oy + ty * cell
+            pyxel.clip(*self.layout.room)
             for inset in (2, 4):
                 pyxel.rectb(
                     px + inset, py + inset, cell - 2 * inset, cell - 2 * inset, 10
                 )
+            cuedraw.offscreen(
+                self.room_view,
+                self.layout.room_viewport(self.console),
+                (("target", (tx, ty)),),
+            )
+            pyxel.clip()
         elif target["kind"] in {"power", "state", "timeline"}:
             topic = (
                 f"timeline:{target['index']}"
@@ -2249,17 +2275,8 @@ class Game:
             self.lesson is not None and self.menu_hit(self.lesson_card_rect)
         ):
             return None
-        mx, my = self.menu_mouse_position()
-        cell, ox, oy = self.room_view
-        position = Position((mx - ox) // cell, (my - oy) // cell)
-        if (
-            self.layout.room_x <= mx < self.layout.room_x + self.layout.room_w
-            and self.layout.room_y <= my < self.layout.room_y + self.layout.room_h
-            and self.room_bounds[0] <= position.x <= self.room_bounds[2]
-            and self.room_bounds[1] <= position.y <= self.room_bounds[3]
-        ):
-            return room_info(self.state, position)
-        return None
+        position = self.pointer_tile(self.room_view)
+        return room_info(self.state, position) if position is not None else None
 
     def draw_hover(self) -> None:
         topic = self.hovered_topic()

@@ -1,8 +1,10 @@
 """Failure and undo, the console drawer, the mouse, pause and the guide."""
 
+from dataclasses import replace
+
 import pytest
 
-from echo_shift.engine.model import Phase, Position
+from echo_shift.engine.model import Phase, Position, TileType
 from echo_shift.ui import guide, progress
 
 from .conftest import assert_bars_intact, room_extent
@@ -46,11 +48,12 @@ def test_console_drawer_opens_toggles_applies_and_closes(real):
     room_before = room_extent(game)
     real.press("E")
     assert game.console
-    real.frame()
+    for _ in range(60):
+        real.frame()  # the camera eases the room over
     drawer_x, drawer_y, drawer_w, drawer_h = game.layout.console_drawer()
-    # The tiles refit to the left of the drawer; the strip is not room art.
-    assert room_extent(game)[2] <= drawer_x
-    assert room_extent(game) != room_before
+    # The camera keeps the player left of the drawer; the strip is not room art.
+    cell, origin_x, _ = game.room_view
+    assert origin_x + (game.state.player.x + 1) * cell <= drawer_x
     assert real.pixel(drawer_x + drawer_w // 2, drawer_y + drawer_h - 2) == 1
     assert_bars_intact(real)
     circuit = game.state.chamber.circuits[game.selection].id
@@ -59,7 +62,8 @@ def test_console_drawer_opens_toggles_applies_and_closes(real):
     real.press("E")  # Escape and E both close it
     assert not game.console
     assert game.state.powered_circuits == game.pending  # prepare applies at once
-    real.frame()
+    for _ in range(60):
+        real.frame()
     assert room_extent(game) == room_before
 
 
@@ -169,3 +173,28 @@ def test_room_art_fills_the_room_band_and_the_bars_stay_clear(real):
     for rect in (layout.top, layout.bottom):
         _, y, w, h = rect
         assert {real.pixel(x, y + h // 2) for x in (0, w - 1)} == {1}
+
+
+def test_a_chamber_bigger_than_the_room_scrolls_and_keeps_the_bars_whole(real):
+    game = start(real, 2)
+    chamber = game.state.chamber
+    floor = (TileType.FLOOR,) * 14
+    tiles = tuple(row + floor for row in chamber.tiles) + (floor + floor[:12],) * 10
+    tiles = tuple(row + (TileType.FLOOR,) * (26 - len(row)) for row in tiles)
+    wide = replace(chamber, tiles=tiles)
+    far = Position(24, 17)
+    game.state = replace(game.state, chamber=wide, player=far)
+    game.camera.reset()
+    real.frame()
+    cell, origin_x, origin_y = game.room_view
+    assert cell == game.layout.min_tile
+    left, top, _, _ = room_extent(game)
+    assert left < game.layout.room_x and top < game.layout.room_y  # scrolled away
+    assert origin_x + far.x * cell < game.layout.room_x + game.layout.room_w
+    # Gates and pads far behind the camera get edge arrows without painting the bars.
+    assert_bars_intact(real)
+    click_x = origin_x + far.x * cell + cell // 2
+    click_y = origin_y + far.y * cell + cell // 2
+    assert game.pointer_tile(game.room_view) is None  # the pointer is off the room
+    real.click_at(click_x, click_y)  # the player's own tile waits
+    assert game.state.phase is Phase.PREPARE
