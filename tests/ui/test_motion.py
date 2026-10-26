@@ -12,7 +12,7 @@ from echo_shift.engine import lighting, recording
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Phase, Position, initial_state
 from echo_shift.engine.turn import Failed, InteractAtConsole, Move
-from echo_shift.ui import motion
+from echo_shift.ui import bars, motion
 from echo_shift.ui.motion import Motion
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -379,11 +379,28 @@ def test_reduced_motion_shows_the_end_frame_in_the_game(player):
     assert game.motion.player(p) == (p.x, p.y, None)
 
 
-def test_undo_shows_the_old_state_at_once(player):
+def test_undo_plays_the_step_backwards_in_the_game(player):
+    start(player)
+    game = player.game
+    begin = game.state.player
+    tap(player, "RIGHT")
+    idle(player, 2)
+    tap(player, "Z")
+    assert game.state.player == game.state.chamber.start  # the engine is already back
+    assert game.motion.running
+    x, y, _ = game.motion.player(game.state.player)
+    assert x > begin.x and y == begin.y  # drawn still coming back from the tile
+    idle(player, motion.WALK_FRAMES // motion.UNDO_PACE)
+    assert not game.motion.running
+    assert game.motion.player(game.state.player) == (begin.x, begin.y, None)
+
+
+def test_undo_is_instant_with_reduced_motion_in_the_game(player):
     start(player)
     game = player.game
     tap(player, "RIGHT")
-    idle(player, 2)
+    game.progress.settings.reduced_motion = True
+    idle(player, 1)
     tap(player, "Z")
     assert game.state.player == game.state.chamber.start
     assert not game.motion.running
@@ -407,3 +424,366 @@ def test_a_new_screen_fades_in(player):
     assert game.motion.fade() > 0
     tap(player, "RIGHT")  # input snaps the fade
     assert game.motion.fade() == 0
+
+
+def test_undo_runs_the_step_back_at_double_speed():
+    before, after = walked()
+    m = Motion()
+    m.start(after, before, undo=True)  # undoing the step from `before` to `after`
+    assert m.player(before.player) == (after.player.x, after.player.y, "player_step_0")
+    ticks = -(-motion.WALK_FRAMES // motion.UNDO_PACE)  # half the walk, rounded up
+    run(m, ticks - 1)
+    assert ("slide", "player") in m._effects
+    run(m, 1)
+    assert ("slide", "player") not in m._effects
+    assert m.player(before.player) == (before.player.x, before.player.y, None)
+    m.start(before, after)  # a forward step still takes its full length
+    run(m, motion.WALK_FRAMES - 1)
+    assert ("slide", "player") in m._effects
+
+
+def test_undo_is_instant_with_reduced_motion():
+    before, after = walked()
+    m = Motion(reduced=True)
+    m.start(after, before, undo=True)
+    assert not m.running
+    assert m.player(before.player) == (before.player.x, before.player.y, None)
+
+
+def test_undoing_a_launch_does_not_spawn_an_echo():
+    base = initial_state(chamber(5))
+    committed = replace(base, phase=Phase.COMMITTED, echo_start=Position(4, 4))
+    launched = replace(
+        base, phase=Phase.REPLAY, echo_start=Position(4, 4), echo_position=A
+    )
+    m = Motion()
+    m.start(launched, committed, undo=True)
+    assert m.echo(None) is None
+    assert not any(k[0] in ("spawn", "expire") for k in m._effects)
+
+
+def test_a_filled_slot_pops_then_settles():
+    before, after = walked()
+    m = Motion()
+    m.start(before, after)
+    assert m.pop(0) == 1.0  # starts at its resting size
+    run(m, motion.POP_FRAMES // 2)
+    assert m.pop(0) > 1.0 and m.pop(1) == 1.0
+    run(m, motion.POP_FRAMES)
+    assert m.pop(0) == 1.0 and ("pop", 0) not in m._effects
+    m.start(after, before, undo=True)
+    assert m.pop(0) == 1.0  # an undo does not pop
+
+
+def test_the_playback_slot_pulses_and_returns_each_period():
+    assert motion.pulse(0) == 0 == motion.pulse(motion.PULSE_FRAMES)
+    assert motion.pulse(motion.PULSE_FRAMES // 2) == 1.0
+    assert Motion(reduced=True).pulse() == 0.0
+    live = Motion()
+    run(live, motion.PULSE_FRAMES // 2)
+    assert live.pulse() == 1.0
+
+
+def test_the_power_bar_eases_from_the_old_load_to_the_new_one():
+    before = initial_state(chamber(2))
+    after = recording.act(before, InteractAtConsole(frozenset({"lift-power"}))).state
+    old, new = motion._load(before), motion._load(after)
+    assert old != new
+    m = Motion()
+    m.start(before, after)
+    assert m.power_load(new) == old
+    run(m, motion.POWER_FRAMES // 2)
+    assert min(old, new) < m.power_load(new) < max(old, new)
+    run(m, motion.POWER_FRAMES)
+    assert m.power_load(new) == new and not m.running
+    still = Motion(reduced=True)
+    still.start(before, after)
+    assert still.power_load(new) == new
+
+
+@pytest.mark.parametrize("opening", [True, False])
+def test_the_console_drawer_slides_over_its_length(opening):
+    m = Motion()
+    if not opening:
+        m.set_drawer(True, animate=False)
+    m.set_drawer(opening)
+    first = m.drawer_hidden()
+    assert first == (1.0 if opening else 0.0)
+    run(m, motion.DRAWER_FRAMES // 2)
+    assert 0.0 < m.drawer_hidden() < 1.0
+    run(m, motion.DRAWER_FRAMES // 2 - 1)
+    assert m.drawer_hidden() is not None
+    m.tick()
+    assert m.drawer_hidden() is None and not m.running
+
+
+def test_the_drawer_is_instant_with_reduced_motion_or_on_a_new_screen():
+    still = Motion(reduced=True)
+    still.set_drawer(True)
+    assert still.drawer_hidden() is None
+    quiet = Motion()
+    quiet.set_drawer(True, animate=False)
+    assert quiet.drawer_hidden() is None
+    quiet.set_drawer(False)  # a later change still slides
+    assert quiet.drawer_hidden() == 0.0
+
+
+def button(key):
+    return bars.Item("button", key, (0, 0, 10, 10), "x")
+
+
+def test_new_and_vanished_buttons_slide_and_the_first_sight_does_not():
+    m = Motion()
+    a, b = button("action:a"), button("action:b")
+    m.sync_buttons({a.key: a})
+    assert not m.running  # the bar as first shown is not "new"
+    m.sync_buttons({a.key: a, b.key: b})
+    assert m.button_hidden(b.key) == 1.0 and m.button_hidden(a.key) is None
+    run(m, motion.BUTTON_FRAMES // 2)
+    assert 0.0 < m.button_hidden(b.key) < 1.0
+    run(m, motion.BUTTON_FRAMES)
+    assert m.button_hidden(b.key) is None
+    m.sync_buttons({a.key: a})
+    [(gone, hidden)] = m.leaving_buttons()
+    assert gone == b and hidden == 0.0
+    run(m, motion.BUTTON_FRAMES)
+    assert m.leaving_buttons() == []
+    m.fade_in()  # a new screen starts from a fresh baseline
+    m.sync_buttons({})
+    assert m.leaving_buttons() == []
+
+
+def test_buttons_do_not_slide_with_reduced_motion():
+    m = Motion(reduced=True)
+    m.sync_buttons({})
+    m.sync_buttons({"action:a": button("action:a")})
+    assert not m.running and m.button_hidden("action:a") is None
+
+
+def test_the_idle_bob_is_one_sprite_pixel_and_off_with_reduced_motion():
+    bobs = {motion.breath(f) for f in range(motion.FPS * 2)}
+    assert bobs == {0.0, 1 / motion.SPRITE_PX}
+    live = Motion()
+    run(live, round(motion.BREATH_SECONDS * motion.FPS))
+    assert live.breath() == 1 / motion.SPRITE_PX
+    assert Motion(reduced=True).breath() == 0.0
+
+
+def test_dust_is_deterministic_sparse_in_palette_and_off_with_reduced_motion():
+    seen = [motion.dust(f) for f in range(motion.DUST_LIFE * 2)]
+    assert seen == [motion.dust(f) for f in range(motion.DUST_LIFE * 2)]
+    assert all(len(motes) <= motion.DUST_COUNT for motes in seen)
+    colours = {mote.colour for motes in seen for mote in motes}
+    assert colours and colours <= {5, 6, 13}
+    assert all(0 <= mote.x <= 1 and 0 <= mote.y <= 1 for m in seen for mote in m)
+    live = Motion()
+    run(live, 30)
+    assert live.dust() == motion.dust(30)
+    assert Motion(reduced=True).dust() == ()
+
+
+def test_the_console_flickers_rarely_and_not_with_reduced_motion():
+    lit = [motion.console_lit(f) for f in range(motion.FPS * 20)]
+    assert any(lit) and not all(lit)
+    for first in range(len(lit) - motion.FPS):
+        window = lit[first : first + motion.FPS]
+        flashes = sum(1 for a, b in pairwise([False, *window]) if b and not a)
+        assert flashes < 3
+    assert not Motion(reduced=True).console_lit()
+
+
+def test_conduit_pulse_travels_the_rails_and_wraps():
+    assert motion.conduit(0) == 0
+    assert 0 < motion.conduit(motion.CONDUIT_FRAMES // 2) < 1
+    assert motion.conduit(motion.CONDUIT_FRAMES) == 0
+    assert Motion(reduced=True).conduit() is None
+
+
+def test_the_echo_leaves_a_short_dim_trail_of_where_it_was():
+    base = initial_state(chamber(5))
+    path = [Position(2 + i, 3) for i in range(6)]
+    launched = replace(
+        base, phase=Phase.REPLAY, echo_start=path[0], echo_position=path[0]
+    )
+    m = Motion()
+    m.start(replace(launched, phase=Phase.COMMITTED), launched)
+    assert m.trail(path[0]) == ()
+    state = launched
+    for i in range(1, 5):
+        step = replace(state, echo_position=path[i], echo_index=i, turns=i)
+        m.start(state, step)
+        state = step
+    assert m.trail(path[4]) == (path[3], path[2], path[1])  # newest first, 3 kept
+    assert m.trail(None) == ()
+    assert len(motion.TRAIL_ALPHA) == motion.TRAIL_LENGTH
+    m.set_reduced(True)
+    assert m.trail(path[4]) == ()
+    m.set_reduced(False)
+    assert m.trail(path[4]) == ()  # reduced motion dropped it
+
+
+def test_a_new_launch_starts_a_fresh_trail():
+    base = initial_state(chamber(5))
+    one = replace(base, phase=Phase.REPLAY, echo_start=A, echo_position=A)
+    two = replace(one, echo_position=B, echo_index=1, turns=1)
+    m = Motion()
+    m.start(one, two)
+    assert m.trail(B) == (A,)
+    m.start(replace(one, phase=Phase.COMMITTED), one)  # launched again
+    assert m.trail(B) == ()
+
+
+def hold(player, name, frames):
+    """Hold a key for `frames` updates; return the player's tile after each."""
+    code = key(player, name)
+    player.held.add(code)
+    tiles = []
+    for index in range(frames):
+        if index == 0:
+            player.pressed.add(code)
+        player.game.update()
+        player.game.draw()
+        player.pressed.discard(code)
+        tiles.append(player.game.state.player)
+    player.held.discard(code)
+    return tiles
+
+
+def changes(tiles, first):
+    """The frames on which the tile changed."""
+    now, frames = first, []
+    for frame, tile in enumerate(tiles):
+        if tile != now:
+            frames.append(frame)
+            now = tile
+    return frames
+
+
+@pytest.mark.parametrize("reduced", [False, True])
+def test_a_held_key_steps_at_once_then_as_each_glide_lands(player, reduced):
+    start(player)
+    game = player.game
+    game.progress.settings.reduced_motion = reduced
+    first = game.state.player
+    tiles = hold(player, "RIGHT", motion.WALK_FRAMES * 2 + 5)
+    assert changes(tiles, first) == [0, motion.WALK_FRAMES]
+    assert tiles[0] == Position(first.x + 1, first.y)
+
+
+def test_holding_does_not_cut_the_glide_short(player):
+    start(player)
+    game = player.game
+    first = game.state.player
+    code = key(player, "RIGHT")
+    player.held.add(code)
+    player.pressed.add(code)
+    xs = []
+    for _ in range(motion.WALK_FRAMES):
+        game.update()
+        game.draw()
+        player.pressed.discard(code)
+        xs.append(game.motion.player(game.state.player)[0])
+    player.held.discard(code)
+    assert game.state.player.x == first.x + 1  # one step only so far
+    assert xs[: motion.WALK_FRAMES - 1] == sorted(set(xs[:-1]))  # steadily advancing
+    assert first.x < xs[motion.WALK_FRAMES // 2] < first.x + 1
+
+
+def test_a_held_key_asks_once_and_stops_after_a_refused_step(player):
+    start(player)
+    game = player.game
+    code = key(player, "LEFT")
+    player.held.add(code)
+    player.pressed.add(code)
+    left = []
+    for _ in range(motion.WALK_FRAMES * 4):
+        game.update()
+        game.draw()
+        player.pressed.discard(code)
+        left.append(game.message_frames)
+    assert game.message_error and game.walker.action is None
+    assert left == sorted(left, reverse=True)  # never told again while held
+    assert len(game.state.recording) == 0
+
+
+def test_a_held_key_stops_when_the_take_fails(player):
+    start(player, 2)
+    game = player.game
+    hold(player, "RIGHT", 2)  # a dark tile ends the take
+    assert game.failure is not None and game.walker.action is None
+
+
+def test_a_held_key_stops_when_the_recording_is_full(player):
+    start(player)
+    game = player.game
+    for _ in range(game.state.chamber.max_turns - 1):
+        player.press("SPACE")
+    tiles = hold(player, "RIGHT", motion.WALK_FRAMES * 3)
+    assert len(changes(tiles, game.state.chamber.start)) == 1  # the last turn only
+    assert len(game.state.recording) == game.state.chamber.max_turns
+    idle(player, 1)
+    tap(player, "RIGHT")  # one fresh press still explains the refusal
+    assert "RECORDING FULL" in game.message
+
+
+def test_releasing_and_pressing_again_steps_at_once(player):
+    start(player)
+    game = player.game
+    hold(player, "RIGHT", 4)
+    assert game.walker.action == "move_right"
+    idle(player, 1)
+    assert game.walker.action is None  # released
+    before = game.state.player
+    tap(player, "LEFT")
+    assert game.state.player == Position(before.x - 1, before.y)
+
+
+def test_walker_waits_a_full_walk_and_ends_on_anything_else():
+    walker = motion.Walker()
+    walker.stepped("a", True)
+    for _ in range(motion.WALK_FRAMES):
+        assert not walker.repeats("a", True, True)
+        walker.tick(True)
+    assert walker.repeats("a", True, True)
+    assert not walker.repeats("b", True, True)  # only its own direction repeats
+    assert not walker.repeats("a", True, False)  # a disabled move ends the walk
+    assert walker.action is None
+    walker.stepped("a", False)  # a refused step is never repeated
+    walker.tick(True)
+    assert walker.action is None
+    walker.stepped("a", True)
+    walker.tick(False)  # play input did not run (a menu opened, ...)
+    assert walker.action is None
+
+
+def test_the_console_drawer_slides_but_its_rows_stay_where_they_rest(player):
+    game = player.game
+    game.open_level(1)
+    player.press("F")
+    tap(player, "E")
+    assert game.console
+    hidden = game.motion.drawer_hidden()
+    assert hidden is not None and 0 < hidden < 1
+    game.draw()
+    rows = [rect for rect, key_ in game.ui_hits if key_.startswith("row:")]
+    assert rows and all(r[0] >= game.layout.console_drawer()[0] for r in rows)
+    idle(player, motion.DRAWER_FRAMES)
+    assert game.motion.drawer_hidden() is None
+    tap(player, "ESCAPE")
+    assert not game.console
+    assert game.motion.drawer_hidden() is not None  # still sliding out
+    game.draw()
+    assert not any(key_.startswith("row:") for _, key_ in game.ui_hits)
+    idle(player, motion.DRAWER_FRAMES)
+    assert game.motion.drawer_hidden() is None
+
+
+def test_a_button_that_leaves_the_bar_sinks_without_a_hit_rect(player):
+    start(player)
+    game = player.game
+    game.draw()
+    ghost = button("action:ghost")
+    game.motion._buttons["action:ghost"] = ghost
+    game.draw()
+    assert [item for item, _ in game.motion.leaving_buttons()] == [ghost]
+    assert "action:ghost" not in [key_ for _, key_ in game.ui_hits]

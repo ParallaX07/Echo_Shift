@@ -114,6 +114,7 @@ SETTINGS_ITEMS = (
     "close",
 )
 FPS = motion.FPS
+PULSE_GROW = motion.PULSE_GROW
 INTRO_FRAMES = 5 * FPS  # highlight for a newly shown button
 MESSAGE_FRAMES = 4 * FPS  # how long a feedback line stays up
 FLASH_FRAMES = FPS * 2 // 5  # the red room outline after a refusal
@@ -175,6 +176,8 @@ class Game:
         self.heard = None
         self.motion = motion.Motion(self.progress.settings.reduced_motion)
         self.move_dir = None
+        self.walker = motion.Walker()
+        self.played = False  # whether play input ran this frame
         self.goal_targets = goals.targets(resource_path("levels"), LEVEL_COUNT)
         self.run = None
         self.history = History()
@@ -385,6 +388,7 @@ class Game:
             snapshot.console,
         )
         self.failure = None
+        self.walker.stop()
         self.heard = audio.Cue("undo")
         self.attempt.undos += 1
         if self.lesson is not None and snapshot.lesson_index is not None:
@@ -540,10 +544,15 @@ class Game:
             self.motion.snap()  # new input ends running animations first
         before, seen, mode = self.state, self.ui_marks(), self.mode
         self.heard = self.move_dir = None
+        self.played = False
         self.step_frame()
         self.track_preview()
         self.animate(before, mode)
+        self.motion.set_drawer(
+            self.console, self.mode == mode and self.state.chamber is before.chamber
+        )
         self.hear(before, seen)
+        self.walker.tick(self.played)
         self.motion.tick()
 
     def gameplay_input(self) -> bool:
@@ -557,8 +566,11 @@ class Game:
         """Start motion from what this frame changed; presentation only."""
         if self.mode != mode or self.state.chamber is not before.chamber:
             self.motion.fade_in()
+        elif isinstance(self.heard, audio.Cue) and self.heard.sfx_id == "undo":
+            self.motion.start(before, self.state, undo=True)
         elif isinstance(self.heard, audio.Cue):
-            self.motion.snap()  # undo and restarts show their result at once
+            self.motion.snap()  # restarts show their result at once
+            self.motion.forget()
         elif (
             self.state is not before
             or self.move_dir is not None
@@ -1051,10 +1063,31 @@ class Game:
         elif self.pressed("preview_next"):
             self.perform("preview_next")
         else:
-            for action_id in controls.MOVE_DELTAS:
-                if self.pressed(action_id, repeat=True):
-                    self.perform(action_id)
-                    break
+            self.walk_input()
+
+    def walk_input(self) -> None:
+        """A fresh press steps at once; a held key steps again as each glide lands."""
+        self.played = True
+        moves = tuple(controls.MOVE_DELTAS)
+        for action_id in moves:
+            if self.pressed(action_id):
+                self.walk(action_id)
+                return
+        for action_id in moves:
+            if self.walker.repeats(
+                action_id,
+                self.held((action_id,)),
+                controls.find(self.actions(), action_id).enabled,
+            ):
+                self.walk(action_id)
+                return
+
+    def walk(self, action_id: str) -> None:
+        before = self.state.player
+        self.perform(action_id)
+        self.walker.stepped(
+            action_id, self.failure is None and self.state.player != before
+        )
 
     def clicked_action(self) -> str | None:
         """The gameplay action a click on the bars asks for, if any."""
@@ -1377,7 +1410,9 @@ class Game:
                             )
                         )
                 elif pos in state.chamber.consoles:
-                    names.append("console")
+                    names.append(
+                        "console_1" if self.motion.console_lit() else "console"
+                    )
                 # A tile whose light just changed shows its old look, then fades
                 # to the new one with a dither.
                 looks = ((dark, 1.0),)
@@ -1407,6 +1442,8 @@ class Game:
                         pad_id in active,
                         link.powered if link else None,
                     )
+        if live:
+            self.draw_dust(lit, (min_x, min_y, max_x, max_y), view)
         left = origin_x + left_x * cell
         right = origin_x + (right_x + 1) * cell
         top = origin_y + top_y * cell
@@ -1414,6 +1451,20 @@ class Game:
         rail = max(2, cell // 32)
         pyxel.rect(left, top - rail * 3, right - left, rail, 5)
         pyxel.rect(left, bottom + rail * 2, right - left, rail, 5)
+        if state.powered_circuits and (travelled := self.motion.conduit()) is not None:
+            # The rails are the only drawn conduit, so a powered chamber pulses there.
+            pulse = max(rail * 6, cell // 2)
+            for rail_y, share in (
+                (top - rail * 3, travelled),
+                (bottom + rail * 2, 1.0 - travelled),
+            ):
+                pyxel.rect(
+                    left + round((right - left - pulse) * share),
+                    rail_y,
+                    pulse,
+                    rail,
+                    12,
+                )
         for edge in (left, right - rail * 2):
             pyxel.rect(edge, top - rail * 5, rail * 2, rail * 5, 12)
             pyxel.rect(edge, bottom, rail * 2, rail * 5, 9)
@@ -1422,9 +1473,20 @@ class Game:
         if frame is not None:
             self.draw_ghosts(view, frame, flicker)
         elif (shown := self.motion.echo(state.echo_position)) is not None:
-            self.sprite(shown[2] or f"echo_idle_{flicker}", shown[:2])
+            for alpha, at in zip(
+                motion.TRAIL_ALPHA, self.motion.trail(state.echo_position)
+            ):
+                for colour in range(1, 16):
+                    pyxel.pal(colour, 13)
+                pyxel.dither(alpha)
+                self.sprite("echo_idle_0", at)
+                pyxel.dither(1.0)
+                pyxel.pal()
+            lift = 0.0 if shown[2] else self.motion.breath(motion.FPS // 2)
+            self.sprite(shown[2] or f"echo_idle_{flicker}", (shown[0], shown[1] - lift))
         x, y, name = self.motion.player(state.player)
-        self.sprite(name or f"player_idle_{flicker}", (x, y))
+        lift = 0.0 if name else self.motion.breath()
+        self.sprite(name or f"player_idle_{flicker}", (x, y - lift))
         if frame is None and (command := preview.next_command(state)):
             cuedraw.arrow(view, state.echo_position, command)
         covered = self.paused or self.failure or self.modal or self.console
@@ -1448,6 +1510,25 @@ class Game:
             )
         if self.flash and not self.progress.settings.reduced_motion:
             pyxel.rectb(layout.room_x, layout.room_y, layout.room_w, layout.room_h, 8)
+
+    def draw_dust(self, lit: frozenset[Position], bounds, view) -> None:
+        """A few motes drifting over the lit floor."""
+        min_x, min_y, max_x, max_y = bounds
+        floor = sorted(
+            (p for p in lit if min_x <= p.x <= max_x and min_y <= p.y <= max_y),
+            key=lambda p: (p.y, p.x),
+        )
+        cell, origin_x, origin_y = view
+        size = max(1, cell // 48)
+        for mote in self.motion.dust() if floor else ():
+            at = floor[mote.pick % len(floor)]
+            pyxel.rect(
+                origin_x + round((at.x + mote.x) * cell),
+                origin_y + round((at.y + mote.y) * cell),
+                size,
+                size,
+                mote.colour,
+            )
 
     def draw_cues(
         self, view, frame, timers, occupied, focus, letter: int, letter_char: int
@@ -1554,10 +1635,28 @@ class Game:
             count=count,
             counter=counter,
         )
+        self.motion.sync_buttons(
+            {item.key: item for item in items if item.kind == "button"}
+        )
         for item in items:
             if item.key:
                 self.ui_hits.append((item.rect, item.key))
-            self.draw_item(item, hud)
+            hidden = self.motion.button_hidden(item.key) if item.key else None
+            if hidden is not None:
+                self.draw_sliding(item, hud, hidden)
+            else:
+                self.draw_item(item, hud)
+        for item, hidden in self.motion.leaving_buttons():
+            self.draw_sliding(item, hud, hidden)  # no hit rect: it is gone
+
+    def draw_sliding(self, item: bars.Item, hud: Hud, hidden: float) -> None:
+        """A bar button part-way below the bar, clipped to it. Its hit rect stays
+        where it will rest, so a click is never missed."""
+        x, y, width, height = item.rect
+        drop = round(hidden * (height + self.layout.pad))
+        pyxel.clip(*self.layout.bottom)
+        self.draw_item(replace(item, rect=(x, y + drop, width, height)), hud)
+        pyxel.clip()
 
     def slot_done(self, index: int) -> bool:
         """Slots whose turn already happened in this replay."""
@@ -1600,7 +1699,9 @@ class Game:
         text_y = y + (height - line_height(scale)) // 2
         text_x = x + layout.pad + item.lead
         if item.kind == "slot":
-            self.atlas.draw(item.text, x, y, width)
+            index = int(item.key.removeprefix("timeline:"))
+            swell = round(width * (self.motion.pop(index) - 1) / 2)
+            self.atlas.draw(item.text, x - swell, y - swell, width + 2 * swell)
             if item.cap:
                 self.text(
                     x + (width - len(item.cap) * char) // 2,
@@ -1609,8 +1710,8 @@ class Game:
                     13,
                 )
             if item.on:
-                self.atlas.draw("slot_current", x, y, width)
-            index = int(item.key.removeprefix("timeline:"))
+                swell = round(width * PULSE_GROW * self.motion.pulse() / 2)
+                self.atlas.draw("slot_current", x - swell, y - swell, width + 2 * swell)
             if self.slot_done(index):
                 pyxel.dither(0.5)
                 pyxel.rect(x, y, width, height, 1)
@@ -1650,7 +1751,8 @@ class Game:
             )
             color = 7 if item.on else 13
         elif item.kind == "power":
-            fill = (width - 2 * layout.pad) * hud.load // max(1, hud.capacity)
+            shown = self.motion.power_load(hud.load)
+            fill = round((width - 2 * layout.pad) * shown / max(1, hud.capacity))
             pyxel.rect(text_x, y + height - 3, width - 2 * layout.pad, 1, 5)
             pyxel.rect(text_x, y + height - 3, fill, 1, 11)
         elif item.kind == "safety":
@@ -1818,12 +1920,25 @@ class Game:
         lines.append(
             f"  {controls.BINDINGS['apply'].cap} {controls.apply_label(self.state)}"
         )
+        x, y, width, height = self.layout.console_drawer()
+        hidden = self.motion.drawer_hidden() or 0.0
+        slid = round(hidden * width)
+        marked = len(self.ui_hits)
         self.draw_panel(
             "POWER CONSOLE",
             lines,
             controls.legend(keys, ("undo", "guide", "hint")).upper(),
-            self.layout.console_drawer(),
+            (x + slid, y, width, height),
             rows,
+        )
+        # Rows stay clickable where the drawer rests; a closing drawer has none.
+        self.ui_hits[marked:] = (
+            [
+                ((hx - slid, hy, hw, hh), key)
+                for (hx, hy, hw, hh), key in self.ui_hits[marked:]
+            ]
+            if self.console
+            else []
         )
 
     def draw_menu_background(self) -> None:
@@ -2313,7 +2428,7 @@ class Game:
         self.draw_room()
         self.draw_bars()
         self.draw_lesson_card()
-        if self.console:
+        if self.console or self.motion.drawer_hidden() is not None:
             self.draw_console()
         if self.failure is not None:
             self.draw_failure()

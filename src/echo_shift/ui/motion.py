@@ -40,6 +40,24 @@ BURST_COUNT = 12
 BURST_RADIUS = 1.2  # tiles
 BURST_COLOURS = (10, 9, 7, 11)
 FADE_FRAMES = 18  # a new screen fading in from the background colour
+UNDO_PACE = 2  # an undo replays the step it undoes backwards, this much faster
+POP_FRAMES = 8  # a timeline slot growing and settling as it is filled
+POP_GROW = 0.3  # extra size of a slot at the top of its pop
+POWER_FRAMES = 12  # the power bar easing to a new load
+DRAWER_FRAMES = 10  # the console drawer sliding in or out
+BUTTON_FRAMES = 10  # a bottom-bar button sliding in or out
+PULSE_FRAMES = 36  # the playback slot swelling once
+PULSE_GROW = 0.12
+BREATH_SECONDS = 0.8  # the idle bob switches this often
+SPRITE_PX = 96  # sprites are this many pixels tall; the bob is one of them
+FLICKER_PERIOD = 150  # the hub console screen flickers once per period
+FLICKER_FRAMES = 4  # ... for this many frames (well under 3 flashes a second)
+CONDUIT_FRAMES = 180  # a pulse crossing the powered conduit rails
+TRAIL_LENGTH = 3  # echo positions kept for its ghost trail
+TRAIL_ALPHA = (0.5, 0.3, 0.15)  # dither strength of each trail ghost, newest first
+DUST_COUNT = 6
+DUST_LIFE = 180  # frames a mote drifts before it is replaced elsewhere
+DUST_COLOURS = (5, 6, 13)
 
 LENGTHS = {
     "slide": WALK_FRAMES,
@@ -56,6 +74,10 @@ LENGTHS = {
     "vignette": VIGNETTE_FRAMES,
     "burst": BURST_FRAMES,
     "fade": FADE_FRAMES,
+    "pop": POP_FRAMES,
+    "power": POWER_FRAMES,
+    "drawer": DRAWER_FRAMES,
+    "button": BUTTON_FRAMES,
 }
 
 
@@ -210,14 +232,129 @@ def fade_alpha(elapsed: int) -> float:
     return 1.0 - ease_in_out(progress(elapsed, FADE_FRAMES))
 
 
+def pop_scale(elapsed: int) -> float:
+    """Size factor of a slot just filled: 1 at both ends, swelling in between."""
+    return 1.0 + POP_GROW * hump(progress(elapsed, POP_FRAMES))
+
+
+def eased_load(was: int, now: int, elapsed: int) -> float:
+    """The power bar's load while it eases from `was` to exactly `now`."""
+    return was + (now - was) * ease_out(progress(elapsed, POWER_FRAMES))
+
+
+def drawer_hidden(opening: bool, elapsed: int) -> float:
+    """How much of the console drawer is still off screen: 1 hidden, 0 in place."""
+    p = progress(elapsed, DRAWER_FRAMES)
+    return 1.0 - ease_out(p) if opening else ease_in_out(p)
+
+
+def button_hidden(appearing: bool, elapsed: int) -> float:
+    """How much of a bar button is still below the bar: 1 hidden, 0 in place."""
+    p = progress(elapsed, BUTTON_FRAMES)
+    return 1.0 - ease_out(p) if appearing else ease_in_out(p)
+
+
+def breath(frame: int, offset: int = 0) -> float:
+    """How far a resting figure is lifted, in tiles: one sprite pixel, then none."""
+    return blink(frame + offset, BREATH_SECONDS) / SPRITE_PX
+
+
+def pulse(frame: int) -> float:
+    """0..1 swelling of the playback slot, repeating every `PULSE_FRAMES`."""
+    return hump(progress(frame % PULSE_FRAMES, PULSE_FRAMES))
+
+
+def console_lit(frame: int) -> bool:
+    """Whether the hub console shows its flicker frame."""
+    return frame % FLICKER_PERIOD < FLICKER_FRAMES
+
+
+def conduit(frame: int) -> float:
+    """How far (0..1) a pulse has travelled along the conduit rails."""
+    return frame % CONDUIT_FRAMES / CONDUIT_FRAMES
+
+
+class Mote(NamedTuple):
+    """A dust mote: which lit tile (a number to take modulo), where in it, colour."""
+
+    pick: int
+    x: float
+    y: float
+    colour: int
+
+
+def _scatter(seed: int) -> int:
+    return (seed * 1103515245 + 12345) & 0x7FFFFFFF
+
+
+def dust(frame: int) -> tuple[Mote, ...]:
+    """The motes on show at `frame`: a fixed pseudo-random drift, the same every
+    run. Each rises slowly and is absent while it would pop in or out."""
+    motes = []
+    for i in range(DUST_COUNT):
+        cycle, age = divmod(frame + i * DUST_LIFE // DUST_COUNT, DUST_LIFE)
+        if age < 12 or age >= DUST_LIFE - 12:
+            continue
+        r = _scatter(_scatter(i * 7919 + cycle))
+        motes.append(
+            Mote(
+                r >> 4,
+                (r >> 8 & 255) / 255,
+                0.2 + 0.7 * (r >> 16 & 255) / 255 - 0.15 * age / DUST_LIFE,
+                DUST_COLOURS[(r >> 24) % len(DUST_COLOURS)],
+            )
+        )
+    return tuple(motes)
+
+
+class Walker:
+    """Hold-to-walk: a held direction steps again exactly as the last glide lands.
+
+    A fresh press always steps at once (the caller does that). While the key stays
+    down, `repeats` is true once `WALK_FRAMES` have passed since the last step, so
+    the next glide starts the frame the previous one ends. A step that went
+    nowhere, a disabled move (a full recording) or a release ends the walk.
+    The count does not depend on whether glides are drawn."""
+
+    def __init__(self) -> None:
+        self.action: str | None = None
+        self.wait = 0
+
+    def stepped(self, action_id: str, moved: bool) -> None:
+        self.action = action_id if moved else None
+        self.wait = WALK_FRAMES
+
+    def stop(self) -> None:
+        self.action = None
+
+    def tick(self, played: bool) -> None:
+        """Once per frame, after input; `played` is whether play input ran."""
+        if not played:
+            self.stop()
+        self.wait = max(0, self.wait - 1)
+
+    def repeats(self, action_id: str, held: bool, allowed: bool) -> bool:
+        if self.action != action_id:
+            return False
+        if not (held and allowed):
+            self.stop()
+            return False
+        return self.wait == 0
+
+
 def _near(a: Position, b: Position) -> bool:
     return abs(a.x - b.x) + abs(a.y - b.y) == 1
+
+
+def _load(state: State) -> int:
+    return sum(c.load for c in state.chamber.circuits if c.id in state.powered_circuits)
 
 
 @dataclass(frozen=True)
 class Effect:
     start: int
     params: tuple = ()
+    pace: int = 1  # elapsed frames counted per real frame (an undo runs at double)
 
 
 class Motion:
@@ -228,6 +365,10 @@ class Motion:
         self.reduced = reduced
         self.clock = 0
         self._effects: dict[tuple[str, object], Effect] = {}
+        self._pace = 1
+        self._trail: list[Position] = []
+        self._drawer_open = False
+        self._buttons: dict[str, object] | None = None
 
     @property
     def running(self) -> bool:
@@ -236,6 +377,7 @@ class Motion:
     def set_reduced(self, reduced: bool) -> None:
         if reduced:
             self.snap()
+            self.forget()
         self.reduced = reduced
 
     def tick(self) -> None:
@@ -243,23 +385,31 @@ class Motion:
         self._effects = {
             key: effect
             for key, effect in self._effects.items()
-            if self.clock - effect.start < LENGTHS[key[0]]
+            if (self.clock - effect.start) * effect.pace < LENGTHS[key[0]]
         }
 
     def snap(self) -> None:
         """Jump every timeline to its end: the screen shows the new state."""
         self._effects = {}
 
+    def forget(self) -> None:
+        """Drop the echo's ghost trail (a new run, a restore or a new screen)."""
+        self._trail = []
+
     def _add(self, kind: str, key: object = None, *params: object) -> None:
-        self._effects[kind, key] = Effect(self.clock, params)
+        self._effects[kind, key] = Effect(self.clock, params, self._pace)
 
     def _get(self, kind: str, key: object = None) -> tuple[int, tuple] | None:
         effect = None if self.reduced else self._effects.get((kind, key))
-        return None if effect is None else (self.clock - effect.start, effect.params)
+        if effect is None:
+            return None
+        return (self.clock - effect.start) * effect.pace, effect.params
 
     def fade_in(self) -> None:
         """A new screen fades in from the background colour."""
         self.snap()
+        self.forget()
+        self._buttons = None  # the bar's buttons are not "new" on a new screen
         if not self.reduced:
             self._add("fade")
 
@@ -269,23 +419,43 @@ class Motion:
         new: State,
         result: object = None,
         direction: tuple[int, int] | None = None,
+        undo: bool = False,
     ) -> None:
         """Build the timelines for one step from the two states. Any running
         timeline ends first, so a new input always starts from the right tile.
-        `direction` is the move that was asked for; a move that went nowhere nudges."""
+        `direction` is the move that was asked for; a move that went nowhere nudges.
+        An `undo` runs from the state undone to the one restored, at double speed."""
         self.snap()
+        self._pace = UNDO_PACE if undo else 1
+        self._build(prev, new, result, direction, undo)
+        self._pace = 1
+
+    def _build(
+        self,
+        prev: State,
+        new: State,
+        result: object,
+        direction: tuple[int, int] | None,
+        undo: bool,
+    ) -> None:
+        if undo or prev.chamber is not new.chamber:
+            self.forget()
         if self.reduced or prev.chamber is not new.chamber:
             return
         if isinstance(result, Failed):
             self._add("shake")
             self._add("vignette")
             return
-        stepped = new.turns >= prev.turns and new.echo_index >= prev.echo_index
+        stepped = undo or (
+            new.turns >= prev.turns and new.echo_index >= prev.echo_index
+        )
         if stepped and _near(prev.player, new.player):
             self._add("slide", "player", prev.player, new.player)
         elif direction is not None and new.player == prev.player:
             self._add("nudge", "player", direction)
-        self._echo(prev, new, stepped)
+        if not undo and len(new.recording) > len(prev.recording):
+            self._add("pop", len(new.recording) - 1)
+        self._echo(prev, new, stepped, undo)
         for device_id in prev.gates_open ^ new.gates_open:
             self._add("gate", device_id, device_id in new.gates_open)
         for device_id in new.elevators_running - prev.elevators_running:
@@ -302,15 +472,24 @@ class Motion:
         was, now = lighting.lit_tiles(prev), lighting.lit_tiles(new)
         if was != now:
             self._add("light", None, frozenset(now - was), frozenset(was - now))
-        if new.phase is Phase.RESULT and prev.phase is not Phase.RESULT:
+        loads = _load(prev), _load(new)
+        if loads[0] != loads[1]:
+            self._add("power", None, *loads)
+        if not undo and new.phase is Phase.RESULT and prev.phase is not Phase.RESULT:
             self._add("burst", None, new.player)
 
-    def _echo(self, prev: State, new: State, stepped: bool) -> None:
+    def _echo(self, prev: State, new: State, stepped: bool, undo: bool) -> None:
         before, after = prev.echo_position, new.echo_position
-        launched = new.phase is Phase.REPLAY and (
-            prev.phase is not Phase.REPLAY or new.echo_index < prev.echo_index
+        launched = not undo and (
+            new.phase is Phase.REPLAY
+            and (prev.phase is not Phase.REPLAY or new.echo_index < prev.echo_index)
         )
-        if launched and after is not None:
+        if launched:
+            self.forget()
+        if undo:
+            if before is not None and after is not None and _near(before, after):
+                self._add("slide", "echo", before, after)
+        elif launched and after is not None:
             self._add("spawn", "echo")
         elif (
             prev.phase is Phase.REPLAY
@@ -326,6 +505,7 @@ class Motion:
             and _near(before, after)
         ):
             self._add("slide", "echo", before, after)
+            self._trail = [*self._trail, before][-TRAIL_LENGTH:]
 
     def player(self, rest: Position) -> tuple[float, float, str | None]:
         """Where to draw the player in tiles, and a sprite id (None: the idle one)."""
@@ -397,3 +577,84 @@ class Motion:
     def fade(self) -> float:
         found = self._get("fade")
         return 0.0 if found is None else fade_alpha(found[0])
+
+    def pop(self, index: int) -> float:
+        """Size factor of timeline slot `index`: above 1 just after it is filled."""
+        found = self._get("pop", index)
+        return 1.0 if found is None else pop_scale(found[0])
+
+    def power_load(self, load: int) -> float:
+        """The load the power bar shows: easing to `load` after a change."""
+        found = self._get("power")
+        if found is None:
+            return float(load)
+        return eased_load(*found[1], found[0])
+
+    def breath(self, offset: int = 0) -> float:
+        """Tiles a resting figure is lifted by its breathing; none when reduced."""
+        return 0.0 if self.reduced else breath(self.clock, offset)
+
+    def pulse(self) -> float:
+        """0..1 swelling of the playback slot; none when reduced."""
+        return 0.0 if self.reduced else pulse(self.clock)
+
+    def console_lit(self) -> bool:
+        return not self.reduced and console_lit(self.clock)
+
+    def conduit(self) -> float | None:
+        """Where a pulse is along the conduit rails (0..1), or None when reduced."""
+        return None if self.reduced else conduit(self.clock)
+
+    def dust(self) -> tuple[Mote, ...]:
+        return () if self.reduced else dust(self.clock)
+
+    def trail(self, rest: Position | None) -> tuple[Position, ...]:
+        """Where the echo just was, newest first, never its own tile."""
+        if self.reduced or rest is None:
+            return ()
+        seen: list[Position] = []
+        for at in reversed(self._trail):
+            if at != rest and at not in seen:
+                seen.append(at)
+        return tuple(seen)
+
+    def set_drawer(self, opened: bool, animate: bool = True) -> None:
+        """Note whether the console drawer is open; a change starts it sliding."""
+        if opened == self._drawer_open:
+            return
+        self._drawer_open = opened
+        if animate and not self.reduced:
+            self._add("drawer", None, opened)
+
+    def drawer_hidden(self) -> float | None:
+        """Share of the drawer still off screen while it slides, else None."""
+        found = self._get("drawer")
+        return None if found is None else drawer_hidden(found[1][0], found[0])
+
+    def sync_buttons(self, shown: dict[str, object]) -> None:
+        """Note the bottom-bar buttons on show; new and vanished ones slide."""
+        before, self._buttons = self._buttons, shown
+        if before is None or self.reduced:
+            return
+        for key in shown.keys() - before.keys():
+            self._add("button", key, True, shown[key])
+        for key in before.keys() - shown.keys():
+            self._add("button", key, False, before[key])
+
+    def button_hidden(self, key: str) -> float | None:
+        """Share of a button still below the bar while it slides in, else None."""
+        found = self._get("button", key)
+        if found is None or not found[1][0]:
+            return None
+        return button_hidden(True, found[0])
+
+    def leaving_buttons(self) -> list[tuple[object, float]]:
+        """Buttons that just left the bar and how far they have sunk (0..1)."""
+        gone = []
+        for kind, key in self._effects:
+            if kind != "button":
+                continue
+            found = self._get(kind, key)
+            if found is not None and not found[1][0]:
+                gone.append((found[1][1], button_hidden(False, found[0])))
+        return gone

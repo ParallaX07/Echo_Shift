@@ -68,6 +68,20 @@ input and a new input ends any running animation first, so nothing is queued or
 lost. With reduced motion on there are no glides, shakes, fades or flashes: each
 change simply shows its end state.
 
+Holding a movement key walks continuously: a fresh press steps at once, and while
+the key stays down the next step starts the frame the previous glide lands, so
+the walk speed is one tile per 15 frames (also with reduced motion, which only
+skips drawing the glide). A held key stops when the recording is full, after a
+step that went nowhere (a wall or closed gate: it is explained once, never
+again while the key is held), when the attempt fails, or on release; pressing
+again steps at once. Mouse clicks are single steps. Undo plays the undone step
+backwards at double speed (instantly with reduced motion), and a new input still
+ends it first. Small idle touches (a breathing bob, the echo's fading trail, a
+console flicker, a pulse along the powered conduit rails, a few dust motes over
+lit floor, timeline slots that pop when filled, a pulsing playback slot, an
+eased power bar, and a console drawer and bar buttons that slide) are all
+presentation and are off with reduced motion.
+
 Sound is presentation only. Music plays on channels 0-2 and effects on channel
 3, one effect per step: a failure, then a clear, a rejected input, a recording
 or launch change, a gate, elevator, pad or power change, and last a move or
