@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from echo_shift.engine.lighting import is_safe
 from echo_shift.engine.model import Phase, State
 from echo_shift.engine.turn import Move, Wait
+from echo_shift.ui import controls
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ def model(state: State) -> Hud:
         )
         current = (
             state.phase is Phase.REPLAY
+            and state.echo_position is not None
             and index == state.echo_index
             and action is not None
         )
@@ -48,3 +50,17 @@ def model(state: State) -> Hud:
         tuple((c.id, c.id in state.powered_circuits) for c in state.chamber.circuits),
         tuple(slots),
     )
+
+
+def next_step(actions: list[controls.Action], objective: str = "") -> str:
+    """The one line that says what to do now.
+
+    A running lesson supplies its objective; otherwise the echo key says what it
+    does, or why it cannot, and the console is named when it can be opened.
+    """
+    if objective:
+        return objective
+    echo = controls.find(actions, "echo")
+    if not echo.enabled:
+        return echo.reason
+    return controls.legend(actions, ("echo", "console"))

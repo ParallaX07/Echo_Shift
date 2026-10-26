@@ -24,6 +24,19 @@ class Attempt:
     unsafe_power_choices: int = 0
     finished: bool = False
     mode: str = "free"
+    undos: int = 0
+    disabled_presses: dict[str, int] = field(default_factory=dict)
+    failure_choices: dict[str, int] = field(default_factory=dict)
+    previews: list[int] = field(default_factory=list)
+
+    def record_disabled(self, action_id: str) -> None:
+        self.disabled_presses[action_id] = self.disabled_presses.get(action_id, 0) + 1
+
+    def record_failure_choice(self, choice: str) -> None:
+        self.failure_choices[choice] = self.failure_choices.get(choice, 0) + 1
+
+    def record_preview(self, turn: int) -> None:
+        self.previews.append(turn)
 
     def finish(self, completed: bool) -> None:
         if self.finished:
@@ -39,6 +52,10 @@ class Attempt:
             "resets": self.resets,
             "hints": self.hints,
             "unsafe_power_choices": self.unsafe_power_choices,
+            "undos": self.undos,
+            "disabled_presses": self.disabled_presses,
+            "failure_choices": self.failure_choices,
+            "previews": self.previews,
         }
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record) + "\n")

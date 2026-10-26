@@ -1,0 +1,62 @@
+{
+  "turns": [
+    {
+      "power": [
+        "lab-lights"
+      ]
+    },
+    "enter",
+    "right",
+    "right",
+    "right",
+    "up",
+    "enter",
+    {
+      "power": []
+    },
+    "launch",
+    {
+      "power": [
+        "route-power"
+      ]
+    },
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "down",
+    "down",
+    "down"
+  ],
+  "recorded": [
+    {
+      "power": [
+        "lab-lights"
+      ]
+    },
+    "enter",
+    "right",
+    "right",
+    "right",
+    "up",
+    "enter",
+    {
+      "power": []
+    },
+    "launch",
+    {
+      "power": [
+        "route-power"
+      ]
+    },
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "down",
+    "down",
+    "down"
+  ]
+}

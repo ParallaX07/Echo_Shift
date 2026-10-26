@@ -29,8 +29,14 @@ class PlaybackSnapshot:
 def enter(state: State) -> State:
     """Start a recording from the current hub tile or commit the current take."""
     if state.phase is Phase.PREPARE and state.player in state.chamber.hub:
+        # The turn counter measures the current take plus its replay, so a take
+        # that failed earlier does not inflate the count of the one that wins.
         return replace(
-            state, phase=Phase.RECORDING, recording=(), echo_start=state.player
+            state,
+            phase=Phase.RECORDING,
+            recording=(),
+            echo_start=state.player,
+            turns=0,
         )
     if state.phase is Phase.RECORDING:
         return _committed(state)

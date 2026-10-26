@@ -80,8 +80,9 @@ def test_menu_mouse_navigation_and_animation_leave_turns_unchanged(
     assert game.state.turns == turns
     assert visibility[-1] is False
 
-    pressed.add(keys["KEY_L"])
-    game.update()
-    pressed.clear()
+    for name in ("KEY_P", "KEY_L"):
+        pressed.add(keys[name])
+        game.update()
+        pressed.clear()
     game.update()
     assert game.mode == "levels" and visibility[-1] is False

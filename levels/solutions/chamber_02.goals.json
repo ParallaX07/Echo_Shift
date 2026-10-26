@@ -1,0 +1,30 @@
+{
+  "turns": [
+    "enter",
+    "enter",
+    {
+      "power": [
+        "lift-power",
+        "path-lights"
+      ]
+    },
+    "launch",
+    "right",
+    "right",
+    "right"
+  ],
+  "recorded": [
+    "enter",
+    "enter",
+    {
+      "power": [
+        "lift-power",
+        "path-lights"
+      ]
+    },
+    "launch",
+    "right",
+    "right",
+    "right"
+  ]
+}

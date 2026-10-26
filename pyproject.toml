@@ -22,3 +22,6 @@ build-backend = "uv_build"
 
 [tool.ruff]
 target-version = "py312"
+
+[tool.pytest.ini_options]
+markers = ["pyxel: drives the real game loop on a headless Pyxel window"]

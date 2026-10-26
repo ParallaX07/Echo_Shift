@@ -1,0 +1,30 @@
+{
+  "steps": [
+    {
+      "power": [
+        "lab-lights"
+      ]
+    },
+    "enter",
+    "right",
+    "right",
+    "right",
+    "up",
+    "enter",
+    {
+      "power": [
+        "route-power"
+      ]
+    },
+    "launch",
+    "right",
+    "right",
+    "right",
+    "wait",
+    "right",
+    "right",
+    "down",
+    "down",
+    "down"
+  ]
+}

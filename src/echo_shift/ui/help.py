@@ -3,6 +3,11 @@
 from echo_shift.engine import lighting
 from echo_shift.engine.model import Phase, Position, State
 from echo_shift.engine.turn import Move, Wait
+from echo_shift.ui.controls import BINDINGS, key_text, stages_power
+
+
+def cap(action_id: str) -> str:
+    return BINDINGS[action_id].cap
 
 
 def pad_label(state: State, pad_id: str) -> str:
@@ -22,12 +27,14 @@ def command_name(action: object) -> str:
     return "Empty"
 
 
-def room_info(state: State, position: Position) -> tuple[str, str]:
+def room_info(
+    state: State, position: Position, lighting_notes: bool = True
+) -> tuple[str, str]:
     title = state.chamber.tile_at(position).value.upper()
     parts = []
     if position == state.player:
         parts.append(
-            "Amber technician: you control this character with WASD or arrows."
+            f"Amber technician: you control this character with {key_text('move')}."
         )
     if position == state.echo_position:
         parts.append(
@@ -40,7 +47,7 @@ def room_info(state: State, position: Position) -> tuple[str, str]:
     if position in state.chamber.consoles:
         title = "HUB CONSOLE"
         parts.append(
-            "E opens power selection. Up/Down selects, Space toggles, Enter applies, E/Esc cancels. Changes are free in preparation/committed; accepted changes during recording or replay spend a turn."
+            f"{cap('console')} opens power selection. {cap('nav_prev')}/{cap('nav_next')} selects, {cap('toggle')} switches a circuit, {cap('apply')} applies, {cap('close')} closes. Changes are free before recording and after saving; during a recording or replay they wait for {cap('apply')} and cost one turn."
         )
     for pad in state.chamber.pads:
         if pad.position == position:
@@ -78,7 +85,7 @@ def room_info(state: State, position: Position) -> tuple[str, str]:
                 f"{'Open/running' if running else 'Closed/stopped'}. Circuit {device.circuit_id.upper()}: {'ON' if device.circuit_id in state.powered_circuits else 'OFF'}. Linked pad {label}: {'active' if device.pad_id in state.pad_active else 'inactive'}."
             )
             parts.append(
-                "Needs BOTH power and an active linked pad. A newly activated pad opens its gate for movement on the following turn."
+                "Needs BOTH power and an active linked pad. A pad that becomes active this turn opens its gate for the next turn's movement."
             )
             if device.kind.value == "elevator":
                 parts.append("Finish by standing here while the elevator is running.")
@@ -86,7 +93,7 @@ def room_info(state: State, position: Position) -> tuple[str, str]:
         parts.append(
             "A wall blocks movement. Rejected player moves spend no turn and save no recording command."
         )
-    elif position not in state.chamber.hub:
+    elif lighting_notes and position not in state.chamber.hub:
         zone_ids = {zone.id for zone in state.chamber.zones if position in zone.tiles}
         light_circuits = [
             c.id.upper().replace("-", " ")
@@ -148,30 +155,35 @@ def topics(
         (
             "recording",
             "RECORDING AND LAUNCH",
-            f"Saved commands: {len(state.recording)}/{state.chamber.max_turns}. Enter starts a take only at the hub; Enter again commits from anywhere. Only accepted moves/waits are saved. A full take refuses further actions until committed. Q at the hub resets dynamics and player position, keeps power and the take, and creates an unadvanced echo.",
+            f"Saved commands: {len(state.recording)}/{state.chamber.max_turns}. {cap('echo')} starts a take only at the hub; {cap('echo')} again saves it from anywhere. Only accepted moves/waits are saved. A full take refuses further actions until saved. {cap('echo')} at the hub then launches: it resets dynamics and player position, keeps power and the take, and creates an unadvanced echo.",
         ),
         (
             "echo",
             "YOUR BLUE ECHO",
-            f"Next command: {echo_next}. One echo repeats one saved command per accepted replay turn. It may overlap you, presses pads and ignores darkness. Closed gates and walls block it; that command is consumed. After N commands it stays through turn N+1, then disappears before movement on turn N+2.",
+            f"Next command: {echo_next}. One echo repeats one saved command per accepted replay turn. It may overlap you, presses pads and ignores darkness. Closed gates and walls block it; that command is consumed. After its last command it stays on its final tile for one more turn, then leaves.",
         ),
         (
             "turns",
             "MOVEMENT, WAITING AND TIMING",
-            "WASD/arrows move one tile; Space waits without moving. Accepted moves, waits and active-take console changes spend a turn. Rejected player moves spend nothing. Echo expiry happens first, then power changes, movement, pad/device updates, and safety/exit checks. Reading, hovering, menus and pause never advance turns.",
+            f"{key_text('move')} move one tile; {cap('wait')} waits without moving. Accepted moves, waits and active-take console changes spend a turn. Rejected player moves spend nothing. Echo expiry happens first, then power changes, movement, pad/device updates, and safety/exit checks. Reading, hovering, menus and pause never advance turns.",
         ),
         (
             "recovery",
             "RETRY, CLEAR AND CONTROLS",
-            "R restores the launch snapshot: same take and launch power, starting player position, unadvanced echo and reset pads. C clears the entire chamber, including power and recording. A replay failure automatically retries; a recording failure discards the take. P pauses, H reveals a counted hint, L selects levels, F11 toggles fullscreen. T opens/closes help.",
+            f"{cap('undo')} undoes the last accepted input. {cap('retry')} restores the launch snapshot: same take and launch power, starting player position, unadvanced echo and reset pads. {cap('restart')} clears the entire chamber, including power and recording. A failure shows a card: undo, retry (replay failures) or restart; a recording failure discards the take. {cap('pause')} pauses (chamber select is in the pause menu), {cap('hint')} reveals a counted hint, {cap('fullscreen')} toggles fullscreen. {cap('guide')} opens or closes the guide.",
         ),
     ]
+    circuit_rule = (
+        f"During a recording or replay a change waits for {cap('apply')} and costs one turn."
+        if stages_power(state)
+        else "Here a switch takes effect at once and costs no turn."
+    )
     for circuit in state.chamber.circuits:
         result.append(
             (
                 "circuit:" + circuit.id,
                 circuit.id.upper().replace("-", " "),
-                f"Cost: {circuit.load} units. Applied: {'ON' if circuit.id in state.powered_circuits else 'OFF'}. Pending: {'ON' if circuit.id in pending else 'OFF'}. Lights zones: {', '.join(circuit.zones) or 'none'}. Powers devices: {', '.join(circuit.devices) or 'none'}. The pending selection takes effect only when Enter successfully applies it.",
+                f"Cost: {circuit.load} units. Applied: {'ON' if circuit.id in state.powered_circuits else 'OFF'}. Pending: {'ON' if circuit.id in pending else 'OFF'}. Lights zones: {', '.join(circuit.zones) or 'none'}. Powers devices: {', '.join(circuit.devices) or 'none'}. {circuit_rule}",
             )
         )
     positions = sorted(
@@ -200,7 +212,12 @@ def topics(
                     if current
                     else ""
                 )
-                + "Each slot holds one accepted move or wait. Empty slots contain no command. During replay the next command executes only when an action spends a turn.",
+                + "Each slot holds one accepted move or wait. Empty slots contain no command. During replay the next command executes only when an action spends a turn."
+                + (
+                    f" Hover a slot, or press {cap('preview_prev')} / {cap('preview_next')}, to preview that turn."
+                    if state.phase in (Phase.COMMITTED, Phase.REPLAY)
+                    else ""
+                ),
             )
         )
     return result

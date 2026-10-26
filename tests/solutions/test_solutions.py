@@ -20,44 +20,55 @@ MOVES = {
 }
 
 
-def replay(number: int):
-    chamber = load(LEVELS / f"chamber_{number:02}.json")
-    steps = json.loads(
-        (LEVELS / "solutions" / f"chamber_{number:02}.json").read_text()
-    )["steps"]
-    state = initial_state(chamber)
-    succeeded = False
+def solution_steps(number: int) -> list:
+    path = LEVELS / "solutions" / f"chamber_{number:02}.json"
+    return json.loads(path.read_text())["steps"]
+
+
+def run_steps(state, steps, label=None):
+    """Apply solution steps to `state` through the real engine; return the final state."""
     for index, command in enumerate(steps, 1):
         if isinstance(command, dict):
             result = act(state, InteractAtConsole(frozenset(command["power"])))
-            assert isinstance(result, Accepted), (number, index, result)
+            assert isinstance(result, Accepted), (label, index, result)
             state = result.state
         elif command == "enter":
             updated = enter(state)
-            assert updated is not state, (number, index, "enter was ignored")
+            assert updated is not state, (label, index, "enter was ignored")
             state = updated
         elif command == "launch":
             updated = launch(state)
-            assert updated is not state, (number, index, "launch was ignored")
+            assert updated is not state, (label, index, "launch was ignored")
             state = updated
         else:
             result = act(state, MOVES[command])
-            assert isinstance(result, Accepted), (number, index, result)
+            assert isinstance(result, Accepted), (label, index, result)
             state = result.state
-            succeeded = result.succeeded
-            if succeeded:
-                assert index == len(steps), (number, "solution continues after exit")
-    assert succeeded, (number, "solution never reached the exit")
-    assert state.phase is Phase.RESULT
+            if result.succeeded:
+                assert index == len(steps), (label, "solution continues after exit")
     return state
 
 
-@pytest.mark.parametrize(
-    "number",
-    sorted(
-        int(path.stem[-2:])
-        for path in (LEVELS / "solutions").glob("chamber_[0-9][0-9].json")
-    ),
+def replay(number: int):
+    chamber = load(LEVELS / f"chamber_{number:02}.json")
+    state = run_steps(initial_state(chamber), solution_steps(number), number)
+    assert state.phase is Phase.RESULT, (number, "solution never reached the exit")
+    return state
+
+
+NUMBERS = sorted(
+    int(path.stem[-2:])
+    for path in (LEVELS / "solutions").glob("chamber_[0-9][0-9].json")
 )
+
+
+def test_all_six_chambers_have_a_solution():
+    chambers = sorted(
+        int(path.stem[-2:]) for path in LEVELS.glob("chamber_[0-9][0-9].json")
+    )
+    assert chambers == NUMBERS == [1, 2, 3, 4, 5, 6]
+
+
+@pytest.mark.parametrize("number", NUMBERS)
 def test_solution_reaches_exit(number):
     replay(number)

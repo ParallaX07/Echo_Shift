@@ -363,6 +363,74 @@
         "assets/style/reference/concept.png",
         "assets/sprites/player_idle_0.png"
       ]
+    },
+    {
+      "id": "slot_up",
+      "type": "icon",
+      "group": "slot_arrow",
+      "description": "Recorded up move timeline slot, derived from the right-pointing move slot.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "slot_move",
+      "op": "rotate",
+      "params": {
+        "angle": 270,
+        "box": [
+          24,
+          30,
+          48
+        ]
+      }
+    },
+    {
+      "id": "slot_right",
+      "type": "icon",
+      "group": "slot_arrow",
+      "description": "Recorded right move timeline slot, an unchanged copy of the right-pointing move slot so the four directions share one id scheme.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "slot_move",
+      "op": "copy"
+    },
+    {
+      "id": "slot_down",
+      "type": "icon",
+      "group": "slot_arrow",
+      "description": "Recorded down move timeline slot, derived from the right-pointing move slot.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "slot_move",
+      "op": "rotate",
+      "params": {
+        "angle": 90,
+        "box": [
+          24,
+          30,
+          48
+        ]
+      }
+    },
+    {
+      "id": "slot_left",
+      "type": "icon",
+      "group": "slot_arrow",
+      "description": "Recorded left move timeline slot, derived from the right-pointing move slot.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "slot_move",
+      "op": "rotate",
+      "params": {
+        "angle": 180,
+        "box": [
+          24,
+          30,
+          48
+        ]
+      }
     }
   ]
 }

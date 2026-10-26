@@ -20,6 +20,21 @@ class TileType(str, Enum):
     CONSOLE = "console"
 
 
+IDEAS = ("movement", "power", "echo", "darkness", "timed_pads", "combined")
+
+
+@dataclass(frozen=True)
+class Goals:
+    """Targets for a chamber: total turns and recorded commands of a best run."""
+
+    turns: int
+    recorded: int
+
+    def __post_init__(self) -> None:
+        if self.turns < 1 or self.recorded < 0:
+            raise ValueError("goals need at least one turn and no negative recording")
+
+
 class Phase(str, Enum):
     PREPARE = "prepare"
     RECORDING = "recording"
@@ -78,6 +93,8 @@ class Chamber:
     devices: tuple[Device, ...] = ()
     exit: Position | None = None
     max_turns: int = 12
+    idea: str | None = None
+    goals: Goals | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -99,6 +116,10 @@ class Chamber:
             raise ValueError("generator capacity cannot be negative")
         if not 1 <= self.max_turns <= 12:
             raise ValueError("max_turns must be an integer from 1 to 12")
+        if self.idea is not None and self.idea not in IDEAS:
+            raise ValueError(f"unknown idea: {self.idea}")
+        if self.goals is not None and self.goals.recorded > self.max_turns:
+            raise ValueError("recorded goal exceeds max_turns")
         for position in (
             self.hub
             | self.consoles

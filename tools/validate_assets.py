@@ -59,7 +59,7 @@ def validate_manifest() -> list[str]:
     assets = json.loads((ROOT / "assets/manifest.json").read_text())["assets"]
     atlas_path = ROOT / "assets/atlas.json"
     atlas = json.loads(atlas_path.read_text()) if atlas_path.exists() else {}
-    return [
+    errors = [
         f"{asset['id']}: approved asset needs both sprite and atlas entry"
         for asset in assets
         if asset["status"] == "ok"
@@ -68,6 +68,15 @@ def validate_manifest() -> list[str]:
             or asset["id"] not in atlas
         )
     ]
+    approved = {asset["id"] for asset in assets if asset["status"] == "ok"}
+    for asset in assets:
+        if asset.get("source") != "derived":
+            continue
+        if not asset.get("op") or not asset.get("from"):
+            errors.append(f"{asset['id']}: derived asset needs `from` and `op`")
+        elif asset["from"] not in approved:
+            errors.append(f"{asset['id']}: parent {asset['from']} is not approved")
+    return errors
 
 
 if __name__ == "__main__":

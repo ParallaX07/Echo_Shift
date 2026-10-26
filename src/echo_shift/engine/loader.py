@@ -4,7 +4,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .model import Chamber, Circuit, Device, Pad, Position, TileType, Zone
+from .model import (
+    IDEAS,
+    Chamber,
+    Circuit,
+    Device,
+    Goals,
+    Pad,
+    Position,
+    TileType,
+    Zone,
+)
 
 
 class LevelError(ValueError):
@@ -19,6 +29,21 @@ def _position(value: Any, name: str) -> Position:
     ):
         raise LevelError(f"{name} must be a [x, y] integer position")
     return Position(*value)
+
+
+def _goals(value: Any) -> Goals | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or set(value) != {"turns", "recorded"}:
+        raise LevelError("goals must be an object with turns and recorded")
+    turns, recorded = value["turns"], value["recorded"]
+    if any(
+        not isinstance(part, int) or isinstance(part, bool) for part in value.values()
+    ):
+        raise LevelError("goals must be integers")
+    if turns < 1 or recorded < 0:
+        raise LevelError("goals need at least one turn and no negative recording")
+    return Goals(turns, recorded)
 
 
 def load(path: str | Path) -> Chamber:
@@ -99,6 +124,10 @@ def from_dict(data: Any) -> Chamber:
         raise LevelError("chamber must contain a hub")
     if not consoles:
         raise LevelError("chamber must contain a console")
+    idea = data.get("idea")
+    if idea is not None and idea not in IDEAS:
+        raise LevelError(f"idea must be one of: {', '.join(IDEAS)}")
+    goals = _goals(data.get("goals"))
     if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 0:
         raise LevelError("capacity must be a non-negative integer")
     if (
@@ -127,6 +156,8 @@ def from_dict(data: Any) -> Chamber:
             devices,
             exit_position,
             max_turns,
+            idea,
+            goals,
         )
     except ValueError as exc:
         raise LevelError(str(exc)) from exc

@@ -3,7 +3,7 @@
 import json
 from types import SimpleNamespace
 
-from echo_shift.ui import app, progress, telemetry
+from echo_shift.ui import app, cuedraw, progress, telemetry
 
 
 def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch):
@@ -25,8 +25,16 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
         rectb=lambda *args: None,
         text=lambda *args: drawn_text.append(args[2]),
         pal=lambda *args: None,
+        line=lambda *args: None,
+        tri=lambda *args: None,
+        trib=lambda *args: None,
+        circ=lambda *args: None,
+        circb=lambda *args: None,
+        dither=lambda *args: None,
+        clip=lambda *args: None,
     )
     monkeypatch.setattr(app, "pyxel", fake)
+    monkeypatch.setattr(cuedraw, "pyxel", fake)
     monkeypatch.setattr(app, "Atlas", lambda: SimpleNamespace(draw=lambda *args: None))
     monkeypatch.setattr(app, "user_data_dir", lambda: tmp_path)
     monkeypatch.setattr(progress, "user_data_dir", lambda: tmp_path)
@@ -50,9 +58,16 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     press("RETURN")
     assert game.mode == "game" and game.modal == "lesson_choice"
     assert "PLAYTEST LOG" not in "".join(drawn_text)
-    assert game.room_view[0] > game.layout.cell
+    cell, origin_x, origin_y = game.room_view
+    left, top, right, bottom = game.room_bounds
+    assert game.layout.room_y <= origin_y + top * cell
+    assert origin_y + (bottom + 1) * cell <= game.layout.room_y + game.layout.room_h
+    assert (
+        0 <= origin_x + left * cell
+        and origin_x + (right + 1) * cell <= game.layout.width
+    )
     press("H")
-    assert game.modal == "hint" and len(game.seen_hints) == 1
+    assert game.modal == "guide" and len(game.seen_hints) == 1
     press("RETURN")
     press("F")
     press("E")
@@ -61,12 +76,12 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert game.state.powered_circuits == frozenset({"lift-power"})
     press("RETURN")
     press("RETURN")
-    press("Q")
+    press("RETURN")
     press("RIGHT")
     press("RIGHT")
     assert game.modal == "result"
     assert game.unlocked == 2
-    assert progress.load_unlocked(3) == 2
+    assert progress.load(3).unlocked == 2
     press("RETURN")
     assert game.level == 2 and game.modal == "lesson_choice"
     press("F")
@@ -89,9 +104,13 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert game.attempt.unsafe_power_choices == 1
     press("E")
     press("L")
+    assert game.mode == "game"  # L is only a pause-menu key.
+    press("P")
+    press("L")
     assert game.mode == "levels"
     press("RETURN")
     assert game.level == 2 and game.modal == "lesson_choice"
+    press("P")
     press("L")
     records = [
         json.loads(line)

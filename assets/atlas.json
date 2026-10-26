@@ -152,5 +152,33 @@
     "v": 288,
     "width": 96,
     "height": 96
+  },
+  "slot_up": {
+    "bank": 0,
+    "u": 192,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "slot_right": {
+    "bank": 0,
+    "u": 288,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "slot_down": {
+    "bank": 0,
+    "u": 384,
+    "v": 288,
+    "width": 96,
+    "height": 96
+  },
+  "slot_left": {
+    "bank": 0,
+    "u": 480,
+    "v": 288,
+    "width": 96,
+    "height": 96
   }
 }

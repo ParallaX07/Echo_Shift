@@ -47,11 +47,15 @@ desktop session with the system's graphics and audio libraries available.
 
 The title screen opens a level select screen. Click Start or press Enter, then
 use WASD/arrow keys and Enter or the mouse to choose an unlocked chamber.
-Each chamber offers a guided lesson (Enter) or free play (F). Guided lessons
-explain and check each action; acknowledge a step with Enter, then perform it
-with a separate key press. Press T for keyboard-accessible contextual help,
-hover objects and HUD fields for live explanations, or H for counted hints.
-See [the guided lesson controls](docs/tutorials.md).
+The six chambers each teach one idea: safe movement, power allocation,
+recording, replay in darkness, timed pads and a final escape that combines
+them. Each chamber offers a guided lesson (Enter) or free play (F). In a guided
+lesson the **Next step** line at the top says what to do and a yellow outline
+shows where; doing it moves the lesson on, and a short card appears only when a
+step introduces a new idea. Press T for the guide (goal, controls, objects, echo,
+power, hints and the precise rules), hover objects and bar fields for live
+explanations, or H to reveal the next hint. The bottom bar shows buttons as the
+chambers introduce them. See [the lessons and the guide](docs/tutorials.md).
 
 | Title screen | Chamber select |
 |---|---|
@@ -79,24 +83,44 @@ Delete `progress.json` to lock all chambers again.
 |---|---|
 | WASD / arrow keys | Move one tile (one turn) |
 | Space | Wait one turn |
-| Enter | Start a recording (in the hub), or commit it (anywhere) |
-| Q | Launch the echo (in the hub) |
+| Enter (or F) | The echo key: start a recording (in the hub), save it (anywhere), or launch the echo (in the hub) |
 | E | Open or close the power console (at the console) |
+| Z / Backspace | Undo the last accepted input (unlimited) |
 | R | Retry the launched recording from its starting snapshot |
 | C | Restart the chamber and clear power and recording |
-| H | Reveal the next hint |
-| T | Contextual help |
-| P | Pause |
-| L | Back to level select |
+| H | Reveal the next hint (opens the guide on its Hints page) |
+| T | Open or close the guide |
+| Esc / P | Pause menu: resume, undo, retry, restart, re-record, chamber select (L), settings, controls, quit to title |
 | M | Toggle mute |
 | F11 / Alt+Enter | Toggle fullscreen |
 
-At the console, use Up/Down to select a circuit, Space to toggle it, Enter to
-apply, or E to close.
+At the console, use Up/Down to select a circuit and Space to toggle it. Before
+you record and after you save, a switch takes effect at once; while recording or
+replaying it waits for Enter, which costs one turn. E closes the console.
+
+The bottom bar introduces its buttons gradually: chamber 1 shows move, wait,
+undo, the console and the echo key, chamber 3 adds Retry and Re-record, and later
+chambers show everything. A new button blinks for a few seconds. The keys of
+hidden buttons always work, and the guide's Controls page lists what the
+chamber has introduced.
+
+In the guide, the arrow keys or WASD (or the previous and next rows) change
+page, and Esc, E or a right-click closes it. The pause menu has a Settings panel
+with music volume, SFX volume, mute, reduced motion and fullscreen (use Left and
+Right, or click a row's left or right half); settings are saved with your
+progress.
+
+The mouse plays the whole game too: click a tile next to the technician to move,
+the technician's own tile to wait (or to open the console while standing on it),
+any bar button, console row, timeline slot, failure-card or pause-menu option to
+use it, and right-click to close the console, guide or pause menu. Clicks do
+exactly what the matching key does.
 
 The game starts windowed at up to 1280×720. Press F11 or Alt+Enter to toggle
-fullscreen; the complete room stays on the left with status and timeline on
-the right.
+fullscreen. The room fills the middle of the window with a top bar (chamber,
+power, circuits, safety and the Next step line) above it and a bottom bar
+(timeline, turns left and action buttons) below it. The power console opens as a
+drawer beside the room and never covers it.
 
 ## Game rules
 
@@ -126,8 +150,8 @@ standing on a running elevator.
    start.
 2. Move and wait. Each accepted action is recorded, up to the chamber's
    `max_turns` limit (at most 12).
-3. Press Enter to commit. You return to the start with the recording kept.
-4. Press Q in the hub to launch. The chamber resets, your power choice is kept,
+3. Press Enter to save the recording. You return to the start with the recording kept.
+4. Press Enter in the hub to launch. The chamber resets, your power choice is kept,
    and the echo appears at its start. Recorded command *k* plays on turn *k*.
 
 There is one recording and one echo at a time. The echo ignores darkness, can
@@ -145,8 +169,8 @@ the echo holds its final tile for one more turn, then disappears.
 5. Check player safety and the exit.
 
 **Mistakes are free.** Moving into a wall or closed gate is refused and costs
-nothing. Menus, help, hints and hovering never advance turns. Retries are
-unlimited: R restores the launch snapshot with the same recording, and C
+nothing. Menus, the guide, hints and hovering never advance turns. Undo (Z) steps
+back one accepted input as often as you like, and retries are unlimited: R restores the launch snapshot with the same recording, and C
 returns to preparation with power and recording cleared. A failure during
 replay restores the launch snapshot; a failure while recording discards that
 take.
@@ -174,7 +198,7 @@ The code is split into a **headless rules engine** and a **Pyxel UI**:
                  ▼
 ┌──────────────────────────────────┐
 │ ui/  (Pyxel)                     │  screens, rendering, HUD,
-│  app.py  tutorial.py  help.py    │  tutorial, help, saves,
+│  app.py  tutorial.py  guide.py   │  tutorial, guide, saves,
 │  hud.py  layout.py  atlas.py ... │  telemetry
 └──────────────┬───────────────────┘
                │ actions in, immutable state out
@@ -245,22 +269,25 @@ drawn at render time with a palette remap, not with separate sprites.
 │   │   ├── lighting.py         # lit and safe tile queries
 │   │   ├── turn.py             # the canonical turn resolution
 │   │   ├── recording.py        # record, commit, launch, retry, clear
+│   │   ├── search.py           # exhaustive solver: optima, goals, shortcut checks
 │   │   └── loader.py           # chamber JSON loading and validation
 │   └── ui/                     # Pyxel input and rendering
 │       ├── app.py              # screens, input handling and drawing
 │       ├── atlas.py            # sprite lookup by id
 │       ├── display.py          # desktop and window size
-│       ├── layout.py           # room and side-panel measurements
+│       ├── layout.py           # room, top bar and bottom bar measurements
 │       ├── hud.py              # HUD data derived from engine state
-│       ├── help.py             # contextual help and hover explanations
+│       ├── controls.py         # key bindings, available actions, button disclosure
+│       ├── help.py             # hover explanations
+│       ├── guide.py            # the guide's pages
 │       ├── tutorial.py         # guided lesson data and progress
-│       ├── progress.py         # highest unlocked chamber save
+│       ├── progress.py         # unlocked chambers, goals met and settings save
+│       ├── goals.py            # run cost, result-card lines and level-card marks
 │       └── telemetry.py        # anonymous per-visit playtest records
 ├── levels/
-│   ├── chamber_01..03.json     # playable chambers
-│   ├── chamber_proto.json      # prototype chamber
+│   ├── chamber_01..06.json     # the six playable chambers
 │   ├── fixtures/               # test-only chambers
-│   └── solutions/              # recorded solutions replayed by the tests
+│   └── solutions/              # recorded solutions and goal traces replayed by the tests
 ├── assets/
 │   ├── palette.json            # locked palette and validation thresholds
 │   ├── manifest.json           # sprite catalogue and provenance
@@ -271,6 +298,7 @@ drawn at render time with a palette remap, not with separate sprites.
 │   └── fonts/                  # bundled UI font and its licence
 ├── tools/
 │   ├── process_asset.py  validate_assets.py  contact_sheet.py  pack_atlas.py
+│   ├── solve.py                # solve chambers: difficulty table, goals, traces
 │   ├── spike_process.py        # downscale filter comparison
 │   └── stage_build.py          # stage build/app/ for packaging
 ├── tests/
@@ -280,7 +308,7 @@ drawn at render time with a palette remap, not with separate sprites.
 │   └── ui/                     # headless UI logic, menus, layout, tutorial
 └── docs/
     ├── rules.md                # as-built rules with worked turn examples
-    └── tutorials.md            # guided lessons and contextual help
+    └── tutorials.md            # guided lessons and the guide
 ```
 
 ## Development

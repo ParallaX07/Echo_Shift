@@ -1,0 +1,44 @@
+{
+  "turns": [
+    {
+      "power": [
+        "route-power"
+      ]
+    },
+    "enter",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "enter",
+    "launch",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right"
+  ],
+  "recorded": [
+    {
+      "power": [
+        "route-power"
+      ]
+    },
+    "enter",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "enter",
+    "launch",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right"
+  ]
+}

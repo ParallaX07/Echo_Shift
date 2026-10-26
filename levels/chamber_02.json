@@ -149,6 +149,11 @@
   ],
   "capacity": 60,
   "max_turns": 6,
+  "idea": "power",
+  "goals": {
+    "turns": 3,
+    "recorded": 0
+  },
   "zones": [
     {
       "id": "path",
@@ -233,15 +238,16 @@
     }
   ],
   "hints": [
-    "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55/60.",
-    "Leave AUX-POWER off. Launch, then walk right three times."
+    "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55 of 60.",
+    "Leave AUX-POWER off, save an empty recording, launch, then walk right three times."
   ],
   "tutorial_steps": [
     {
       "id": "console",
-      "title": "Your power console",
-      "explanation": "The generator can supply 60 units at once. This is a simultaneous limit, not a battery that drains. Let us deliberately try a configuration that is too large.",
-      "objective": "Press E to open the console.",
+      "concept": true,
+      "title": "Power has a limit",
+      "explanation": "The generator can supply 60 units at once. It is a limit, not a battery that drains. Let's try a setting that is too big, to see what happens.",
+      "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
         "console": true
@@ -256,9 +262,7 @@
     },
     {
       "id": "switch-path-lights",
-      "title": "Choose path lights",
-      "explanation": "PATH LIGHTS costs 20 units. It lights the pad and the floor on the route. Space changes the pending selection; Enter applies it.",
-      "objective": "Use Up/Down to select PATH-LIGHTS, then Space to switch it on.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select PATH-LIGHTS, then {key:toggle} to switch it on (20 units).",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -272,9 +276,7 @@
     },
     {
       "id": "switch-lift-power",
-      "title": "Choose lift power",
-      "explanation": "LIFT POWER costs 35 units. It lights the exit and supplies the elevator. Together with PATH LIGHTS, it uses 55 of 60 units.",
-      "objective": "Use Up/Down to select LIFT-POWER, then Space to switch it on.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (35 units). That makes 55 of 60.",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -289,9 +291,7 @@
     },
     {
       "id": "switch-aux-power",
-      "title": "Choose aux power",
-      "explanation": "AUX POWER costs 15 units and does not help this route. Turn it on for this experiment: the pending total becomes 70 of 60.",
-      "objective": "Use Up/Down to select AUX-POWER, then Space to switch it on.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select AUX-POWER, then {key:toggle} to switch it on (15 units). That makes 70 of 60.",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -307,13 +307,17 @@
     },
     {
       "id": "over-budget",
-      "title": "Try the budget limit",
-      "explanation": "70 exceeds the 60-unit capacity. Try applying it to see the rejection. The game will refuse the whole configuration: no power changes, no turn passes, and the echo cannot advance.",
-      "objective": "Press Enter to try applying 70/60 units.",
+      "concept": true,
+      "title": "Over the limit",
+      "explanation": "70 is more than the 60-unit limit, so the whole setting is refused. Nothing changes and no turn passes. The game never trims a choice for you.",
+      "objective": "Press {key:apply} to try 70 of 60.",
       "action": "apply",
       "expected": {
         "outcome": "rejected",
-        "powered": [],
+        "powered": [
+          "path-lights",
+          "lift-power"
+        ],
         "pending": [
           "path-lights",
           "lift-power",
@@ -327,9 +331,7 @@
     },
     {
       "id": "remove-aux",
-      "title": "Choose what you need",
-      "explanation": "That request was rejected. Disable AUX POWER so the essential route lights and elevator fit: 20 + 35 = 55. Over-budget choices are never silently reduced.",
-      "objective": "Select AUX POWER, then Space to switch it off.",
+      "objective": "Select AUX-POWER, then press {key:toggle} to switch it off. The route only needs the other two.",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -344,9 +346,7 @@
     },
     {
       "id": "apply",
-      "title": "Apply a safe allocation",
-      "explanation": "55 fits within 60. Power and pad activation are separate requirements: a powered elevator still waits for its linked pad.",
-      "objective": "Press Enter to apply 55/60 units.",
+      "objective": "Press {key:apply} to close the console with 55 of 60 in use.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -361,9 +361,7 @@
     },
     {
       "id": "record",
-      "title": "Start a take",
-      "explanation": "Enter begins recording at the hub. Only accepted moves and waits are saved. For this movement lesson, we will save no commands; useful recordings come in the recording chamber.",
-      "objective": "Press Enter to start recording.",
+      "objective": "Press {key:echo} to start recording.",
       "action": "enter",
       "expected": {
         "phase": "recording",
@@ -376,9 +374,7 @@
     },
     {
       "id": "commit",
-      "title": "Save the empty take",
-      "explanation": "Enter again saves the take and returns you to the start. An empty take stores no movement. We use it here to enter replay and practice walking safely.",
-      "objective": "Press Enter again to commit.",
+      "objective": "Press {key:echo} again to save the empty recording.",
       "action": "enter",
       "expected": {
         "phase": "committed",
@@ -394,9 +390,7 @@
     },
     {
       "id": "launch",
-      "title": "Launch and start playing",
-      "explanation": "Q at the hub starts replay. You return to the chamber start; pads reset and selected power stays on. The blue echo has no commands in this lesson.",
-      "objective": "Press Q to launch.",
+      "objective": "Press {key:echo} at the hub to launch.",
       "action": "launch",
       "expected": {
         "phase": "replay",
@@ -416,9 +410,7 @@
     },
     {
       "id": "pad",
-      "title": "Activate a timed pad",
-      "explanation": "Step onto pad A to activate the elevator. Occupying the pad sets its timer to 3. Space waits one turn; waiting also advances an active echo and unoccupied pad timers.",
-      "objective": "Press Right or D onto pad A.",
+      "objective": "Press {key:move_right} to step onto pad A. This switches the elevator on.",
       "action": "right",
       "expected": {
         "player": [
@@ -437,9 +429,7 @@
     },
     {
       "id": "floor",
-      "title": "Watch the countdown",
-      "explanation": "Leave pad A for the lit floor. Its timer will decrease from 3 to 2 at the end of this turn. Hover the pad or use T help to inspect occupied, active and remaining timer separately.",
-      "objective": "Press Right or D onto the lit floor.",
+      "objective": "Press {key:move_right} to step onto the lit floor. Pad A stays on while its countdown runs.",
       "action": "right",
       "expected": {
         "player": [
@@ -458,9 +448,7 @@
     },
     {
       "id": "exit",
-      "title": "Use the active window",
-      "explanation": "The pad is empty but remains active with timer 2. Reach the powered elevator before the timer reaches zero. This move leaves timer 1, so the elevator still runs.",
-      "objective": "Press Right or D into the elevator.",
+      "objective": "Press {key:move_right} to reach the elevator before the countdown ends.",
       "action": "right",
       "expected": {
         "phase": "result",
@@ -478,5 +466,5 @@
       }
     }
   ],
-  "lesson_summary": "You tested the capacity limit and chose 55/60 units. Power is a simultaneous limit, and a timed pad can stay active after you leave it."
+  "lesson_summary": "You tested the power limit and chose 55 of 60 units. Power is a limit, not a battery, and a timed pad stays on for a while after you leave it."
 }

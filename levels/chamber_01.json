@@ -149,6 +149,11 @@
   ],
   "capacity": 60,
   "max_turns": 6,
+  "idea": "movement",
+  "goals": {
+    "turns": 2,
+    "recorded": 0
+  },
   "zones": [
     {
       "id": "path",
@@ -199,15 +204,16 @@
     }
   ],
   "hints": [
-    "Leaving the pad decreases its timer. The elevator stops when the timer reaches zero unless the pad is occupied.",
-    "Power LIFT-POWER, press Enter twice, Q, then walk right twice."
+    "Leaving the pad starts a countdown. The elevator stops when it reaches zero, unless someone stands on the pad.",
+    "Switch on LIFT-POWER, record and save an empty recording ({key:echo} twice), launch with {key:echo}, then walk right twice."
   ],
   "tutorial_steps": [
     {
       "id": "console",
+      "concept": true,
       "title": "Your power console",
-      "explanation": "You are the amber technician. Reach the elevator to escape. This hub is always lit and safe. The route is dark until you power it. E opens the console without spending a turn during preparation.",
-      "objective": "Press E to open the console.",
+      "explanation": "You are the amber technician. Reach the elevator to escape. The hub where you start is always lit and safe, but the route is dark until you power it. {key:console} opens the power console.",
+      "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
         "console": true
@@ -222,9 +228,7 @@
     },
     {
       "id": "switch-lift-power",
-      "title": "Choose lift power",
-      "explanation": "LIFT POWER uses 20 of 60 units and powers both the route lights and elevator. Selecting a circuit previews the choice; it does not apply it yet.",
-      "objective": "Use Up/Down to select LIFT-POWER, then Space to switch it on.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (20 of 60 power).",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -238,9 +242,7 @@
     },
     {
       "id": "apply",
-      "title": "Light the path",
-      "explanation": "Enter applies the selected configuration. You must end every turn on a lit tile or in the hub. The elevator also needs its linked pad A to be active.",
-      "objective": "Press Enter to apply 20/60 units.",
+      "objective": "Press {key:apply} to close the console. The route and the elevator now have power.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -254,9 +256,10 @@
     },
     {
       "id": "record",
-      "title": "Start a take",
-      "explanation": "Enter begins recording at the hub. Only accepted moves and waits are saved. For this movement lesson, we will save no commands; useful recordings come in the recording chamber.",
-      "objective": "Press Enter to start recording.",
+      "concept": true,
+      "title": "Recording",
+      "explanation": "{key:echo} at the hub starts a recording, and you can only walk outside the hub while recording or replaying. This lesson saves an empty recording just to get moving. A real one comes in chamber 3.",
+      "objective": "Press {key:echo} to start recording.",
       "action": "enter",
       "expected": {
         "phase": "recording",
@@ -269,9 +272,7 @@
     },
     {
       "id": "commit",
-      "title": "Save the empty take",
-      "explanation": "Enter again saves the take and returns you to the start. An empty take stores no movement. We use it here to enter replay and practice walking safely.",
-      "objective": "Press Enter again to commit.",
+      "objective": "Press {key:echo} again to save the empty recording.",
       "action": "enter",
       "expected": {
         "phase": "committed",
@@ -287,9 +288,7 @@
     },
     {
       "id": "launch",
-      "title": "Launch and start playing",
-      "explanation": "Q at the hub starts replay. You return to the chamber start; pads reset and selected power stays on. The blue echo has no commands in this lesson.",
-      "objective": "Press Q to launch.",
+      "objective": "Press {key:echo} at the hub to launch. You start from the entrance with the power still on.",
       "action": "launch",
       "expected": {
         "phase": "replay",
@@ -309,52 +308,7 @@
     },
     {
       "id": "pad-first",
-      "title": "Move onto pad A",
-      "explanation": "WASD or arrow keys move one tile. An accepted move advances one turn. This timed pad activates the powered elevator; while occupied, its timer resets to 3.",
-      "objective": "Press Right or D to step onto pad A.",
-      "action": "right",
-      "expected": {
-        "player": [
-          4,
-          4
-        ],
-        "active_pad": "pad-a"
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          4,
-          4
-        ]
-      }
-    },
-    {
-      "id": "retry",
-      "title": "Practice a safe retry",
-      "explanation": "Pad A is active. R restores the launch snapshot: your starting position, selected power and the same recording. Pads reset too. It does not record another take.",
-      "objective": "Press R to retry from launch.",
-      "action": "retry",
-      "expected": {
-        "phase": "replay",
-        "player": [
-          3,
-          4
-        ],
-        "echo_index": 0
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          3,
-          4
-        ]
-      }
-    },
-    {
-      "id": "pad-again",
-      "title": "Activate the pad again",
-      "explanation": "The retry put you back in the safe hub. Move onto A again. Menus and explanations never advance turns. C clears power and recording and restarts this lesson.",
-      "objective": "Press Right or D to activate pad A.",
+      "objective": "Press {key:move_right} to step onto pad A. Pad A switches the elevator on.",
       "action": "right",
       "expected": {
         "player": [
@@ -373,9 +327,7 @@
     },
     {
       "id": "exit",
-      "title": "Reach the running elevator",
-      "explanation": "The lit elevator is running because its circuit is on AND pad A is active. Leaving the pad decreases its timer on each accepted turn; at zero, it stops being active unless occupied.",
-      "objective": "Press Right or D to enter the elevator.",
+      "objective": "Press {key:move_right} to enter the elevator while it is running. Pad A stays on for a few turns after you leave it.",
       "action": "right",
       "expected": {
         "phase": "result",
@@ -393,5 +345,5 @@
       }
     }
   ],
-  "lesson_summary": "You powered a safe route, launched a take, activated a timed pad, retried from launch and escaped. Moves and waits spend turns; explanations do not."
+  "lesson_summary": "You powered a safe route, launched a recording, switched on a timed pad and escaped. Moves and waits spend turns; reading and menus never do."
 }

@@ -1,0 +1,26 @@
+{
+  "turns": [
+    "enter",
+    "enter",
+    {
+      "power": [
+        "lift-power"
+      ]
+    },
+    "launch",
+    "right",
+    "right"
+  ],
+  "recorded": [
+    "enter",
+    "enter",
+    {
+      "power": [
+        "lift-power"
+      ]
+    },
+    "launch",
+    "right",
+    "right"
+  ]
+}

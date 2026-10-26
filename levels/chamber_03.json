@@ -149,6 +149,11 @@
   ],
   "capacity": 60,
   "max_turns": 6,
+  "idea": "echo",
+  "goals": {
+    "turns": 7,
+    "recorded": 3
+  },
   "zones": [
     {
       "id": "path",
@@ -218,15 +223,16 @@
     }
   ],
   "hints": [
-    "Your echo can stand on the pad while you move through the gate.",
-    "Record Right, Wait, Wait, Wait. Commit and launch; walk right four times."
+    "Your echo can stand on the pad while you walk through the gate.",
+    "Record one move right and three waits, save with {key:echo}, launch with {key:echo}, then walk right four times."
   ],
   "tutorial_steps": [
     {
       "id": "console",
-      "title": "Your power console",
-      "explanation": "This room has a passive pad and a gate. A passive pad has no countdown: it is active only while the player or echo stands on it. You need an echo to hold it while you cross.",
-      "objective": "Press E to open the console.",
+      "concept": true,
+      "title": "A pad and a gate",
+      "explanation": "This room has a pad that is on only while someone stands on it, and a gate it controls. You cannot hold the pad and walk through the gate at once, so your echo will hold it for you. An echo never supplies power.",
+      "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
         "console": true
@@ -241,9 +247,7 @@
     },
     {
       "id": "switch-lift-power",
-      "title": "Choose lift power",
-      "explanation": "This circuit supplies the route lights, gate and elevator for 40 units. A machine still needs active pad A as well as power. An echo presses pads but never supplies electricity.",
-      "objective": "Use Up/Down to select LIFT-POWER, then Space to switch it on.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (40 units). It powers the route, the gate and the elevator.",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -257,9 +261,7 @@
     },
     {
       "id": "apply",
-      "title": "Power the equipment",
-      "explanation": "Applying this circuit makes the route safe. The gate and elevator stay closed until pad A is occupied. Their matching A labels show the connection.",
-      "objective": "Press Enter to apply 40/60 units.",
+      "objective": "Press {key:apply} to close the console. The gate stays shut until pad A is held.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -273,9 +275,10 @@
     },
     {
       "id": "record",
-      "title": "Record your helper",
-      "explanation": "Enter at the hub starts a take. The echo will repeat accepted moves and waits, one command for every accepted replay turn. This chamber has 6 recording slots.",
-      "objective": "Press Enter to begin recording.",
+      "concept": true,
+      "title": "Record your echo",
+      "explanation": "{key:echo} at the hub starts a recording. Your echo will repeat each move and wait you make, one per turn. This chamber has 6 slots. {label:retry} ({key:retry}) runs the echo again from launch and {label:rerecord} throws the recording away; both are now in the bottom bar.",
+      "objective": "Press {key:echo} to start recording your helper.",
       "action": "enter",
       "expected": {
         "phase": "recording",
@@ -288,9 +291,7 @@
     },
     {
       "id": "record-right",
-      "title": "Record the pad route",
-      "explanation": "Move onto passive pad A. This saves Right in slot 1. The gate becomes open after pad activation, ready for movement on the following turn.",
-      "objective": "Press Right or D onto pad A.",
+      "objective": "Press {key:move_right} to step onto pad A. This saves a move right in slot 1.",
       "action": "right",
       "expected": {
         "player": [
@@ -311,9 +312,7 @@
     },
     {
       "id": "wait-one",
-      "title": "Save the first wait",
-      "explanation": "Space spends one turn without moving. Slot 2 will contain Wait. The echo must remain on A while you walk ahead.",
-      "objective": "Press Space to record Wait in slot 2.",
+      "objective": "Press {key:wait} to save a wait in slot 2. Your echo will stay on pad A.",
       "action": "wait",
       "expected": {
         "recorded": 2,
@@ -329,9 +328,7 @@
     },
     {
       "id": "wait-two",
-      "title": "Give yourself crossing time",
-      "explanation": "Record another Wait in slot 3. The replay will give you time to reach the gate while the echo stays on the pad.",
-      "objective": "Press Space to record Wait in slot 3.",
+      "objective": "Press {key:wait} again to save a wait in slot 3.",
       "action": "wait",
       "expected": {
         "recorded": 3,
@@ -347,9 +344,7 @@
     },
     {
       "id": "wait-three",
-      "title": "Give yourself exit time",
-      "explanation": "A third Wait fills slot 4. After this wait, your take will be Right, Wait, Wait, Wait: four commands for the four moves to the exit.",
-      "objective": "Press Space to record Wait in slot 4.",
+      "objective": "Press {key:wait} once more to save a wait in slot 4. That is enough time to reach the exit.",
       "action": "wait",
       "expected": {
         "recorded": 4,
@@ -365,9 +360,7 @@
     },
     {
       "id": "commit",
-      "title": "Commit the useful recording",
-      "explanation": "Enter saves the take and resets your position and pad state. Power stays selected, but the passive pad becomes empty, so the gate closes. Your four commands stay on the timeline.",
-      "objective": "Press Enter to commit your take.",
+      "objective": "Press {key:echo} to save the recording. You return to the entrance and the gate closes.",
       "action": "enter",
       "expected": {
         "phase": "committed",
@@ -383,9 +376,10 @@
     },
     {
       "id": "launch",
+      "concept": true,
       "title": "Launch your echo",
-      "explanation": "Q resets the room and creates one unadvanced echo at the recorded start. It keeps power and your take. R can restore exactly this launch configuration.",
-      "objective": "Press Q to launch the echo.",
+      "explanation": "Launching resets the room, keeps your power and your recording, and puts your echo at the start. If a run goes wrong, {label:retry} ({key:retry}) starts it again from this moment.",
+      "objective": "Press {key:echo} at the hub to launch your echo.",
       "action": "launch",
       "expected": {
         "phase": "replay",
@@ -405,9 +399,7 @@
     },
     {
       "id": "replay-pad",
-      "title": "Walk together",
-      "explanation": "Your next move also executes the echo's Right. You may share a tile. Both reach A; the linked gate opens after this turn.",
-      "objective": "Press Right or D onto pad A.",
+      "objective": "Press {key:move_right} to step onto pad A. Your echo makes the same move.",
       "action": "right",
       "expected": {
         "player": [
@@ -428,9 +420,7 @@
     },
     {
       "id": "replay-floor",
-      "title": "Let the echo hold A",
-      "explanation": "You move forward while the echo executes its first Wait on A. A blue timeline outline marks its next command. The echo is immune to darkness, but you still need lit tiles.",
-      "objective": "Press Right or D onto the floor.",
+      "objective": "Press {key:move_right} to step onto the floor. Your echo waits on pad A and keeps the gate open.",
       "action": "right",
       "expected": {
         "player": [
@@ -450,9 +440,7 @@
     },
     {
       "id": "replay-gate",
-      "title": "Cross the open gate",
-      "explanation": "The echo executes its second Wait. Pad A stays occupied, so the powered gate stays open. Walls and closed gates reject player moves without spending a turn; a blocked echo command is consumed.",
-      "objective": "Press Right or D through gate A.",
+      "objective": "Press {key:move_right} to cross the open gate.",
       "action": "right",
       "expected": {
         "player": [
@@ -472,9 +460,7 @@
     },
     {
       "id": "replay-exit",
-      "title": "Finish the shared escape",
-      "explanation": "The echo executes its last Wait while you reach the running elevator. After its final command, it holds that tile for one additional turn; it disappears at the start of the next turn after that.",
-      "objective": "Press Right or D into the elevator.",
+      "objective": "Press {key:move_right} to enter the running elevator.",
       "action": "right",
       "expected": {
         "phase": "result",
@@ -493,5 +479,5 @@
       }
     }
   ],
-  "lesson_summary": "You recorded Right and three Waits, then used the echo to hold a passive pad while crossing the gate. Machines need both power and an active linked pad."
+  "lesson_summary": "You recorded a move and three waits, then used your echo to hold a pad while you crossed the gate. A machine needs both power and an active pad."
 }

@@ -1,0 +1,562 @@
+{
+  "grid": [
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "pad",
+      "floor",
+      "gate",
+      "floor",
+      "pad",
+      "elevator",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ]
+  ],
+  "hub": [
+    [
+      3,
+      4
+    ]
+  ],
+  "consoles": [
+    [
+      3,
+      4
+    ]
+  ],
+  "start": [
+    3,
+    4
+  ],
+  "exit": [
+    9,
+    4
+  ],
+  "capacity": 60,
+  "max_turns": 5,
+  "idea": "timed_pads",
+  "goals": {
+    "turns": 11,
+    "recorded": 5
+  },
+  "zones": [
+    {
+      "id": "route",
+      "tiles": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    }
+  ],
+  "circuits": [
+    {
+      "id": "route-power",
+      "load": 40,
+      "zones": [
+        "route"
+      ],
+      "devices": [
+        "gate-a",
+        "lift"
+      ]
+    }
+  ],
+  "pads": [
+    {
+      "id": "pad-a",
+      "position": [
+        4,
+        4
+      ],
+      "timer": 2
+    },
+    {
+      "id": "pad-b",
+      "position": [
+        8,
+        4
+      ],
+      "timer": 0
+    }
+  ],
+  "devices": [
+    {
+      "id": "gate-a",
+      "kind": "gate",
+      "position": [
+        6,
+        4
+      ],
+      "circuit": "route-power",
+      "pad": "pad-a"
+    },
+    {
+      "id": "lift",
+      "kind": "elevator",
+      "position": [
+        9,
+        4
+      ],
+      "circuit": "route-power",
+      "pad": "pad-b"
+    }
+  ],
+  "hints": [
+    "Pad A keeps the gate open for two turns after you step off it, so keep walking and you slip through.",
+    "The far pad works only while someone stands on it. Your echo can wait there while you ride the lift.",
+    "Record five moves to the right and save. Launch with {key:echo}, then walk right six times."
+  ],
+  "tutorial_steps": [
+    {
+      "id": "console",
+      "concept": true,
+      "title": "A pad with a countdown",
+      "explanation": "Pad A stays on for two turns after you step off it, and the gate beside it stays open for as long. Keep walking and you slip through. The far pad has no countdown: it works only while someone stands on it.",
+      "objective": "Press {key:console} to open the power console.",
+      "action": "open_console",
+      "expected": {
+        "console": true
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "switch-route-power",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select ROUTE-POWER, then {key:toggle} to switch it on (40 units).",
+      "action": "toggle",
+      "expected": {
+        "pending": [
+          "route-power"
+        ]
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "route-power"
+      }
+    },
+    {
+      "id": "apply",
+      "objective": "Press {key:apply} to close the console. The route, the gate and the lift have power.",
+      "action": "apply",
+      "expected": {
+        "powered": [
+          "route-power"
+        ],
+        "console": false
+      },
+      "target": {
+        "kind": "power"
+      }
+    },
+    {
+      "id": "record",
+      "concept": true,
+      "title": "Your echo walks it too",
+      "explanation": "Record the walk to the far pad. Your echo repeats it on the same countdown, so it passes the gate too, and then it waits on the far pad while you ride the lift.",
+      "objective": "Press {key:echo} to start recording.",
+      "action": "enter",
+      "expected": {
+        "phase": "recording",
+        "recorded": 0
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 0
+      }
+    },
+    {
+      "id": "record-pad",
+      "objective": "Press {key:move_right} to step onto pad A. Its countdown starts when you leave it.",
+      "action": "right",
+      "expected": {
+        "player": [
+          4,
+          4
+        ],
+        "recorded": 1,
+        "active_pad": "pad-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "id": "record-floor",
+      "objective": "Press {key:move_right} to leave pad A. The gate stays open for now.",
+      "action": "right",
+      "expected": {
+        "player": [
+          5,
+          4
+        ],
+        "recorded": 2,
+        "open_gate": "gate-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "id": "record-gate",
+      "objective": "Press {key:move_right} to cross the gate before the countdown ends.",
+      "action": "right",
+      "expected": {
+        "player": [
+          6,
+          4
+        ],
+        "recorded": 3
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          6,
+          4
+        ]
+      }
+    },
+    {
+      "id": "record-past",
+      "objective": "Press {key:move_right} to walk on.",
+      "action": "right",
+      "expected": {
+        "player": [
+          7,
+          4
+        ],
+        "recorded": 4
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    },
+    {
+      "id": "record-far",
+      "objective": "Press {key:move_right} to step onto the far pad.",
+      "action": "right",
+      "expected": {
+        "player": [
+          8,
+          4
+        ],
+        "recorded": 5,
+        "active_pad": "pad-b"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          8,
+          4
+        ]
+      }
+    },
+    {
+      "id": "commit",
+      "objective": "Press {key:echo} to save the recording. You return to the entrance.",
+      "action": "enter",
+      "expected": {
+        "phase": "committed",
+        "recorded": 5,
+        "player": [
+          3,
+          4
+        ]
+      },
+      "target": {
+        "kind": "state"
+      }
+    },
+    {
+      "id": "launch",
+      "objective": "Press {key:echo} at the hub to launch your echo.",
+      "action": "launch",
+      "expected": {
+        "phase": "replay",
+        "player": [
+          3,
+          4
+        ],
+        "echo_index": 0
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-pad",
+      "objective": "Press {key:move_right} to step onto pad A. Your echo does the same.",
+      "action": "right",
+      "expected": {
+        "player": [
+          4,
+          4
+        ],
+        "echo_index": 1,
+        "active_pad": "pad-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-floor",
+      "objective": "Press {key:move_right} to leave pad A.",
+      "action": "right",
+      "expected": {
+        "player": [
+          5,
+          4
+        ],
+        "echo_index": 2,
+        "open_gate": "gate-a"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-gate",
+      "objective": "Press {key:move_right} to cross the gate.",
+      "action": "right",
+      "expected": {
+        "player": [
+          6,
+          4
+        ],
+        "echo_index": 3
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          6,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-past",
+      "objective": "Press {key:move_right} to walk on.",
+      "action": "right",
+      "expected": {
+        "player": [
+          7,
+          4
+        ],
+        "echo_index": 4
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-far",
+      "objective": "Press {key:move_right} to step onto the far pad. Your echo reaches it too and will stay there.",
+      "action": "right",
+      "expected": {
+        "player": [
+          8,
+          4
+        ],
+        "echo_index": 5,
+        "active_pad": "pad-b"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          8,
+          4
+        ]
+      }
+    },
+    {
+      "id": "replay-exit",
+      "objective": "Press {key:move_right} to enter the lift. Your echo keeps the far pad on.",
+      "action": "right",
+      "expected": {
+        "phase": "result",
+        "player": [
+          9,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          9,
+          4
+        ]
+      }
+    }
+  ],
+  "lesson_summary": "You walked on while pad A's countdown held the gate open, and your echo did the same, then waited on the far pad to keep the lift running."
+}

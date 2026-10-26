@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from echo_shift.engine.loader import LevelError
 from echo_shift.engine.model import Chamber, State
+from echo_shift.ui import controls
 
 ACTIONS = {
     "open_console",
@@ -35,12 +36,40 @@ OUTCOMES = {
 @dataclass(frozen=True)
 class LessonStep:
     id: str
-    title: str
-    explanation: str
     objective: str
     action: str
     expected: dict
     target: dict
+    concept: bool = False
+    title: str = ""
+    explanation: str = ""
+
+    def say(self, field: str) -> str:
+        """A text field with its key placeholders filled in from the action model."""
+        return controls.resolve(getattr(self, field))
+
+
+def _text(value: object, what: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise LevelError(f"{what} must be non-empty text")
+    try:
+        controls.check_text(value)
+    except ValueError as error:
+        raise LevelError(f"{what}: {error}") from error
+    return value
+
+
+def load_hints(data: object) -> tuple[str, ...]:
+    """Hints are plain text lists; key placeholders are checked like lesson text."""
+    if data is None:
+        return ()
+    if not isinstance(data, list):
+        raise LevelError("hints must be a list")
+    return tuple(_text(hint, "hint") for hint in data)
+
+
+def load_summary(data: object, default: str) -> str:
+    return default if data is None else _text(data, "lesson_summary")
 
 
 def load_steps(data: object, chamber: Chamber) -> tuple[LessonStep, ...]:
@@ -57,9 +86,17 @@ def load_steps(data: object, chamber: Chamber) -> tuple[LessonStep, ...]:
     for item in data:
         if not isinstance(item, dict):
             raise LevelError("tutorial step must be an object")
-        for field in ("id", "title", "explanation", "objective", "action"):
-            if not isinstance(item.get(field), str) or not item[field].strip():
-                raise LevelError(f"tutorial step requires {field}")
+        concept = item.get("concept", False)
+        if type(concept) is not bool:
+            raise LevelError("tutorial concept flag must be boolean")
+        required = ("id", "objective", "action") + (
+            ("title", "explanation") if concept else ()
+        )
+        for field in required:
+            _text(item.get(field), f"tutorial step {field}")
+        for field in ("title", "explanation"):
+            if field in item:
+                _text(item[field], f"tutorial step {field}")
         if item["id"] in ids or item["action"] not in ACTIONS:
             raise LevelError("duplicate tutorial id or unknown action")
         ids.add(item["id"])
@@ -135,7 +172,9 @@ def load_steps(data: object, chamber: Chamber) -> tuple[LessonStep, ...]:
                         "expected",
                         "target",
                     )
-                }
+                    if key in item
+                },
+                concept=concept,
             )
         )
     return tuple(steps)
@@ -155,7 +194,14 @@ def _position(value: object, chamber: Chamber) -> bool:
 class Tutorial:
     steps: tuple[LessonStep, ...]
     index: int = 0
-    explaining: bool = True
+    card_open: bool = False
+
+    def __post_init__(self) -> None:
+        self.card_open = self.opens_card()
+
+    def opens_card(self) -> bool:
+        """A card shows only for a step that introduces a new concept."""
+        return self.current is not None and self.current.concept
 
     @property
     def current(self) -> LessonStep | None:
@@ -165,7 +211,6 @@ class Tutorial:
         step = self.current
         return bool(
             step
-            and not self.explaining
             and step.action == event
             and (event != "toggle" or detail == step.target["id"])
         )
@@ -203,7 +248,7 @@ class Tutorial:
             if not matches:
                 return False
         self.index += 1
-        self.explaining = True
+        self.card_open = self.opens_card()
         return True
 
     def rewind(self) -> None:
@@ -212,4 +257,4 @@ class Tutorial:
             i for i, step in enumerate(self.steps) if step.action == "launch"
         )
         self.index = launch_index + 1
-        self.explaining = True
+        self.card_open = False
