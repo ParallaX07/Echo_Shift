@@ -5,7 +5,7 @@ import json
 import logging
 import math
 import textwrap
-from dataclasses import dataclass, replace
+from dataclasses import astuple, dataclass, replace
 
 import pyxel
 
@@ -21,6 +21,7 @@ from echo_shift.engine.turn import (
 )
 from echo_shift.paths import resource_path, user_data_dir
 from echo_shift.ui import (
+    audio,
     bars,
     controls,
     cuedraw,
@@ -164,6 +165,8 @@ class Game:
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
         self.atlas = Atlas()
         self.progress = progress.load(LEVEL_COUNT)
+        self.audio = audio.Audio(pyxel)
+        self.heard = None
         self.goal_targets = goals.targets(resource_path("levels"), LEVEL_COUNT)
         self.run = None
         self.history = History()
@@ -374,6 +377,7 @@ class Game:
             snapshot.console,
         )
         self.failure = None
+        self.heard = audio.Cue("undo")
         self.attempt.undos += 1
         if self.lesson is not None and snapshot.lesson_index is not None:
             self.lesson.index = snapshot.lesson_index
@@ -412,6 +416,7 @@ class Game:
         else:
             self.modal = None
         self.commit(before)
+        self.heard = audio.Cue("ui_select")
         self.notice("CHAMBER CLEARED")
 
     def allow(self, event: str, detail: str | None = None) -> bool:
@@ -439,6 +444,8 @@ class Game:
             self.notice("NO MORE HINTS")
 
     def notice(self, message: str, error: bool = False) -> None:
+        if error and self.heard is None:
+            self.heard = audio.Refusal(message)
         self.message_error = error
         self.message = message.upper()
         self.message_frames = 120
@@ -466,7 +473,7 @@ class Game:
             if not gate.enabled:
                 self.refuse(gate)
                 return
-        result = recording.act(self.state, action)
+        result = self.heard = recording.act(self.state, action)
         outcome = (
             "rejected"
             if isinstance(result, Rejected)
@@ -518,8 +525,57 @@ class Game:
         self.browser.hover = None
         if self.mode == "game" and self.modal != "lesson_choice":
             self.intro_frames = max(0, self.intro_frames - 1)
+        before, seen = self.state, self.ui_marks()
+        self.heard = None
         self.step_frame()
         self.track_preview()
+        self.hear(before, seen)
+
+    def ui_marks(self) -> tuple:
+        """What menus, cards and the console show, to tell what an input changed."""
+        lesson = self.lesson
+        return (
+            (
+                self.mode,
+                self.modal,
+                self.paused,
+                self.settings_open,
+                self.console,
+                self.failure is not None,
+                astuple(self.progress.settings),
+            ),
+            (lesson.index, lesson.card_open) if lesson is not None else None,
+            (
+                self.level_cursor,
+                self.pause_index,
+                self.settings_index,
+                self.selection,
+                self.guide_page,
+            ),
+            self.pending,
+        )
+
+    def ui_cue(self, seen: tuple) -> str | None:
+        screen, card, cursor, pending = self.ui_marks()
+        if screen != seen[0]:
+            return "ui_select"
+        if card != seen[1]:
+            return "dialogue"
+        if pending != seen[3]:
+            return "power_on" if len(pending) > len(seen[3]) else "power_off"
+        return "ui_hover" if cursor != seen[2] else None
+
+    def hear(self, before: State, seen: tuple) -> None:
+        """The one place effects and music follow the game: an engine result or a
+        refusal, else a menu change, then the state difference (`audio.sfx_for`)."""
+        cue = self.heard if self.heard is not None else self.ui_cue(seen)
+        self.audio.apply_settings(self.progress.settings)
+        self.audio.on_transition(before, cue, self.state)
+        self.audio.sync_music(
+            audio.music_for(
+                self.mode, self.modal, self.state.phase, self.level, LEVEL_COUNT
+            )
+        )
 
     def step_frame(self) -> None:
         self.sync_display()
@@ -852,6 +908,7 @@ class Game:
         self.state = initial_state(self.state.chamber, self.state.powered_circuits)
         self.pending = self.state.powered_circuits
         self.console = False
+        self.heard = audio.Cue("ui_select")
         self.notice("RECORDING DISCARDED")
 
     def echo_key(self, alias: bool = False) -> None:

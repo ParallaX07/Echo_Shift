@@ -12,7 +12,7 @@ def player(tmp_path, monkeypatch):
     real = app.pyxel
     keys = {name: getattr(real, name) for name in dir(real) if name.startswith("KEY_")}
     held, pressed = set(), set()
-    drawn = []
+    drawn, played = [], []
     fake = SimpleNamespace(
         **keys,
         MOUSE_BUTTON_LEFT=real.MOUSE_BUTTON_LEFT,
@@ -21,6 +21,11 @@ def player(tmp_path, monkeypatch):
         mouse_y=-1,
         colors=[0] * 16,
         init=lambda *a, **k: None,
+        Sound=real.Sound,
+        play=lambda ch, snd, **kw: played.append((ch, snd, kw)),
+        stop=lambda ch=None: None,
+        play_pos=lambda ch: None,
+        channels=[SimpleNamespace(gain=0.125) for _ in range(4)],
         btn=lambda k: k in held,
         btnp=lambda k, **kwargs: k in pressed,
         cls=lambda *a: None,
@@ -104,5 +109,6 @@ def player(tmp_path, monkeypatch):
         pressed=pressed,
         held=held,
         drawn=drawn,
+        played=played,
         directory=tmp_path,
     )

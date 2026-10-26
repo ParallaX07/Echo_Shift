@@ -55,10 +55,19 @@ preparation. It is a bar button and a pause-menu action without a bare key.
 
 The pause menu lists Resume, Undo, Retry from launch, Restart chamber,
 Re-record, Chamber select, Settings, Controls and Quit to title. Settings holds
-music volume and SFX volume (0 to 7, stored but not used until sound exists),
-mute, reduced motion and fullscreen; Left and Right (or a click on the left or
-right half of a row) change a value, and every change is saved at once. Controls
-opens the guide on its Controls page.
+music volume and SFX volume (0 to 7, applied at once), mute, reduced motion and
+fullscreen; Left and Right (or a click on the left or right half of a row)
+change a value, and every change is saved at once. Controls opens the guide on
+its Controls page.
+
+Sound is presentation only. Music plays on channels 0-2 and effects on channel
+3, one effect per step: a failure, then a clear, a rejected input, a recording
+or launch change, a gate, elevator, pad or power change, and last a move or
+wait (a recorded step ticks instead). Menu moves and picks have their own
+effects. Music follows the screen: the title theme on the menus, calm music
+while preparing and recording, a replay variant while the echo runs, a short
+sting on a clear and the final theme after the last chamber. A missing track
+is simply silent, and the game runs without an audio device.
 
 The guide (T) has seven pages: Goal, Controls, Objects, Echo, Power, Hints and
 Precise rules. The arrows or WASD, or the previous and next rows, change page;
