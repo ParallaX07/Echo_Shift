@@ -1947,6 +1947,7 @@ class Game:
         hidden = self.motion.drawer_hidden() or 0.0
         slid = round(hidden * width)
         marked = len(self.ui_hits)
+        pyxel.clip(x + slid, y, width - slid, height)
         self.draw_panel(
             "POWER CONSOLE",
             lines,
@@ -1954,6 +1955,7 @@ class Game:
             (x + slid, y, width, height),
             rows,
         )
+        pyxel.clip()
         # Rows stay clickable where the drawer rests; a closing drawer has none.
         self.ui_hits[marked:] = (
             [
