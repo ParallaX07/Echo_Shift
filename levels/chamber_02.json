@@ -116,7 +116,7 @@
       "hub",
       "hub",
       "hub",
-      "hub",
+      "console",
       "hub",
       "hub",
       "hub",
@@ -537,7 +537,7 @@
   ],
   "consoles": [
     [
-      11,
+      7,
       6
     ]
   ],
@@ -641,14 +641,32 @@
   ],
   "hints": [
     "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55 of 60.",
-    "Leave AUX-POWER off, save an empty recording, launch, then walk right three times."
+    "Walk left to the console. Leave AUX-POWER off, walk back to the door, save an empty recording, launch, then walk right three times."
   ],
   "tutorial_steps": [
     {
-      "id": "console",
+      "id": "walk-to-console",
       "concept": true,
       "title": "Power has a limit",
       "explanation": "The generator can supply 60 units at once. It is a limit, not a battery that drains. Let's try a setting that is too big, to see what happens.",
+      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -657,7 +675,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }
@@ -759,6 +777,24 @@
       },
       "target": {
         "kind": "power"
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "action": "right",
+      "expected": {
+        "player": [
+          11,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          11,
+          6
+        ]
       }
     },
     {

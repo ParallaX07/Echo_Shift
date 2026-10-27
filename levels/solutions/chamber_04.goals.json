@@ -1,53 +1,73 @@
 {
   "turns": [
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lab-lights"
       ]
     },
+    "right",
+    "right",
+    "right",
+    "right",
     "enter",
     "right",
     "right",
     "up",
     "wait",
     "enter",
-    {
-      "power": []
-    },
-    "launch",
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lift-power"
       ]
     },
+    "launch",
     "right",
     "right",
+    "wait",
     "right",
     "right"
   ],
   "recorded": [
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lab-lights"
       ]
     },
+    "right",
+    "right",
+    "right",
+    "right",
     "enter",
     "right",
     "right",
     "up",
     "wait",
     "enter",
-    {
-      "power": []
-    },
-    "launch",
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lift-power"
       ]
     },
+    "launch",
     "right",
     "right",
+    "wait",
     "right",
     "right"
   ]

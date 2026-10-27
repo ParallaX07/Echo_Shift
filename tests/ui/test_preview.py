@@ -232,7 +232,9 @@ def committed_game(player, number=3):
     game = player.game
     game.open_level(number)
     player.press("F")
-    for key in ("E", "SPACE", "RETURN", "RETURN", "RIGHT", "SPACE", "SPACE", "SPACE"):
+    player.to_console()
+    keys = ("E", "SPACE", "RETURN", *("RIGHT",) * 4, "RETURN", "RIGHT")
+    for key in (*keys, "SPACE", "SPACE", "SPACE"):
         player.press(key)
     player.press("RETURN")
     assert game.state.phase is Phase.COMMITTED
@@ -312,6 +314,7 @@ def test_console_toggles_apply_at_once_and_undo_outside_replay(player):
     game = player.game
     game.open_level(2)
     player.press("F")
+    player.to_console()
     player.press("E")
     first = game.state.chamber.circuits[0].id
     before = game.snapshot()
@@ -327,6 +330,7 @@ def test_an_over_budget_toggle_is_refused_with_its_reason_and_counted_once(playe
     game = player.game
     game.open_level(2)
     player.press("F")
+    player.to_console()
     player.press("E")
     for _ in game.state.chamber.circuits:
         player.press("SPACE")
@@ -354,6 +358,8 @@ def test_replay_changes_are_staged_and_apply_costs_exactly_one_turn(player):
     game = committed_game(player)
     player.press("RETURN")  # launch
     assert game.state.phase is Phase.REPLAY
+    for _ in range(4):
+        player.press("LEFT")  # in replay the walk to the console costs turns
     player.press("E")
     assert game.console
     before, turns = game.state, game.state.turns
@@ -413,6 +419,7 @@ def pulses(player, still):
     game = player.game
     game.open_level(2)
     player.press("F")
+    player.to_console()
     player.press("E")
     game.state = act(game.state, InteractAtConsole(frozenset({"lift-power"}))).state
     game.pending = frozenset()

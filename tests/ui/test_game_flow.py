@@ -71,10 +71,14 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert game.modal == "guide" and len(game.seen_hints) == 1
     press("RETURN")
     press("F")
+    for _ in range(4):
+        press("LEFT")  # the console is a few tiles from the door
     press("E")
     press("SPACE")
     press("RETURN")
     assert game.state.powered_circuits == frozenset({"lift-power"})
+    for _ in range(4):
+        press("RIGHT")
     press("RETURN")
     press("RETURN")
     press("RETURN")
@@ -95,6 +99,8 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     press("P")
     press("C")
     assert not game.paused
+    for _ in range(4):
+        press("LEFT")
     press("E")
     press("SPACE")
     press("DOWN")

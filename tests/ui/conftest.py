@@ -64,6 +64,15 @@ def player(tmp_path, monkeypatch):
         held.clear()
         game.update()  # release frame, including the lesson's repeat guard
 
+    def to_console():
+        """Walk the hub from the door to the console, as a player does."""
+        (console,) = game.state.chamber.consoles
+        for _ in range(20):
+            if game.state.player == console:
+                return
+            press("LEFT" if console.x < game.state.player.x else "RIGHT")
+        raise AssertionError("the console is not on the door's row")
+
     def click_at(x, y, button=fake.MOUSE_BUTTON_LEFT):
         """Click pixel (x, y) with a mouse button, as the mouse would after a draw."""
         game.draw()
@@ -100,6 +109,7 @@ def player(tmp_path, monkeypatch):
     return SimpleNamespace(
         game=game,
         press=press,
+        to_console=to_console,
         click=click,
         click_at=click_at,
         click_tile=click_tile,

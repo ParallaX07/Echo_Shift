@@ -158,8 +158,8 @@ def main() -> int:
     parser.add_argument(
         "--full-hub",
         action="store_true",
-        help="search hub-to-hub steps while recording too (slow; re-checks the "
-        "hub shortcut)",
+        help="search hub-to-hub steps while recording too (slow, and needs a "
+        "larger --max-states such as 6000000; re-checks the hub shortcut)",
     )
     args = parser.parse_args()
     numbers = chamber_numbers() if args.all else args.chambers

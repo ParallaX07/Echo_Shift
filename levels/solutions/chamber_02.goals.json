@@ -2,6 +2,10 @@
   "turns": [
     "enter",
     "enter",
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lift-power",
@@ -16,6 +20,10 @@
   "recorded": [
     "enter",
     "enter",
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lift-power",

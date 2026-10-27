@@ -39,13 +39,17 @@ left off the bar and the guide's Controls page; their keys always work.
 
 ## Lessons
 
-Chamber 1 teaches the technician, hub, lighting, console, empty-take launch,
-movement, timed pads and elevator completion. Chamber 2 deliberately tries
+The console is a short walk from the door, so every lesson begins with a walking
+step (one step, several key presses: it finishes when the technician stands on
+the console, and the card for the idea closes with the first press) and walks
+back to the door before a recording starts, because a recording begins where the
+technician stands. Chamber 1 teaches the technician, hub, lighting, console,
+empty-take launch, movement, timed pads and elevator completion. Chamber 2 deliberately tries
 applying all three circuits (70/60), observes rejection, removes auxiliary
 power, applies 55/60 and uses the timed pad's active window. Chamber 3 records a
 move and three separate waits, introduces Retry and Re-record, then uses the
-echo to hold a passive pad while crossing the gate. The layouts, power costs,
-recording limits and solution traces are unchanged.
+echo to hold a passive pad while crossing the gate. The route layouts, power
+costs and recording limits are unchanged.
 
 Chamber 4 lights a side nook to record a walk onto its pad, then swaps the lights
 for the machines (the generator cannot run both) so the echo holds the pad in the

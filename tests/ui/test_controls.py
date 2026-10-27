@@ -223,7 +223,13 @@ def test_locked_bindings():
 
 
 def test_legend_lists_only_enabled_actions_with_their_key_caps(phases):
-    actions = controls.available_actions(phases["committed"], "game", None)
+    committed = phases["committed"]
+    actions = controls.available_actions(committed, "game", None)
+    assert controls.legend(actions, ("console", "echo")) == "Enter Launch echo"
+    (console,) = committed.chamber.consoles
+    actions = controls.available_actions(
+        replace(committed, player=console), "game", None
+    )
     assert controls.legend(actions, ("console", "echo")) == (
         "E Power console  Enter Launch echo"
     )

@@ -1,16 +1,28 @@
 {
   "steps": [
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "lab-lights"
       ]
     },
+    "right",
+    "right",
+    "right",
+    "right",
     "enter",
     "right",
     "right",
     "right",
     "up",
     "enter",
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "route-power"

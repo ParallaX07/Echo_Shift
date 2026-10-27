@@ -25,6 +25,9 @@ KEYS = {
 }
 
 
+WALK_LIMIT = 8
+
+
 def play_step(real):
     """Press what the current lesson step asks for; the step must then be done."""
     game = real.game
@@ -36,7 +39,11 @@ def play_step(real):
             real.press("DOWN")
         real.press("SPACE")
     else:
-        real.press(KEYS[step.action])
+        # A walking step takes as many presses as the walk is long.
+        for _ in range(WALK_LIMIT):
+            real.press(KEYS[step.action])
+            if game.lesson.current is not step:
+                break
     assert game.lesson.current is not step, step.id
     return step.id
 

@@ -1,11 +1,19 @@
 {
   "steps": [
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "path-lights",
         "lift-power"
       ]
     },
+    "right",
+    "right",
+    "right",
+    "right",
     "enter",
     "enter",
     "launch",

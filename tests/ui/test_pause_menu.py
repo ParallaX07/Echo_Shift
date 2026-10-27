@@ -57,6 +57,7 @@ def test_l_opens_chamber_select_only_inside_the_pause_menu(player):
 
 def test_escape_closes_the_console_before_it_pauses(player):
     game = start(player)
+    player.to_console()
     player.press("E")
     assert game.console
     player.press("ESCAPE")
@@ -133,7 +134,8 @@ def test_quit_to_title_from_the_pause_menu(player):
 
 def test_echo_key_enter_f_and_hidden_q(player):
     game = start(player)
-    for key in ("E", "SPACE", "RETURN", "RETURN", "RETURN"):
+    player.to_console()
+    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RETURN"):
         player.press(key)
     assert game.state.phase is Phase.COMMITTED
     action = controls.find(game.actions(), "echo")
@@ -175,12 +177,15 @@ def test_guided_undo_rewinds_the_lesson(player):
     player.press("RETURN")  # start the lesson
     player.press("RETURN")  # ready to try
     assert game.lesson.index == 0
+    for _ in range(4):
+        player.press("LEFT")  # walk to the console
+    assert game.lesson.index == 1 and not game.console
     player.press("E")  # opens the console and advances the lesson
-    assert game.console and game.lesson.index == 1
+    assert game.console and game.lesson.index == 2
     player.press("RETURN")  # ready to try the next step
     assert game.modal is None
     player.press("Z")
-    assert game.lesson.index == 0 and not game.console
+    assert game.lesson.index == 1 and not game.console
     assert game.lesson.current.action == "open_console"
     player.press("E")
-    assert game.lesson.index == 1 and game.console
+    assert game.lesson.index == 2 and game.console

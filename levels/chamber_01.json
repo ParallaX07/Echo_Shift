@@ -110,7 +110,7 @@
       "hub",
       "hub",
       "hub",
-      "hub",
+      "console",
       "hub",
       "hub",
       "hub",
@@ -533,7 +533,7 @@
   ],
   "consoles": [
     [
-      11,
+      7,
       6
     ]
   ],
@@ -603,14 +603,32 @@
   ],
   "hints": [
     "Leaving the pad starts a countdown. The elevator stops when it reaches zero, unless someone stands on the pad.",
-    "Switch on LIFT-POWER, record and save an empty recording ({key:echo} twice), launch with {key:echo}, then walk right twice."
+    "Walk left to the console, switch on LIFT-POWER, walk back to the door, record and save an empty recording ({key:echo} twice), launch with {key:echo}, then walk right twice."
   ],
   "tutorial_steps": [
     {
-      "id": "console",
+      "id": "walk-to-console",
       "concept": true,
       "title": "Your power console",
-      "explanation": "You are the amber technician. Reach the elevator to escape. The hub where you start is always lit and safe, but the route is dark until you power it. {key:console} opens the power console.",
+      "explanation": "You are the amber technician. Reach the elevator to escape. The hub where you start is always lit and safe, but the route is dark until you power it. The power console is in the hub; {key:console} opens it while you stand on it.",
+      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -619,7 +637,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }
@@ -650,6 +668,24 @@
       },
       "target": {
         "kind": "power"
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "action": "right",
+      "expected": {
+        "player": [
+          11,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          11,
+          6
+        ]
       }
     },
     {

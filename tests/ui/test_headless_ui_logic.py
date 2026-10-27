@@ -8,6 +8,13 @@ from echo_shift.paths import resource_path
 from echo_shift.ui.hud import model
 
 
+def walk(state, dx, steps=4):
+    """Free hub moves between the door and the console."""
+    for _ in range(steps):
+        state = act(state, Move(dx, 0)).state
+    return state
+
+
 def test_hud_power_safety_and_timeline():
     state = initial_state(load(resource_path("levels", "chamber_04.json")))
     assert (model(state).load, model(state).capacity, model(state).safe) == (
@@ -15,8 +22,9 @@ def test_hud_power_safety_and_timeline():
         60,
         True,
     )
+    state = walk(state, -1)
     state = act(state, InteractAtConsole(frozenset({"lab-lights"}))).state
-    state = enter(state)
+    state = enter(walk(state, 1))
     state = act(state, Move(1, 0)).state
     state = act(state, Wait()).state
     assert model(state).timeline[:3] == (
@@ -24,7 +32,7 @@ def test_hud_power_safety_and_timeline():
         ("wait", False, ""),
         ("empty", False, ""),
     )
-    state = enter(state)
+    state = walk(enter(state), -1)
     state = act(state, InteractAtConsole(frozenset({"lift-power"}))).state
     state = launch(state)
     hud = model(state)
@@ -38,12 +46,12 @@ def test_hud_power_safety_and_timeline():
 
 def test_chamber_four_solve_ten_retries_and_clear():
     chamber = load(resource_path("levels", "chamber_04.json"))
-    state = initial_state(chamber)
+    state = walk(initial_state(chamber), -1)
     state = act(state, InteractAtConsole(frozenset({"lab-lights"}))).state
-    state = enter(state)
+    state = enter(walk(state, 1))
     for move in (Move(1, 0), Move(1, 0), Move(0, -1), Wait()):
         state = act(state, move).state
-    state = enter(state)
+    state = walk(enter(state), -1)
     state = act(state, InteractAtConsole(frozenset({"lift-power"}))).state
     state = launch(state)
     route = (Move(1, 0), Move(1, 0), Wait(), Move(1, 0), Move(1, 0))

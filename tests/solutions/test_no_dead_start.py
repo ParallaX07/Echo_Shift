@@ -33,6 +33,20 @@ from tests.solutions.test_solutions import (
 DIRECTIONS = [MOVES[name] for name in ("up", "right", "down", "left")]
 
 
+def walk_to(state, tile):
+    """Free hub moves to `tile` along a shortest path."""
+    queue, seen = [(state, ())], {state.player}
+    for here, path in queue:
+        if here.player == tile:
+            return here
+        for direction in DIRECTIONS:
+            result = act(here, direction)
+            if isinstance(result, Accepted) and result.state.player not in seen:
+                seen.add(result.state.player)
+                queue.append((result.state, (*path, direction)))
+    raise AssertionError(f"cannot walk to {tile}")
+
+
 def finishes(state, steps, label):
     assert run_steps(state, steps, label).phase is Phase.RESULT, label
 
@@ -54,10 +68,12 @@ def test_every_legal_power_setting_before_a_take(case):
     number, chamber, start, steps = case
     configs = power_choices(chamber)
     assert frozenset() in configs
+    (console,) = chamber.consoles
     for config in configs:
-        result = act(start, InteractAtConsole(config))
+        result = act(walk_to(start, console), InteractAtConsole(config))
         assert isinstance(result, Accepted), (number, config, result)
-        finishes(result.state, steps, (number, "power", sorted(config)))
+        door = walk_to(result.state, chamber.start)
+        finishes(door, steps, (number, "power", sorted(config)))
 
 
 def test_walking_in_the_hub_never_loses_the_start(case):

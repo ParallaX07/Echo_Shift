@@ -128,7 +128,7 @@
       "hub",
       "wall",
       "wall",
-      "hub",
+      "console",
       "hub",
       "hub",
       "hub",
@@ -653,7 +653,7 @@
   ],
   "consoles": [
     [
-      11,
+      7,
       6
     ]
   ],
@@ -807,14 +807,32 @@
   "hints": [
     "The first gate needs the dark pad held. The second gate and the lift run on the countdown of the pad beside them.",
     "LAB-LIGHTS and ROUTE-POWER cannot run together (40 and 50 is more than 60). Light the nook to record, then swap before you launch.",
-    "Record right three times, then up. After launch go right three times, wait, go right two more times, then down three times."
+    "Record right three times, then up. Walk back to the console and swap the power. After launch go right three times, wait, go right two more times, then down three times."
   ],
   "tutorial_steps": [
     {
-      "id": "console",
+      "id": "walk-to-console",
       "concept": true,
       "title": "The whole escape",
       "explanation": "Your echo holds a pad in the dark, the generator cannot light the nook and run the machines together, and the pad beside the lift runs on a countdown. Light the nook first, to record the walk.",
+      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -823,7 +841,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }
@@ -854,6 +872,24 @@
       },
       "target": {
         "kind": "power"
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "action": "right",
+      "expected": {
+        "player": [
+          11,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          11,
+          6
+        ]
       }
     },
     {
@@ -967,6 +1003,24 @@
       "concept": true,
       "title": "Swap the lights for the machines",
       "explanation": "The nook will go dark, and your echo does not mind. ROUTE-POWER (50 units) runs both gates and the lift, but not beside LAB-LIGHTS. The far pad keeps the second gate and the lift on for a few turns after you leave it.",
+      "objective": "Press {key:move_left} to walk back to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "swap-console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -975,7 +1029,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }

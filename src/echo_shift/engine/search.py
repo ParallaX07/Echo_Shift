@@ -205,6 +205,8 @@ class _Search:
         self.paths = self._hub_paths()
         self.consoles = sorted(chamber.consoles)
         self.single_door = self._single_door()
+        # The hub tiles where anything happens: the door and the consoles.
+        self.stops = [chamber.start, *sorted(chamber.consoles - {chamber.start})]
 
     def _hub_paths(self) -> dict[tuple[Position, Position], tuple[str, ...]]:
         hub = self.chamber.hub
@@ -222,19 +224,36 @@ class _Search:
         return paths
 
     def _single_door(self) -> bool:
-        """True when the start tile is the hub's only door and only console.
+        """True when the start tile is the hub's only door.
 
-        Then everything the hub holds beyond that tile is inert: it has no pad,
-        gate or lift, and the door is where the console is. The search treats a
-        hub-to-hub step as a wait at the door and takes a start only at the door.
-        That is exact before and between takes and during replay. While
-        recording it is an assumption: such steps become recorded moves, and an
-        echo that a closed gate holds back would replay them from another tile.
-        It was checked to give the same optima on chambers 3 to 6; `full_hub`
-        turns it off for recording so a changed chamber can be re-verified.
+        Then the hub holds no pad, gate or lift (the loader allows only hub and
+        console tiles in it), and the player can leave it only at the start. What
+        the player does inside it has two effects: the turns it takes, and
+        whether a console is within reach. The search therefore replaces every
+        hub-to-hub step by a trip along a shortest path between two stops (the
+        door and the consoles), which costs its length in turns, and takes a
+        start only at a stop.
+
+        Before a take and between takes this is exact: walking is free, so only
+        the order of console visits and the final tile matter. During replay it
+        is exact too. Nothing in the hub reacts to the player, so any walk that
+        is longer than a shortest path can be rewritten as the shortest path
+        followed by waits at the stop, one turn each, and a wait costs the same
+        as a step. A power change fixes the turn it happens on, and waiting at
+        the console reaches that turn just as well as a longer walk would. The
+        echo and the timers never read where the player stands in the hub.
+
+        While recording it is an assumption. Hub steps become recorded moves,
+        and the echo replays them from its own tile. A hub move that is legal for
+        the player is legal for the echo unless something earlier displaced it, and
+        only a gate that is closed for the echo can do that. Then the echo
+        would walk the rest from another tile, and a recording that used such a
+        walk on purpose is not tried. It was checked to give the same optima on
+        chambers 3 to 6, and `full_hub` turns the trips off for recording so a
+        changed chamber can be re-verified.
         """
         chamber = self.chamber
-        if not chamber.consoles <= {chamber.start}:
+        if not chamber.consoles <= chamber.hub:
             return False
         return all(
             tile == chamber.start
@@ -299,8 +318,8 @@ class _Search:
             if configured is None:
                 continue
             ready, tokens = configured
-            doors = [self.chamber.start] if self.single_door else self.chamber.hub
-            for tile in sorted(doors):
+            doors = self.stops if self.single_door else sorted(self.chamber.hub)
+            for tile in doors:
                 path = self.paths.get((ready.player, tile))
                 walked = None if path is None else self._walk(ready, path)
                 if walked is None:
@@ -329,15 +348,48 @@ class _Search:
         tile = self.chamber.tile_at(Position(here.x + move.dx, here.y + move.dy))
         return tile is TileType.WALL
 
+    def _reduced(self, recording: bool) -> bool:
+        """Whether hub walking is searched as trips (see `_single_door`)."""
+        return self.single_door and not (recording and self.cons.full_hub)
+
     def _within_hub(self, here: Position, move: Move, recording: bool) -> bool:
-        """A hub-to-hub step the search skips (see `_single_door`)."""
+        """A hub-to-hub step the search skips in favour of trips."""
         hub = self.chamber.hub
         return (
-            self.single_door
-            and not (recording and self.cons.full_hub)
+            self._reduced(recording)
             and here in hub
             and Position(here.x + move.dx, here.y + move.dy) in hub
         )
+
+    def _trips(self, state: State, recording: bool) -> Iterator[tuple]:
+        """Walk the shortest path from this stop to each other one."""
+        limit = self.cons.max_recorded
+        for tile in self.stops:
+            path = self.paths.get((state.player, tile))
+            if not path:
+                continue
+            if (
+                recording
+                and limit is not None
+                and len(state.recording) + len(path) > limit
+            ):
+                continue
+            child: State | None = state
+            for token in path:
+                result = act(child, MOVES[token])
+                if not isinstance(result, Accepted):
+                    child = None  # the recording is full
+                    break
+                child = result.state
+                if (
+                    not recording
+                    and self.cons.state_ok
+                    and not self.cons.state_ok(child)
+                ):
+                    child = None
+                    break
+            if child is not None:
+                yield child, len(path), path, ("walk", tile), False
 
     def _turns(self, state: State, recording: bool) -> Iterator[tuple]:
         limit = self.cons.max_recorded
@@ -360,6 +412,8 @@ class _Search:
                     steps.append(
                         (InteractAtConsole(config), {"power": sorted(config)}, label)
                     )
+        if self._reduced(recording) and state.player in self.stops:
+            yield from self._trips(state, recording)
         for action, token, label in steps:
             result = act(state, action)
             if isinstance(result, (Rejected, Failed)):

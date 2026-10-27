@@ -122,7 +122,7 @@
       "hub",
       "hub",
       "hub",
-      "hub",
+      "console",
       "hub",
       "hub",
       "hub",
@@ -616,7 +616,7 @@
   ],
   "consoles": [
     [
-      11,
+      7,
       6
     ]
   ],
@@ -731,14 +731,32 @@
   "hints": [
     "The pad is in a side nook that only LAB-LIGHTS lights. The generator cannot run LAB-LIGHTS and LIFT-POWER together (40 and 50 is more than 60).",
     "You cannot end a turn in the dark, but your echo can. Light the nook to record a walk into it, then swap the power before you launch.",
-    "Record right, right, up and wait. Switch LAB-LIGHTS off and LIFT-POWER on, launch with {key:echo}, then go right twice, wait once and go right twice."
+    "Record right, right, up and wait. Walk back to the console and switch LAB-LIGHTS off and LIFT-POWER on, launch with {key:echo}, then go right twice, wait once and go right twice."
   ],
   "tutorial_steps": [
     {
-      "id": "console",
+      "id": "walk-to-console",
       "concept": true,
       "title": "Only your echo can stand in the dark",
       "explanation": "A pad sits in a side nook that only LAB-LIGHTS lights, and the lift needs LIFT-POWER. The generator cannot run both (40 and 50 is more than 60). You cannot end a turn in the dark, but your echo can. Light the nook first, to record a walk into it.",
+      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -747,7 +765,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }
@@ -778,6 +796,24 @@
       },
       "target": {
         "kind": "power"
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "action": "right",
+      "expected": {
+        "player": [
+          11,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          11,
+          6
+        ]
       }
     },
     {
@@ -888,6 +924,24 @@
       "concept": true,
       "title": "Swap the lights for the lift",
       "explanation": "The nook is about to go dark, which your echo does not mind. Switch the lights off and the lift on (50 of 60 units). You will walk the lit route while your echo holds the pad in the dark.",
+      "objective": "Press {key:move_left} to walk back to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "swap-console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -896,7 +950,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }

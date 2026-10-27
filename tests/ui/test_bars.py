@@ -81,6 +81,7 @@ def test_disabled_button_shows_its_reason_like_its_key(player):
 
 def test_power_chip_and_meter_open_the_console_only_at_the_console(player):
     game = play(player)
+    player.to_console()
     game.draw()
     for key in ("power", "circuit:lift-power"):
         game.console = False

@@ -58,9 +58,14 @@ def test_history_skips_a_duplicate_of_the_top_entry():
 
 def test_undo_power_choices_record_save_launch_retry_and_restart(player):
     game = free_play(player, 3)
+    undoes(player, "LEFT")  # a free hub move
+    for _ in range(3):
+        player.press("LEFT")  # the console is four tiles from the door
     undoes(player, "E")  # opening the console
     undoes(player, "SPACE")  # staging a circuit
     undoes(player, "RETURN")  # applying power
+    for _ in range(4):
+        player.press("RIGHT")  # back to the door to record
     undoes(player, "RETURN")  # record
     undoes(player, "RIGHT")  # recorded move
     undoes(player, "SPACE")  # recorded wait
@@ -74,7 +79,8 @@ def test_undo_power_choices_record_save_launch_retry_and_restart(player):
 
 def test_undo_wait_in_replay_and_hidden_launch_alias(player):
     game = free_play(player, 3)
-    for key in ("E", "SPACE", "RETURN", "RETURN", "RETURN"):
+    player.to_console()
+    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RETURN"):
         player.press(key)
     undoes(player, "Q")  # the old launch key still launches, and still undoes
     assert game.state.phase.value == "replay"
@@ -96,6 +102,7 @@ def test_rejected_inputs_push_nothing(player):
         player.press(key)  # leaves the hub, no turn yet, no launch, no history
         assert len(game.history) == depth and snap(game) == before
     # An over-budget apply is refused and leaves state and history alone.
+    player.to_console()
     player.press("E")
     for _ in game.state.chamber.circuits:
         player.press("SPACE")
@@ -121,22 +128,25 @@ def test_undo_with_empty_history_is_a_disabled_action_with_a_reason(player):
 
 def test_undo_never_calls_the_engine(player, monkeypatch):
     game = free_play(player, 3)
-    for key in ("E", "SPACE", "RETURN", "RETURN", "RIGHT"):
+    player.to_console()
+    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RIGHT"):
         player.press(key)
+    moves = len(game.history)
 
     def boom(*args, **kwargs):
         raise AssertionError("undo must only restore stored states")
 
     for name in ("act", "enter", "launch", "retry", "clear"):
         monkeypatch.setattr(app.recording, name, boom)
-    for _ in range(5):
+    for _ in range(moves):
         player.press("Z")
     assert game.state == initial_state(game.state.chamber)
-    assert game.attempt.undos == 5
+    assert game.attempt.undos == moves >= 5
 
 
 def test_backspace_also_undoes(player):
     game = free_play(player, 3)
+    player.to_console()
     before = snap(game)
     player.press("E")
     player.press("BACKSPACE")
@@ -146,7 +156,15 @@ def test_backspace_also_undoes(player):
 def test_undo_walks_back_through_the_whole_session(player):
     game = free_play(player, 3)
     states = [snap(game)]
-    for key in ("E", "SPACE", "RETURN", "RETURN", "RIGHT", "SPACE", "RETURN", "RETURN"):
+    walk = ["LEFT"] * 4
+    for key in (
+        *walk,
+        "E",
+        "SPACE",
+        "RETURN",
+        *["RIGHT"] * 4,
+        *("RETURN", "RIGHT", "SPACE", "RETURN", "RETURN"),
+    ):
         player.press(key)
         states.append(snap(game))
     for expected in reversed(states[:-1]):

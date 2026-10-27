@@ -1,10 +1,18 @@
 {
   "steps": [
+    "left",
+    "left",
+    "left",
+    "left",
     {
       "power": [
         "route-power"
       ]
     },
+    "right",
+    "right",
+    "right",
+    "right",
     "enter",
     "right",
     "right",

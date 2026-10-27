@@ -122,7 +122,7 @@
       "hub",
       "hub",
       "hub",
-      "hub",
+      "console",
       "hub",
       "hub",
       "hub",
@@ -565,7 +565,7 @@
   ],
   "consoles": [
     [
-      11,
+      7,
       6
     ]
   ],
@@ -654,14 +654,32 @@
   ],
   "hints": [
     "Your echo can stand on the pad while you walk through the gate.",
-    "Record one move right and three waits, save with {key:echo}, launch with {key:echo}, then walk right four times."
+    "Walk left to the console, switch on LIFT-POWER and walk back to the door. Record one move right and three waits, save with {key:echo}, launch with {key:echo}, then walk right four times."
   ],
   "tutorial_steps": [
     {
-      "id": "console",
+      "id": "walk-to-console",
       "concept": true,
       "title": "A pad and a gate",
       "explanation": "This room has a pad that is on only while someone stands on it, and a gate it controls. You cannot hold the pad and walk through the gate at once, so your echo will hold it for you. An echo never supplies power.",
+      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          6
+        ]
+      }
+    },
+    {
+      "id": "console",
       "objective": "Press {key:console} to open the power console.",
       "action": "open_console",
       "expected": {
@@ -670,7 +688,7 @@
       "target": {
         "kind": "tile",
         "position": [
-          11,
+          7,
           6
         ]
       }
@@ -701,6 +719,24 @@
       },
       "target": {
         "kind": "power"
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "action": "right",
+      "expected": {
+        "player": [
+          11,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          11,
+          6
+        ]
       }
     },
     {

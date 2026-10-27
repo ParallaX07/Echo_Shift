@@ -2,6 +2,7 @@
 
 import copy
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -32,11 +33,13 @@ KEYS = {
     "enter": "RETURN",
     "launch": "RETURN",
     "right": "RIGHT",
+    "left": "LEFT",
     "up": "UP",
     "down": "DOWN",
     "wait": "SPACE",
     "retry": "R",
 }
+WALK_LIMIT = 8
 
 
 def assert_step_is_available(game, step):
@@ -73,7 +76,10 @@ def do_step(player):
             player.press("SPACE")
             assert game.pending == pending and game.lesson.current is step
             player.press("UP")
-    player.press(KEYS[step.action])
+    for _ in range(WALK_LIMIT):  # a walking step takes one press per tile
+        player.press(KEYS[step.action])
+        if game.lesson.current is not step:
+            break
     assert game.lesson.current is not step
     if step.expected.get("outcome") == "rejected":
         assert game.state == before
@@ -129,8 +135,13 @@ def test_concept_card_closes_on_enter_click_or_the_action_itself(player):
     assert not game.lesson.card_open and game.lesson.index == 0
     game.start_lesson()
     game.update()  # keys are up, so the lesson may take input
-    player.press("E")  # the action itself closes it
-    assert game.lesson.index == 1 and not game.lesson.card_open and game.console
+    player.press("LEFT")  # the action itself closes it
+    assert game.lesson.index == 0 and not game.lesson.card_open
+    for _ in range(3):
+        player.press("LEFT")
+    assert game.lesson.current.action == "open_console"
+    player.press("E")
+    assert game.lesson.index == 2 and not game.lesson.card_open and game.console
     while game.lesson.current.id != "record":
         do_step(player)
     assert game.lesson.card_open
@@ -143,6 +154,8 @@ def test_a_step_without_a_concept_shows_no_card_and_the_next_step_line(player):
     game = player.game
     game.open_level(1)
     player.press("RETURN")
+    for _ in range(4):
+        player.press("LEFT")
     player.press("E")
     assert game.lesson.current.id == "switch-lift-power"
     assert not game.lesson.card_open and game.lesson_card_rect == (0, 0, 0, 0)
@@ -247,11 +260,17 @@ def test_controller_does_not_advance_on_key_without_expected_result():
     tutorial = Tutorial(load_steps(data["tutorial_steps"], chamber))
     state = initial_state(chamber)
     assert tutorial.card_open
-    assert not tutorial.observe("open_console", state, frozenset(), False)
+    assert not tutorial.observe("left", state, frozenset(), False)  # still at the door
+    assert not tutorial.observe("open_console", state, frozenset(), True)
     assert not tutorial.observe("toggle", state, frozenset(), True)
     assert tutorial.index == 0
-    assert tutorial.observe("open_console", state, frozenset(), True)
+    (console,) = chamber.consoles
+    there = replace(state, player=console)
+    assert tutorial.observe("left", there, frozenset(), False)
     assert tutorial.index == 1 and not tutorial.card_open
+    assert not tutorial.observe("open_console", there, frozenset(), False)
+    assert tutorial.observe("open_console", there, frozenset(), True)
+    assert tutorial.index == 2
 
 
 @pytest.mark.parametrize(
@@ -301,6 +320,7 @@ def test_contextual_explanations_reflect_live_state_and_keyboard_topics(player):
     game = player.game
     game.open_level(2)
     player.press("F")
+    player.to_console()
     player.press("E")
     player.press("SPACE")
     entries = {
@@ -349,6 +369,7 @@ def test_free_play_uses_existing_solution_and_records_mode(player, number):
                     "enter": "RETURN",
                     "launch": "RETURN",
                     "right": "RIGHT",
+                    "left": "LEFT",
                     "up": "UP",
                     "down": "DOWN",
                     "wait": "SPACE",

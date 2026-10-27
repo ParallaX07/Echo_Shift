@@ -116,16 +116,15 @@ def test_click_actions_match_the_arrow_keys():
 
 def test_the_own_tile_waits_and_the_console_tile_opens_the_console():
     state = chamber_state()
-    on_console = state.player
-    assert on_console in state.chamber.consoles
+    (on_console,) = state.chamber.consoles
+    state = replace(state, player=on_console)
     assert pointer.click_action(state, on_console) == "console"
     away = replace(state, player=Position(12, 6))
     assert pointer.click_action(away, Position(12, 6)) == "wait"
     far = replace(state, player=Position(13, 6))
     assert pointer.click_action(far, on_console) == "console"  # shows its reason
-    assert pointer.click_action(replace(far, player=Position(12, 6)), on_console) == (
-        "move_left"
-    )
+    beside = replace(state, player=Position(on_console.x + 1, on_console.y))
+    assert pointer.click_action(beside, on_console) == "move_left"
 
 
 def test_non_adjacent_tiles_map_to_nothing():
@@ -142,21 +141,25 @@ def test_non_adjacent_tiles_map_to_nothing():
 
 
 def test_hover_outlines_only_actionable_targets():
-    state = chamber_state()
+    door = chamber_state()
+    door_actions = controls.available_actions(door, "game", None)
+    assert pointer.hover_action(door, Position(12, 6), door_actions) == "move_right"
+    assert pointer.hover_action(door, Position(11, 5), door_actions) is None  # wall
+    assert pointer.hover_action(door, door.player, door_actions) is None  # no wait yet
+    (here,) = door.chamber.consoles
+    state = replace(door, player=here)
     actions = controls.available_actions(state, "game", None)
-    here = state.player
     assert pointer.hover_action(state, here, actions) == "console"
-    assert pointer.hover_action(state, Position(12, 6), actions) == "move_right"
-    assert pointer.hover_action(state, Position(11, 5), actions) is None  # wall
+    assert pointer.hover_action(state, Position(here.x + 1, 6), actions) == "move_right"
     assert pointer.hover_action(state, Position(15, 6), actions) is None  # far
-    away = replace(state, player=Position(12, 6))
+    away = replace(state, player=Position(here.x + 1, 6))
     away_actions = controls.available_actions(away, "game", None)
     assert pointer.hover_action(away, away.player, away_actions) is None  # no wait yet
     assert pointer.hover_action(away, here, away_actions) == "move_left"
     recording = replace(away, phase=Phase.RECORDING)
     live = controls.available_actions(recording, "game", None)
     assert pointer.hover_action(recording, recording.player, live) == "wait"
-    assert pointer.hover_action(state, Position(13, 6), actions) is None  # not adjacent
+    assert pointer.hover_action(state, Position(here.x + 2, 6), actions) is None
 
 
 # ---- the running game ----------------------------------------------------------
@@ -174,6 +177,13 @@ def lit(player, number=3):
     game.pending = frozenset({"lift-power"})
     game.state = initial_state(game.state.chamber, game.pending)
     return game
+
+
+def at_console(game):
+    """Stand on the console, as if walked there: the clicks under test follow."""
+    (console,) = game.state.chamber.consoles
+    game.state = replace(game.state, player=console)
+    return console
 
 
 def outcome(game):
@@ -222,18 +232,19 @@ def test_clicking_the_own_tile_waits_and_a_disabled_wait_shows_its_reason(player
 
 def test_clicking_the_console_opens_it_only_when_standing_on_it(player):
     game = lit(player)
-    player.click_tile(11, 6)
+    console = at_console(game)
+    player.click_tile(console.x, console.y)
     assert game.console
     player.press("ESCAPE")
     player.press("RETURN")
     player.press("RIGHT")
-    player.click_tile(11, 6)  # the console is adjacent now, so this is a move
-    assert not game.console and game.state.player == Position(11, 6)
-    player.click_tile(12, 6)
-    player.click_tile(13, 6)  # two tiles from the console
+    player.click_tile(console.x, console.y)  # adjacent now, so this is a move
+    assert not game.console and game.state.player == console
+    player.click_tile(console.x + 1, console.y)
+    player.click_tile(console.x + 2, console.y)  # two tiles from the console
     reason = controls.find(game.play_actions(), "console").reason
-    player.click_tile(11, 6)
-    assert not game.console and game.state.player == Position(13, 6)
+    player.click_tile(console.x, console.y)
+    assert not game.console and game.state.player == Position(console.x + 2, 6)
     assert game.message == reason.upper()
     assert game.attempt.disabled_presses == {"console": 1}
 
@@ -253,6 +264,7 @@ def test_non_adjacent_clicks_change_nothing_and_record_nothing(player):
 
 def test_mouse_is_ignored_while_an_overlay_covers_the_room(player):
     game = lit(player)
+    at_console(game)
     player.press("RETURN")
     player.press("E")
     before = game.state
@@ -267,12 +279,15 @@ def test_clicks_obey_lesson_gating_like_keys(player):
     game.open_level(1)
     player.press("RETURN")  # start the guided lesson
     player.press("RETURN")  # ready to try
-    assert game.lesson.current.action == "open_console"
+    assert game.lesson.current.action == "left"
     before = game.state
     player.click_tile(12, 6)
     assert game.state is before and not game.console
     assert game.message.startswith("NEXT:")
-    player.click_tile(11, 6)
+    for x in (10, 9, 8, 7):
+        player.click_tile(x, 6)  # each click walks one tile toward the console
+    assert game.lesson.current.action == "open_console" and not game.console
+    player.click_tile(7, 6)
     assert game.console and game.lesson.current.action != "open_console"
 
 
@@ -295,7 +310,7 @@ def test_hover_outline_is_drawn_on_actionable_tiles_only(player):
     assert hover(12, 6) == [
         (ox + 12 * cell + 1, oy + 6 * cell + 1, cell - 2, cell - 2, 7)
     ]
-    assert len(hover(11, 6)) == 1  # the console under the player
+    assert hover(11, 6) == []  # the bare door has nothing to do yet
     assert hover(12, 5) == [] and hover(14, 6) == []
     player.fake.mouse_x = player.fake.mouse_y = -1
 
@@ -395,7 +410,8 @@ def test_pause_items_are_clickable_and_hovered(player):
 
 def test_console_rows_select_toggle_and_apply(player):
     game = start(player, 2)
-    player.click_tile(11, 6)
+    console = at_console(game)
+    player.click_tile(console.x, console.y)
     assert game.console
     ids = [c.id for c in game.state.chamber.circuits]
     assert len(ids) >= 2
@@ -412,7 +428,8 @@ def test_staged_console_changes_cost_a_turn_on_apply_click(player):
     game = start(player, 2)
     player.press("RETURN")  # record
     assert game.state.phase is Phase.RECORDING
-    player.click_tile(11, 6)
+    console = at_console(game)
+    player.click_tile(console.x, console.y)
     first = game.state.chamber.circuits[0].id
     player.click_row(f"row:circuit:{first}")
     assert first in game.pending and game.state.powered_circuits == frozenset()
@@ -528,14 +545,18 @@ def test_keyboard_and_mouse_play_identical_engine_sequences(player, number):
 
 def test_mouse_play_uses_the_same_history_as_keys(player):
     game = start(player, 1)
-    for key in ("E", "SPACE", "RETURN", "RETURN"):
+    for key in ("LEFT",) * 4 + ("E", "SPACE", "RETURN") + ("RIGHT",) * 4 + ("RETURN",):
         player.press(key)
     assert game.state.phase is Phase.RECORDING
     by_keys = (len(game.history), game.state.search_key())
     game = start(player, 1)
-    player.click_tile(11, 6)
+    for x in (10, 9, 8, 7):
+        player.click_tile(x, 6)
+    player.click_tile(7, 6)
     player.click_row("row:circuit:lift-power")
     player.click_row("row:apply")
+    for x in (8, 9, 10, 11):
+        player.click_tile(x, 6)
     player.button("echo")
     assert (len(game.history), game.state.search_key()) == by_keys
     player.button("undo")

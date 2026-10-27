@@ -95,7 +95,8 @@ def test_hidden_actions_keep_working_by_key(player):
     assert "retry" not in buttons(player, 1)
     game.open_level(1)
     player.press("F")
-    for key in ("E", "SPACE", "RETURN"):
+    player.to_console()
+    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4):
         player.press(key)
     for key in ("RETURN", "RETURN", "RETURN", "RIGHT"):
         player.press(key)

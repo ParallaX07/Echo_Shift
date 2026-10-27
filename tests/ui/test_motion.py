@@ -251,8 +251,13 @@ def test_gates_elevators_and_pads_follow_the_state_difference():
     assert m.tick_lift("pad-a") > 0
 
 
+def at_console(state):
+    (console,) = state.chamber.consoles
+    return replace(state, player=console)
+
+
 def test_a_power_change_fades_the_tiles_whose_light_changed():
-    before = initial_state(chamber(2))
+    before = at_console(initial_state(chamber(2)))
     after = recording.act(before, InteractAtConsole(frozenset({"lift-power"}))).state
     changed = lighting.lit_tiles(before) ^ lighting.lit_tiles(after)
     assert changed
@@ -328,9 +333,12 @@ def start(player, number=1, recording=True):
     player.game.open_level(number)
     player.press("F")
     if number == 1:
+        player.to_console()
         player.press("E")  # open the console and switch the circuit on
         player.press("SPACE")
         player.press("ESCAPE")
+        for _ in range(4):
+            player.press("RIGHT")  # back to the door
     if recording:
         player.press("RETURN")
 
@@ -485,7 +493,7 @@ def test_the_playback_slot_pulses_and_returns_each_period():
 
 
 def test_the_power_bar_eases_from_the_old_load_to_the_new_one():
-    before = initial_state(chamber(2))
+    before = at_console(initial_state(chamber(2)))
     after = recording.act(before, InteractAtConsole(frozenset({"lift-power"}))).state
     old, new = motion._load(before), motion._load(after)
     assert old != new
@@ -760,6 +768,7 @@ def test_the_console_drawer_slides_but_its_rows_stay_where_they_rest(player):
     game = player.game
     game.open_level(1)
     player.press("F")
+    player.to_console()
     tap(player, "E")
     assert game.console
     hidden = game.motion.drawer_hidden()
@@ -782,6 +791,7 @@ def test_tiles_under_a_sliding_drawer_are_not_hit_but_those_beside_it_are(player
     game = player.game
     game.open_level(1)
     player.press("F")
+    player.to_console()
     tap(player, "E")
     tap(player, "ESCAPE")  # the drawer is sliding out; the console flag is off
     hidden = game.motion.drawer_hidden()

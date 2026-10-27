@@ -226,6 +226,7 @@ class Tutorial:
     ) -> bool:
         if not self.allows(event, detail):
             return False
+        self.card_open = False  # doing the action closes the card, even mid-walk
         actual = {
             "pending": sorted(pending),
             "powered": sorted(state.powered_circuits),

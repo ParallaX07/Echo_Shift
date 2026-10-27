@@ -1,6 +1,7 @@
 """Goals on the result card, in the save and on the level select."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from echo_shift.engine.model import Goals
@@ -104,7 +105,9 @@ def test_a_retry_does_not_add_turns(player):
     launch_at = steps.index("launch") + 1
     perform(game, steps[:launch_at])
     launched = game.state.turns
-    perform(game, [{"power": []}, "right"])  # switch the lights off, step into the dark
+    # The lights go out under the echo's player (as if switched at the console).
+    game.state = replace(game.state, powered_circuits=frozenset())
+    perform(game, ["right"])  # step into the dark
     assert game.failure is not None
     game.update()  # the card ignores keys until the failing key is released
     player.press("R")  # retry from launch

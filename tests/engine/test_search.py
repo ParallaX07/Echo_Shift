@@ -153,10 +153,109 @@ def test_the_hub_reduction_stays_off_with_a_second_door():
     assert play(two_doors, found.trace)[:2] == (True, found.turns)
 
 
-def test_a_console_away_from_the_start_keeps_the_reduction_off():
-    roomy = corridor("#HP.GE#", room=1)
-    moved = replace(roomy, consoles=frozenset({Position(1, 1)}))
-    assert not search._Search(moved, UNCONSTRAINED, Limits(), 1).single_door
+def away(room=1, row="#HP.GE#", console=(1, 1), **extra):
+    """A corridor whose hub room holds the console a few tiles from the door."""
+    return corridor(row, room=room, consoles=[list(console)], **extra)
+
+
+def test_a_console_away_from_the_door_keeps_the_reduction_on():
+    # The room still has one door, so walking in it is searched as trips between
+    # the door and the console instead of tile by tile.
+    chamber = away()
+    assert chamber.consoles == {Position(1, 1)} != {chamber.start}
+    reduced = search._Search(chamber, UNCONSTRAINED, Limits(), 1)
+    assert reduced.single_door
+    assert reduced.stops == [chamber.start, Position(1, 1)]
+    assert len(reduced.paths[chamber.start, Position(1, 1)]) == 2
+
+
+def full_search(monkeypatch):
+    """Turn the hub reduction off entirely, for replay and recording alike."""
+    monkeypatch.setattr(search._Search, "_single_door", lambda self: False)
+
+
+def play_trace(chamber, outcome):
+    return play(chamber, outcome.trace)[:2]
+
+
+def lift_off_at_launch(state):
+    """Forbid launching with the circuit on: a replay change must switch it."""
+    at_launch = state.phase is Phase.REPLAY and state.turns == len(state.recording)
+    return not (at_launch and state.powered_circuits)
+
+
+def test_a_trip_costs_its_length_and_walks_the_path(monkeypatch):
+    chamber = away(row="#HP.E#", timer=3)
+    # The empty take is free. After launch the route is dark: walk 2 tiles to the
+    # console, switch it on, walk 2 back, then 3 moves to the lift.
+    forced = Constraints(max_recorded=0, state_ok=lift_off_at_launch)
+    found = explore(chamber, forced)
+    assert found.verdict is Verdict.SOLVABLE
+    assert found.turns == 2 + 1 + 2 + 3
+    assert play(chamber, found.trace)[:2] == (True, found.turns)
+    full_search(monkeypatch)
+    assert explore(chamber, forced).turns == found.turns
+
+
+FORCED_SWAP = Constraints(state_ok=lift_off_at_launch)
+PLAYS = {
+    "free": UNCONSTRAINED,
+    "no-echo": Constraints(max_recorded=0),
+    "one-move": Constraints(max_recorded=1),
+    "power-late": FORCED_SWAP,
+    "replay-only": replace(FORCED_SWAP, max_recorded=0),
+}
+GATED = ("#HPGE#", {"timer": 2})
+LIFTS = [("#HHHP.E#", {"timer": 3}), ("#HP.E#", {"timer": 3})]
+# Searching every tile is far slower than trips, so the echo-gated cases are few.
+CASES = [
+    (*GATED, "free"),
+    (*GATED, "one-move"),
+    (*GATED, "power-late"),  # the echo holds the pad and a replay swap is forced
+    ("#HP.GE#", {}, "free"),
+    *((row, kwargs, play) for row, kwargs in LIFTS for play in PLAYS),
+]
+
+
+@pytest.mark.parametrize("row, kwargs, play", CASES)
+def test_trips_find_the_same_optimum_as_walking_every_tile(
+    monkeypatch, row, kwargs, play
+):
+    chamber = away(row=row, **kwargs)
+    reduced = explore(chamber, PLAYS[play])
+    full_search(monkeypatch)
+    full = explore(chamber, PLAYS[play])
+    assert reduced.verdict is full.verdict is Verdict.SOLVABLE
+    assert reduced.turns == full.turns
+    assert play_trace(chamber, reduced) == (True, reduced.turns)
+
+
+def test_a_console_trip_is_recorded_move_for_move():
+    chamber = away(room=1, console=(1, 1))
+    state = initial_state(chamber)
+    tokens = search._Search(chamber, UNCONSTRAINED, Limits(), 1)
+    child = next(
+        edge
+        for edge in tokens.edges(enter(state))
+        if edge[3] == ("walk", Position(1, 1))
+    )
+    assert child[1] == len(child[2]) == 2
+    assert len(child[0].recording) == 2 and child[0].player == Position(1, 1)
+
+
+def test_recorded_trips_respect_the_recording_limit():
+    chamber = away(room=1, console=(1, 1), max_turns=1)
+    tokens = search._Search(chamber, UNCONSTRAINED, Limits(), 1)
+    labels = [edge[3] for edge in tokens.edges(enter(initial_state(chamber)))]
+    assert ("walk", Position(1, 1)) not in labels
+
+
+def test_full_hub_searches_a_recorded_walk_to_a_far_console():
+    chamber = away(row="#HPGE#", room=1, console=(1, 1))
+    reduced = explore(chamber, count=True)
+    full = explore(chamber, Constraints(full_hub=True), count=True)
+    assert (full.turns, full.solutions) == (reduced.turns, reduced.solutions)
+    assert play(chamber, full.trace)[:2] == (True, full.turns)
 
 
 def test_full_hub_changes_nothing_on_a_small_corridor():

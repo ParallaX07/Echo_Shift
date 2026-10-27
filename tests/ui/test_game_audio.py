@@ -70,6 +70,8 @@ def test_refused_input_rejects(player):
 
 def test_free_power_is_heard_through_the_same_hook(player):
     start(player, 1)
+    player.to_console()
+    heard(player)
     player.press("E")
     assert heard(player) == ["ui_select"]  # the console opens
     player.press("SPACE")  # toggling a circuit applies at once in a free chamber

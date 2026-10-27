@@ -166,10 +166,15 @@ solved without an echo (the tests exhaust every no-echo play to prove it).
 | 6 | combined | all of the above: a dark pad opens the first gate, then a countdown holds the second gate and the lift |
 
 Every chamber is built around a hub room of 80 to 100 tiles with the start tile
-as its only door, so there is space to walk about before a take. The room is
-always lit and walking in it is free, and the route begins at the door, so a take
-that starts anywhere else in the room is never faster than one that starts at the
-door. The chambers are 15 to 19 tiles wide and 12 or 13 tall, so the camera
+as its only door, so there is space to walk about before a take. The power
+console stands deeper in the room, four tiles from the door along its row, so
+reaching it is a short walk that fits on screen with the door. The console is
+used only while the technician stands on its tile: the E key and a click on the
+tile are refused with a reason anywhere else, and a power change is free before
+a take and after it is saved but, during a replay, costs one turn on top of the
+walk there and back. The room is always lit and walking in it is free, and the
+route begins at the door, so a take that starts anywhere else in the room is
+never faster than one that starts at the door. The chambers are 15 to 19 tiles wide and 12 or 13 tall, so the camera
 scrolls them on a 1280x720 window.
 
 Each of chambers 4 to 6 is a short route in three beats: the idea on its own (the
@@ -294,15 +299,23 @@ shortest trace; `tools/solve.py --all` prints the difficulty table. A search
 that reaches its state or time cap is reported as inconclusive, never as a
 verdict.
 
-When the start tile is the hub's only door and only console, the search treats the
-rest of the hub as inert: it holds no pad, gate or lift, so a hub-to-hub step is
-taken as a wait at the door, and takes start only at the door. That is exact before
-and between takes and during replay. While recording it is an assumption, because
-those steps become recorded moves and an echo that a closed gate holds back would
-replay them from another tile; it was checked to give the same optima on chambers 3
-to 6. `tools/solve.py --full-hub` turns the reduction off for recording only (the
-take's start and replay keep it) so it can be re-verified when chambers change; it
-is much slower. Any other hub shape is searched in full.
+When the start tile is the hub's only door, the search treats the rest of the hub
+as inert: it holds no pad, gate or lift, and the technician can leave it only
+through the door. Walking inside it matters only as a trip between the door and a
+console, so the search replaces every hub step by a trip along a shortest path
+between those stops, costing its length in turns, and takes a start only at a
+stop. That is exact before and between takes. It is exact during replay too: a
+longer walk is the shortest path followed by waits, which cost the same, and a
+power change waits for its turn at the console just as well. While recording it is
+an assumption, because those steps become recorded moves and an echo that a
+closed gate holds back would replay them from another tile; it was checked to give
+the same optima on chambers 3 to 6. `tools/solve.py --full-hub` turns the trips
+off for recording only (the take's start and replay keep them) so it can be
+re-verified when chambers change; it is much slower and needs a larger state cap
+(`--max-states 6000000`, about a minute per chamber). A hub with a second door is
+searched in full. Because the console is a walk from the door, a power change
+during replay costs the trip as well as its turn, so the fewest-turn plays set
+their power before launching.
 
 **Turns.** A run's turns are the turn-consuming actions from the chamber start
 to the exit: every move, wait and console change made while recording or
