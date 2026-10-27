@@ -165,6 +165,13 @@ solved without an echo (the tests exhaust every no-echo play to prove it).
 | 5 | timed pads | crossing a gate on a pad's countdown, then waiting on a passive pad while you ride the lift |
 | 6 | combined | all of the above: a dark pad opens the first gate, then a countdown holds the second gate and the lift |
 
+Every chamber is built around a hub room of 80 to 100 tiles with the start tile
+as its only door, so there is space to walk about before a take. The room is
+always lit and walking in it is free, and the route begins at the door, so a take
+that starts anywhere else in the room is never faster than one that starts at the
+door. The chambers are 15 to 19 tiles wide and 12 or 13 tall, so the camera
+scrolls them on a 1280x720 window.
+
 Each of chambers 4 to 6 is a short route in three beats: the idea on its own (the
 first gate or pad), an easy use of it (the recorded walk), and a twist that
 combines it with earlier chambers (the power swap, the shared countdown). Difficulty
@@ -286,6 +293,12 @@ for movement on the following turn.
 shortest trace; `tools/solve.py --all` prints the difficulty table. A search
 that reaches its state or time cap is reported as inconclusive, never as a
 verdict.
+
+When the start tile is the hub's only door and only console, the search treats the
+rest of the hub as inert: a step between two hub tiles costs the same turns as
+waiting at the door and nothing in the hub can be pressed, opened or ridden, so
+takes start at the door and hub-to-hub steps are skipped. A bigger hub room adds no
+plays and no search cost. Any other hub shape is searched in full.
 
 **Turns.** A run's turns are the turn-consuming actions from the chamber start
 to the exit: every move, wait and console change made while recording or

@@ -83,10 +83,10 @@ def test_undo_wait_in_replay_and_hidden_launch_alias(player):
 def test_undo_free_hub_move(player, monkeypatch):
     game = free_play(player, 3)
     chamber = game.state.chamber
-    wide = replace(chamber, hub=chamber.hub | {Position(4, 4)})
+    wide = replace(chamber, hub=chamber.hub | {Position(12, 6)})
     game.state = initial_state(wide)
     undoes(player, "RIGHT")
-    assert game.state.player == Position(4, 4)
+    assert game.state.player == Position(12, 6)
 
 
 def test_rejected_inputs_push_nothing(player):

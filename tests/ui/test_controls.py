@@ -33,7 +33,7 @@ def echo(state, **kwargs):
 
 
 def away(state):
-    return replace(state, player=Position(5, 4))
+    return replace(state, player=Position(13, 6))
 
 
 def test_echo_key_label_follows_phase_and_position(phases):

@@ -178,8 +178,8 @@ def test_guide_hints_pause_hover_and_clear_preserve_or_restart_objective(player)
     player.press("RETURN")
     cell, ox, oy = game.room_view
     player.fake.mouse_x, player.fake.mouse_y = (
-        ox + 4 * cell + cell // 2,
-        oy + 4 * cell + cell // 2,
+        ox + 12 * cell + cell // 2,
+        oy + 6 * cell + cell // 2,
     )
     before, index = game.state, game.lesson.index
     game.draw()
@@ -219,7 +219,7 @@ def test_held_movement_cannot_cross_a_lesson_step(player):
     game.update()
     player.press("RIGHT")
     assert game.lesson.current.id == "wait-one"
-    assert game.state.player == Position(4, 4)
+    assert game.state.player == Position(12, 6)
     player.press("RIGHT")
     assert game.lesson.current.id == "wait-one" and len(game.state.recording) == 1
 
@@ -310,7 +310,7 @@ def test_contextual_explanations_reflect_live_state_and_keyboard_topics(player):
     assert "Pending choice: 20/60" in entries["power"][1]
     assert "Applied: ON. Pending: ON" in entries["circuit:path-lights"][1]
     assert "takes effect at once" in entries["circuit:path-lights"][1]
-    title, detail = room_info(game.state, Position(4, 4))
+    title, detail = room_info(game.state, Position(12, 6))
     assert "TIMED" in title and "Timer: 0/3" in detail and "Occupied: no" in detail
     assert (
         "circuit:lift-power" in entries

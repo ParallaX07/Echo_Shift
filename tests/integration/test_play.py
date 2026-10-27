@@ -178,9 +178,8 @@ def test_room_art_fills_the_room_band_and_the_bars_stay_clear(real):
 def test_a_chamber_bigger_than_the_room_scrolls_and_keeps_the_bars_whole(real):
     game = start(real, 2)
     chamber = game.state.chamber
-    floor = (TileType.FLOOR,) * 14
-    tiles = tuple(row + floor for row in chamber.tiles) + (floor + floor[:12],) * 10
-    tiles = tuple(row + (TileType.FLOOR,) * (26 - len(row)) for row in tiles)
+    floor = (TileType.FLOOR,) * 26
+    tiles = tuple(row[:26] + floor[len(row) :] for row in chamber.tiles) + (floor,) * 10
     wide = replace(chamber, tiles=tiles)
     far = Position(24, 17)
     game.state = replace(game.state, chamber=wide, player=far)

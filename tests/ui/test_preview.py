@@ -155,7 +155,7 @@ def test_expiry_and_projection_need_a_saved_recording():
 
 def test_the_echo_path_and_next_command_follow_the_recording():
     state = committed(3)
-    start, over = Position(3, 4), Position(4, 4)
+    start, over = Position(11, 6), Position(12, 6)
     assert preview.echo_path(state) == (start, over, over, over, over)
     live = launch(state)
     assert preview.next_command(live) == ("move", (1, 0))
@@ -371,24 +371,24 @@ def test_console_preview_lists_what_would_go_dark_and_change_power():
     chamber = load(ROOT / "levels" / "chamber_02.json")
     on = initial_state(chamber, frozenset({"path-lights", "lift-power"}))
     shown = cues.console_preview(on, frozenset({"lift-power"}))
-    assert shown.dark == {Position(4, 4), Position(5, 4)} and not shown.lit
+    assert shown.dark == {Position(12, 6), Position(13, 6)} and not shown.lit
     assert shown.losing == frozenset() and shown.gaining == frozenset()
     off = cues.console_preview(on, frozenset())
-    assert Position(6, 4) in off.dark and off.losing == {"lift"}
+    assert Position(14, 6) in off.dark and off.losing == {"lift"}
     gain = cues.console_preview(initial_state(chamber), frozenset({"lift-power"}))
-    assert gain.gaining == {"lift"} and gain.lit == {Position(6, 4)}
+    assert gain.gaining == {"lift"} and gain.lit == {Position(14, 6)}
     assert not cues.console_preview(on, on.powered_circuits).changed
 
 
 def test_unlit_neighbours_are_flagged_but_walls_and_closed_gates_are_not():
     chamber = load(ROOT / "levels" / "chamber_03.json")
     dark = initial_state(chamber)
-    assert cues.unsafe_neighbours(dark) == (Position(4, 4),)
+    assert cues.unsafe_neighbours(dark) == (Position(12, 6),)
     assert (
         cues.unsafe_neighbours(initial_state(chamber, frozenset({"lift-power"}))) == ()
     )
-    beside_gate = replace(dark, player=Position(5, 4))
-    assert cues.unsafe_neighbours(beside_gate) == (Position(4, 4),)  # gate is shut
+    beside_gate = replace(dark, player=Position(13, 6))
+    assert cues.unsafe_neighbours(beside_gate) == (Position(12, 6),)  # gate is shut
     assert not cues.warns_unsafe(dark)
     assert cues.warns_unsafe(replace(dark, phase=Phase.REPLAY))
 
@@ -396,14 +396,14 @@ def test_unlit_neighbours_are_flagged_but_walls_and_closed_gates_are_not():
 def test_links_explain_why_a_powered_device_can_still_be_shut():
     state = launch(committed(3))
     state = act(state, Move(1, 0)).state
-    state = replace(state, player=Position(5, 4))
+    state = replace(state, player=Position(13, 6))
     links = {link.device.id: link for link in cues.focused_links(state, None)}
     assert set(links) == {"gate-a"}
     link = links["gate-a"]
-    assert link.pad_label == "A" and link.pad_position == Position(4, 4)
+    assert link.pad_label == "A" and link.pad_position == Position(12, 6)
     assert link.powered and link.pad_active and link.running
     unpowered = replace(state, powered_circuits=frozenset())
-    shut = cues.focused_links(unpowered, Position(7, 4))
+    shut = cues.focused_links(unpowered, Position(15, 6))
     assert {item.device.id for item in shut} == {"gate-a", "lift"}
     assert not any(item.powered for item in shut)
 

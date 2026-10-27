@@ -87,7 +87,7 @@ def test_power_chip_and_meter_open_the_console_only_at_the_console(player):
         player.click(next(r for r, hit in game.ui_hits if hit == key))
         assert game.console
     game.console = False
-    game.state = replace(game.state, player=Position(4, 4))
+    game.state = replace(game.state, player=Position(12, 6))
     player.click(next(r for r, hit in game.ui_hits if hit == "power"))
     assert not game.console
     assert game.message == controls.find(game.play_actions(), "console").reason.upper()
@@ -134,7 +134,7 @@ def test_a_full_recording_refuses_keys_in_place(player, key):
 @pytest.mark.parametrize("action_id", ["move_up", "move_right", "wait"])
 def test_a_full_recording_refuses_the_wait_button_and_tile_clicks(player, action_id):
     game = full_take(player)
-    game.state = replace(game.state, player=Position(4, 4))  # off the console
+    game.state = replace(game.state, player=Position(12, 6))  # off the console
     before = (game.state, len(game.history))
     if action_id == "wait":  # only the wait button is on the bar
         player.button(action_id)

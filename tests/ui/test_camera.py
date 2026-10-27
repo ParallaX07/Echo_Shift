@@ -372,6 +372,8 @@ def test_a_small_chamber_zooms_to_fit_and_never_scrolls(player):
     game = player.game
     game.open_level(1)
     game.modal = None
+    game.state = initial_state(big_chamber(columns=8, rows=6))
+    game.camera.reset()
     bounds = framed_bounds(game.state.chamber)
     for _ in range(3):
         game.draw()

@@ -201,6 +201,7 @@ class _Search:
         )
         self.paths = self._hub_paths()
         self.consoles = sorted(chamber.consoles)
+        self.single_door = self._single_door()
 
     def _hub_paths(self) -> dict[tuple[Position, Position], tuple[str, ...]]:
         hub = self.chamber.hub
@@ -216,6 +217,26 @@ class _Search:
                         paths[origin, there] = (*paths[origin, here], token)
                         queue.append(there)
         return paths
+
+    def _single_door(self) -> bool:
+        """True when the start tile is the hub's only door and only console.
+
+        Then everything the hub holds beyond that tile is inert: walking about
+        in it is the same as waiting at the door (it costs the same turns, there
+        is no pad, gate or lift in it, and the door is where the console is), so
+        a bigger hub adds no plays and the search skips hub-to-hub steps and
+        takes that start anywhere but the door.
+        """
+        chamber = self.chamber
+        if not chamber.consoles <= {chamber.start}:
+            return False
+        return all(
+            tile == chamber.start
+            for tile in chamber.hub
+            for move in MOVES.values()
+            if chamber.tile_at(Position(tile.x + move.dx, tile.y + move.dy))
+            not in (TileType.WALL, TileType.HUB, TileType.CONSOLE)
+        )
 
     def _walk(self, state: State, tokens: tuple[str, ...]) -> State | None:
         for token in tokens:
@@ -272,7 +293,8 @@ class _Search:
             if configured is None:
                 continue
             ready, tokens = configured
-            for tile in sorted(self.chamber.hub):
+            doors = [self.chamber.start] if self.single_door else self.chamber.hub
+            for tile in sorted(doors):
                 path = self.paths.get((ready.player, tile))
                 walked = None if path is None else self._walk(ready, path)
                 if walked is None:
@@ -301,6 +323,15 @@ class _Search:
         tile = self.chamber.tile_at(Position(here.x + move.dx, here.y + move.dy))
         return tile is TileType.WALL
 
+    def _within_hub(self, here: Position, move: Move) -> bool:
+        """A hub-to-hub step the search skips (see `_single_door`)."""
+        hub = self.chamber.hub
+        return (
+            self.single_door
+            and here in hub
+            and Position(here.x + move.dx, here.y + move.dy) in hub
+        )
+
     def _turns(self, state: State, recording: bool) -> Iterator[tuple]:
         limit = self.cons.max_recorded
         can_record = not (
@@ -312,6 +343,7 @@ class _Search:
                 (move, token, token)
                 for token, move in MOVES.items()
                 if not self._walled(state.player, move)
+                and not self._within_hub(state.player, move)
             ]
             steps.append((Wait(), "wait", "wait"))
         if state.player in self.chamber.consoles:

@@ -60,8 +60,9 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     assert "PLAYTEST LOG" not in "".join(drawn_text)
     cell, origin_x, origin_y = game.room_view
     left, top, right, bottom = game.room_bounds
-    assert game.layout.room_y <= origin_y + top * cell
-    assert origin_y + (bottom + 1) * cell <= game.layout.room_y + game.layout.room_h
+    # The chamber is taller than the room band, so it fills the band and scrolls.
+    assert origin_y + top * cell <= game.layout.room_y
+    assert origin_y + (bottom + 1) * cell >= game.layout.room_y + game.layout.room_h
     assert (
         0 <= origin_x + left * cell
         and origin_x + (right + 1) * cell <= game.layout.width

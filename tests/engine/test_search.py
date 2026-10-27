@@ -32,14 +32,23 @@ GLYPHS = {
 }
 
 
-def corridor(row, *, timer=0, capacity=60, max_turns=6, **extra):
+def corridor(row, *, timer=0, capacity=60, max_turns=6, room=0, **extra):
     """A one-row chamber: H hub, P pad, G gate, E elevator, . floor.
 
-    One circuit lights the whole route and powers the gate and the lift.
+    One circuit lights the whole route and powers the gate and the lift. A
+    `room` adds a square of hub floor that many tiles wide behind the first
+    tile (the room opens onto it, so that tile stays the start and the door).
     """
     cells = {glyph: [] for glyph in row}
     for x, glyph in enumerate(row):
-        cells[glyph].append([x, 1])
+        cells[glyph].append([x + room, 1 + room])
+    grid = [["wall"] * (len(row) + room) for _ in range(3 + 2 * room)]
+    for x, glyph in enumerate(row):
+        grid[1 + room][x + room] = GLYPHS[glyph]
+    for y in range(1, 2 * room + 2):
+        for x in range(1, room + 1):
+            grid[y][x] = "hub"
+            cells["H"].append([x, y])
     devices = [
         {
             "id": "gate" if glyph == "G" else "lift",
@@ -53,11 +62,7 @@ def corridor(row, *, timer=0, capacity=60, max_turns=6, **extra):
     ]
     return from_dict(
         {
-            "grid": [
-                ["wall"] * len(row),
-                [GLYPHS[glyph] for glyph in row],
-                ["wall"] * len(row),
-            ],
+            "grid": grid,
             "hub": cells["H"],
             "consoles": [cells["H"][0]],
             "start": cells["H"][0],
@@ -68,7 +73,9 @@ def corridor(row, *, timer=0, capacity=60, max_turns=6, **extra):
                 {
                     "id": "route",
                     "tiles": [
-                        [x, 1] for x, glyph in enumerate(row) if glyph not in "#H"
+                        [x + room, 1 + room]
+                        for x, glyph in enumerate(row)
+                        if glyph not in "#H"
                     ],
                 }
             ],
@@ -105,6 +112,21 @@ def test_known_optimum_and_counts(gated_report):
     assert (report.turns, report.recorded, report.peak_load) == (7, 3, 40)
     assert report.recorded_turns == 7
     assert report.solutions == 2 and not report.solutions_capped
+
+
+def test_a_big_hub_room_behind_the_door_changes_nothing(gated_report):
+    # Walking about in a hub room costs the same turns as waiting at the door,
+    # so the room adds no plays; the search must not pay for its size either.
+    roomy = corridor("#HP.GE#", room=6)
+    assert len(roomy.hub) > 70
+    report = analyze(roomy, max_states=30_000)
+    assert report.verdict is Verdict.SOLVABLE, report
+    keys = ("turns", "recorded", "recorded_turns", "peak_load", "solutions")
+    assert [getattr(report, k) for k in keys] == [
+        getattr(gated_report, k) for k in keys
+    ]
+    assert play(roomy, report.trace)[:3] == (True, 7, 3)
+    assert exhaust_without_echo(roomy).verdict is Verdict.UNSOLVABLE
 
 
 def test_returned_traces_replay_on_the_real_engine(gated, gated_report):

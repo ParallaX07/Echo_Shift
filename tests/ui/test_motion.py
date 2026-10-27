@@ -692,7 +692,7 @@ def test_holding_does_not_cut_the_glide_short(player):
 def test_a_held_key_asks_once_and_stops_after_a_refused_step(player):
     start(player)
     game = player.game
-    code = key(player, "LEFT")
+    code = key(player, "UP")
     player.held.add(code)
     player.pressed.add(code)
     left = []
