@@ -1,7 +1,7 @@
 """Pyxel-free mouse hit-testing for the room: pixels to tiles to actions."""
 
 from echo_shift.engine.model import Position, State, TileType
-from echo_shift.ui import controls
+from echo_shift.ui import controls, story
 from echo_shift.ui.layout import Rect
 
 View = tuple[int, int, int]  # cell size, then the pixel origin of tile (0, 0)
@@ -35,14 +35,20 @@ def tile_at(
     return None
 
 
-def click_action(state: State, position: Position) -> str | None:
+def click_action(
+    state: State, position: Position, terminals: tuple[story.Terminal, ...] = ()
+) -> str | None:
     """The action a click on `position` asks for; None when it asks for nothing.
 
     An adjacent tile moves, exactly like the arrow key. The player's own tile
     opens the console when it stands on one and waits otherwise. A console the
     player is not standing on maps to the console action, which explains why it
-    is unavailable.
+    is unavailable. A log terminal on or next to the player (console not
+    underfoot) maps to the same use action, whose key reads it.
     """
+    reachable = story.in_reach(state, terminals)
+    if reachable is not None and reachable.position == position:
+        return "console"
     dx, dy = position.x - state.player.x, position.y - state.player.y
     if (dx, dy) in MOVES:
         return MOVES[(dx, dy)]
@@ -54,10 +60,13 @@ def click_action(state: State, position: Position) -> str | None:
 
 
 def hover_action(
-    state: State, position: Position, actions: list[controls.Action]
+    state: State,
+    position: Position,
+    actions: list[controls.Action],
+    terminals: tuple[story.Terminal, ...] = (),
 ) -> str | None:
     """The action to outline under the pointer: only ones that would do something."""
-    action_id = click_action(state, position)
+    action_id = click_action(state, position, terminals)
     if action_id is None or not controls.find(actions, action_id).enabled:
         return None
     if action_id in MOVES.values() and (

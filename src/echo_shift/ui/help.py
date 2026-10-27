@@ -4,6 +4,7 @@ from echo_shift.engine import lighting
 from echo_shift.engine.model import Phase, Position, State
 from echo_shift.engine.turn import Move, Wait
 from echo_shift.ui.controls import BINDINGS, key_text, stages_power
+from echo_shift.ui.story import Terminal
 
 
 def cap(action_id: str) -> str:
@@ -28,7 +29,10 @@ def command_name(action: object) -> str:
 
 
 def room_info(
-    state: State, position: Position, lighting_notes: bool = True
+    state: State,
+    position: Position,
+    lighting_notes: bool = True,
+    terminals: tuple[Terminal, ...] = (),
 ) -> tuple[str, str]:
     title = state.chamber.tile_at(position).value.upper()
     parts = []
@@ -48,6 +52,12 @@ def room_info(
         title = "HUB CONSOLE"
         parts.append(
             f"{cap('console')} opens power selection. {cap('nav_prev')}/{cap('nav_next')} selects, {cap('toggle')} switches a circuit, {cap('apply')} applies, {cap('close')} closes. Changes are free before recording and after saving; during a recording or replay they wait for {cap('apply')} and cost one turn."
+        )
+    if any(terminal.position == position for terminal in terminals):
+        title = "LOG TERMINAL"
+        parts.append(
+            f"Log terminal: press {cap('console')} to read it when you stand on or next to it. "
+            "Reading is free and changes nothing in the chamber."
         )
     for pad in state.chamber.pads:
         if pad.position == position:
@@ -117,7 +127,10 @@ def room_info(
 
 
 def topics(
-    state: State, pending: frozenset[str], console: bool = False
+    state: State,
+    pending: frozenset[str],
+    console: bool = False,
+    terminals: tuple[Terminal, ...] = (),
 ) -> list[tuple[str, str, str]]:
     load = sum(c.load for c in state.chamber.circuits if c.id in state.powered_circuits)
     pending_load = sum(c.load for c in state.chamber.circuits if c.id in pending)
@@ -193,7 +206,7 @@ def topics(
         if tile.value != "wall"
     )
     for position in positions:
-        title, detail = room_info(state, position)
+        title, detail = room_info(state, position, terminals=terminals)
         result.append((f"tile:{position.x},{position.y}", title, detail))
     for index in range(state.chamber.max_turns):
         action = state.recording[index] if index < len(state.recording) else None

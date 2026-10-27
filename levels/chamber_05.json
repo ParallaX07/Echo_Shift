@@ -782,6 +782,38 @@
     "The far pad works only while someone stands on it. Your echo can wait there while you ride the lift.",
     "Record five moves to the right and save. Launch with {key:echo}, then walk right six times."
   ],
+  "terminals": [
+    {
+      "position": [
+        1,
+        1
+      ],
+      "lines": [
+        "Some switches only stay pressed for a moment.",
+        "Everything here asks for patience. I am learning to wait."
+      ]
+    },
+    {
+      "position": [
+        10,
+        10
+      ],
+      "lines": [
+        "I counted the turns again. Three, then three more.",
+        "The place has a rhythm, and I am learning the beat."
+      ]
+    },
+    {
+      "position": [
+        4,
+        9
+      ],
+      "lines": [
+        "The echo and I stood on the same pad today.",
+        "Neither of us felt alone."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

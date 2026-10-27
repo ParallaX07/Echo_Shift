@@ -22,10 +22,11 @@ returns to preparation.
 ## Keys, undo and the failure card
 
 One key does one thing everywhere in play: WASD or the arrows move, Space waits,
-E uses the console, Enter (or F) is the echo key, Z or Backspace undoes, R
-retries from launch, C restarts the chamber, Esc or P pauses, T opens the
-guide, H reveals the next hint, M mutes and F11 toggles fullscreen. Inside an
-overlay the arrows or WASD navigate, Space or Enter confirm, and Esc or E close.
+E uses the console (or reads a nearby log terminal), Enter (or F) is the echo
+key, Z or Backspace undoes, R retries from launch, C restarts the chamber, Esc
+or P pauses, T opens the guide, H reveals the next hint, M mutes and F11
+toggles fullscreen. Inside an overlay the arrows or WASD navigate, Space or
+Enter confirm, and Esc or E close.
 
 The bottom bar introduces its buttons gradually. Chamber 1 shows move, wait,
 undo, the power console and the echo key (nothing outside the hub can be walked
@@ -176,6 +177,19 @@ walk there and back. The room is always lit and walking in it is free, and the
 route begins at the door, so a take that starts anywhere else in the room is
 never faster than one that starts at the door. The chambers are 15 to 19 tiles wide and 12 or 13 tall, so the camera
 scrolls them on a 1280x720 window.
+
+Each hub room also holds two or three log terminals, small story props on hub tiles
+away from the console and the door. They are listed in the chamber file as
+`terminals` (a hub tile and one to three short lines each); the rules, the
+solver and the engine never read them, and the tile stays ordinary walkable hub
+floor. The use key (E) reads a terminal when the technician stands on it or
+next to it in the hub and is not standing on the console; the console keeps the
+key on its own tile. Clicking such a terminal, or pressing the bar button that
+then reads *Read log*, does the same. The card reveals one line at a time: Space,
+Enter or a click shows the next line and then closes it, and Esc, E or a
+right-click closes it at once. Reading is free at every stage of a take, passes no turn,
+changes no chamber state and leaves nothing for undo. Where no terminal is
+near, the key keeps its power-console reason.
 
 Each of chambers 4 to 6 is a short route in three beats: the idea on its own (the
 first gate or pad), an easy use of it (the recorded walk), and a twist that

@@ -605,6 +605,38 @@
     "Leaving the pad starts a countdown. The elevator stops when it reaches zero, unless someone stands on the pad.",
     "Walk left to the console, switch on LIFT-POWER, walk back to the door, record and save an empty recording ({key:echo} twice), launch with {key:echo}, then walk right twice."
   ],
+  "terminals": [
+    {
+      "position": [
+        2,
+        3
+      ],
+      "lines": [
+        "Day 1. The lights in this room came on by themselves.",
+        "I think the building was waiting for someone to ask."
+      ]
+    },
+    {
+      "position": [
+        2,
+        9
+      ],
+      "lines": [
+        "The walls hum all day. After a while it sounds like breathing.",
+        "I keep the door in sight so I do not get lost."
+      ]
+    },
+    {
+      "position": [
+        9,
+        2
+      ],
+      "lines": [
+        "Note to self: the hub floor is safe. Stay in the light.",
+        "The dark floor past the door is not kind."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

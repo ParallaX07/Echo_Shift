@@ -809,6 +809,38 @@
     "LAB-LIGHTS and ROUTE-POWER cannot run together (40 and 50 is more than 60). Light the nook to record, then swap before you launch.",
     "Record right three times, then up. Walk back to the console and swap the power. After launch go right three times, wait, go right two more times, then down three times."
   ],
+  "terminals": [
+    {
+      "position": [
+        2,
+        1
+      ],
+      "lines": [
+        "Almost every light on this level works now.",
+        "I did not expect to be proud of a lightbulb."
+      ]
+    },
+    {
+      "position": [
+        1,
+        10
+      ],
+      "lines": [
+        "The elevator is the last thing to wake up.",
+        "When it does, I will not be leaving a dead place behind."
+      ]
+    },
+    {
+      "position": [
+        10,
+        3
+      ],
+      "lines": [
+        "If you are reading this, the lights are on.",
+        "Stay a while. It is not so quiet here anymore."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

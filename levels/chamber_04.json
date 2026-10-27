@@ -733,6 +733,38 @@
     "You cannot end a turn in the dark, but your echo can. Light the nook to record a walk into it, then swap the power before you launch.",
     "Record right, right, up and wait. Walk back to the console and switch LAB-LIGHTS off and LIFT-POWER on, launch with {key:echo}, then go right twice, wait once and go right twice."
   ],
+  "terminals": [
+    {
+      "position": [
+        4,
+        1
+      ],
+      "lines": [
+        "Dark rooms are loud. My boots, my breath, the hum.",
+        "My echo walks through them as if they were not there."
+      ]
+    },
+    {
+      "position": [
+        1,
+        8
+      ],
+      "lines": [
+        "I sent the echo ahead into the dark.",
+        "It always arrives. I am learning to trust it."
+      ]
+    },
+    {
+      "position": [
+        8,
+        11
+      ],
+      "lines": [
+        "Day 9. Somewhere below, a pump started on its own.",
+        "The building is remembering how to be alive."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

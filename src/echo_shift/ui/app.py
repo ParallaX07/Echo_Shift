@@ -33,6 +33,7 @@ from echo_shift.ui import (
     pointer,
     preview,
     progress,
+    story,
 )
 from echo_shift.ui.atlas import Atlas
 from echo_shift.ui.display import Display
@@ -217,6 +218,9 @@ class Game:
         self.state = initial_state(load(resource_path("levels", "chamber_01.json")))
         self.paused = False
         self.console = False
+        self.terminals = ()
+        self.log = None  # the terminal whose card is open
+        self.log_page = 0  # how many of its lines the card shows
         self.selection = 0
         self.pending = self.state.powered_circuits
         self.message = self.play_prompt().upper()
@@ -265,6 +269,7 @@ class Game:
         self.level = number
         self.attempt = Attempt(number)
         self.state = initial_state(load(path))
+        self.terminals = story.load_terminals(data.get("terminals"), self.state.chamber)
         self.lesson_steps = load_steps(data.get("tutorial_steps"), self.state.chamber)
         self.lesson = None
         self.lesson_summary = load_summary(
@@ -328,11 +333,16 @@ class Game:
             modal,
             undoable=len(self.history) > 0,
             failure=self.failure.kind if self.failure else "",
+            terminals=self.terminals,
         )
 
     def play_actions(self) -> list[controls.Action]:
         return controls.available_actions(
-            self.state, "game", None, undoable=len(self.history) > 0
+            self.state,
+            "game",
+            None,
+            undoable=len(self.history) > 0,
+            terminals=self.terminals,
         )
 
     def bar_actions(self) -> list[controls.Action]:
@@ -596,7 +606,10 @@ class Game:
                 self.failure is not None,
                 astuple(self.progress.settings),
             ),
-            (lesson.index, lesson.card_open) if lesson is not None else None,
+            (
+                (lesson.index, lesson.card_open) if lesson is not None else None,
+                self.log_page,
+            ),
             (
                 self.level_cursor,
                 self.pause_index,
@@ -609,6 +622,8 @@ class Game:
 
     def ui_cue(self, seen: tuple) -> str | None:
         screen, card, cursor, pending = self.ui_marks()
+        if card != seen[1] and seen[0][1] == "log":
+            return "dialogue"  # a log line was shown, or the last one closed it
         if screen != seen[0]:
             return "ui_select"
         if card != seen[1]:
@@ -721,6 +736,9 @@ class Game:
         if self.modal == "guide":
             self.guide_input()
             return
+        if self.modal == "log":
+            self.log_input()
+            return
         if self.lesson is not None and self.lesson.card_open and self.dismiss_card():
             return
         # All gameplay keys must be released after reading before another action.
@@ -780,8 +798,22 @@ class Game:
         ):
             self.close_reading()
 
+    def log_input(self) -> None:
+        """Space, Enter or a click shows the next line, then closes; Esc, E or a
+        right click closes at once. Reading never touches the chamber."""
+        if self.pressed("close"):
+            self.modal = None
+            self.release_controls = True
+        elif self.pressed("confirm") or (
+            hasattr(pyxel, "MOUSE_BUTTON_LEFT") and pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT)
+        ):
+            self.log_page += 1
+            if self.log_page > len(self.log.lines):
+                self.modal = None
+                self.release_controls = True
+
     def pause_pressed(self) -> bool:
-        if self.console or self.modal == "guide":
+        if self.console or self.modal in ("guide", "log"):
             return False  # Esc closes the overlay first.
         return self.pressed("pause")
 
@@ -994,7 +1026,14 @@ class Game:
             )
         self.teach(ECHO_EVENTS[verb])
 
+    def open_log(self, terminal: story.Terminal) -> None:
+        self.log, self.log_page = terminal, 1
+        self.modal = "log"
+
     def open_console(self) -> None:
+        if (terminal := story.in_reach(self.state, self.terminals)) is not None:
+            self.open_log(terminal)
+            return
         if not self.allow("open_console"):
             return
         action = controls.find(self.actions(), "console")
@@ -1111,7 +1150,9 @@ class Game:
         ):
             return None
         tile = self.pointer_tile(self.shaken)
-        return pointer.click_action(self.state, tile) if tile is not None else None
+        if tile is None:
+            return None
+        return pointer.click_action(self.state, tile, self.terminals)
 
     def clicked_row(self) -> str | None:
         """The key of the panel row (without its "row:" prefix) just clicked."""
@@ -1380,6 +1421,7 @@ class Game:
         }
         letter = max(1, min(4, cell // 40))
         letter_char = self.char_width(letter)
+        terminal_tiles = {terminal.position for terminal in self.terminals}
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
                 tile = state.chamber.tiles[y][x]
@@ -1436,6 +1478,8 @@ class Game:
                     names.append(
                         "console_1" if self.motion.console_lit() else "console"
                     )
+                elif pos in terminal_tiles:
+                    names.append("terminal")
                 # A tile whose light just changed shows its old look, then fades
                 # to the new one with a dither.
                 looks = ((dark, 1.0),)
@@ -1516,7 +1560,7 @@ class Game:
         if (
             hover is not None
             and not covered
-            and pointer.hover_action(state, hover, self.play_actions())
+            and pointer.hover_action(state, hover, self.play_actions(), self.terminals)
         ):
             pyxel.rectb(
                 origin_x + hover.x * cell + 1,
@@ -1807,11 +1851,13 @@ class Game:
         drawer: tuple[int, int, int, int] | None = None,
         rows: dict[int, str] | None = None,
         gap_units: int = 12,
+        measure: list[str] | None = None,
     ) -> None:
         """Draw a card centred in the room, or fill `drawer` when one is given.
 
         `rows` maps line indexes to the "row:" keys that make those lines
-        clickable; a hovered row gets an outline.
+        clickable; a hovered row gets an outline. `measure` sizes the card for
+        those lines instead, so it does not grow as lines appear.
         """
         _, _, width, _ = drawer or self.layout.overlay()
         pad = max(18, self.layout.cell // 4)
@@ -1824,7 +1870,7 @@ class Game:
             gap = gap_units * scale
             body_height = sum(
                 self.wrapped_height(line, width - 2 * pad, scale) + gap
-                for line in lines
+                for line in measure or lines
             )
             height = 2 * pad + title_height + body_height + footer_height + 36
             if (
@@ -2280,7 +2326,7 @@ class Game:
                         f"Press {action.key} or click." if action.key else "Click."
                     )
                 for topic_key, title, detail in topics(
-                    self.state, self.pending, self.console
+                    self.state, self.pending, self.console, self.terminals
                 ):
                     if key == topic_key:
                         return title, detail
@@ -2289,7 +2335,9 @@ class Game:
         ):
             return None
         position = self.pointer_tile(self.shaken)
-        return room_info(self.state, position) if position is not None else None
+        if position is None:
+            return None
+        return room_info(self.state, position, terminals=self.terminals)
 
     def draw_hover(self) -> None:
         topic = self.hovered_topic()
@@ -2323,6 +2371,8 @@ class Game:
             )
         elif self.modal == "guide":
             self.draw_guide()
+        elif self.modal == "log":
+            self.draw_log()
         elif self.modal == "result":
             ids = (
                 ("confirm", "close", "restart")
@@ -2342,6 +2392,23 @@ class Game:
                 "",
                 rows={len(lines) + i: "result:" + a for i, a in enumerate(ids)},
             )
+
+    def draw_log(self) -> None:
+        """The log card: lines appear one at a time in a card sized for them all."""
+        lines = list(self.log.lines)
+        last = self.log_page >= len(lines)
+        keys = self.actions()
+        footer = (
+            f"{controls.BINDINGS['confirm'].cap} {controls.find(keys, 'close').label}"
+            if last
+            else controls.legend(keys, ("confirm", "close"))
+        )
+        self.draw_panel(
+            f"LOG TERMINAL / {min(self.log_page, len(lines))}/{len(lines)}",
+            lines[: self.log_page],
+            footer.upper(),
+            measure=lines,
+        )
 
     def menu_lines(self, action_ids: tuple[str, ...], selected: int = -1) -> list[str]:
         keys = {action.id: action for action in self.actions()}
@@ -2401,6 +2468,7 @@ class Game:
             level=self.level,
             revealed=self.hints[: self.hint_index],
             total_hints=len(self.hints),
+            terminals=self.terminals,
         )
         count = len(guide.PAGES)
         previous = guide.PAGES[(self.guide_page - 1) % count][1]

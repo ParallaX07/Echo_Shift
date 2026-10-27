@@ -306,5 +306,12 @@
     "v": 480,
     "width": 96,
     "height": 96
+  },
+  "terminal": {
+    "bank": 0,
+    "u": 0,
+    "v": 576,
+    "width": 96,
+    "height": 96
   }
 }

@@ -3,6 +3,7 @@
 from echo_shift.engine.model import Position, State
 from echo_shift.ui import controls
 from echo_shift.ui.help import room_info
+from echo_shift.ui.story import Terminal
 
 PAGES = (
     ("goal", "GOAL"),
@@ -118,7 +119,7 @@ def title(page: str) -> str:
     return dict(PAGES)[page]
 
 
-def objects(state: State) -> list[str]:
+def objects(state: State, terminals: tuple[Terminal, ...] = ()) -> list[str]:
     """Plain object notes plus the live explanation of each pad and machine."""
     notes = [
         "YOU: the amber technician. Your tile must be lit at the end of every turn.",
@@ -133,6 +134,14 @@ def objects(state: State) -> list[str]:
             "ignores darkness."
         ),
     ]
+    if terminals:
+        notes.insert(
+            4,
+            (
+                f"LOG TERMINAL: press {controls.key_text('console')} on or next to one "
+                "to read it. Reading is free and changes nothing."
+            ),
+        )
     chamber = state.chamber
     seen: list[Position] = [pad.position for pad in chamber.pads]
     seen += [device.position for device in chamber.devices]
@@ -164,6 +173,7 @@ def page_lines(
     level: int,
     revealed: tuple[str, ...] = (),
     total_hints: int = 0,
+    terminals: tuple[Terminal, ...] = (),
 ) -> list[str]:
     """The lines of one page, with key placeholders already filled in."""
     if page == "goal":
@@ -171,7 +181,7 @@ def page_lines(
     elif page == "controls":
         lines = controls.controls_lines(level)
     elif page == "objects":
-        lines = objects(state)
+        lines = objects(state, terminals)
     elif page == "echo":
         lines = list(ECHO)
     elif page == "power":

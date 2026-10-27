@@ -8,6 +8,7 @@ import re
 from dataclasses import dataclass
 
 from echo_shift.engine.model import Phase, State
+from echo_shift.ui import story
 
 
 @dataclass(frozen=True)
@@ -151,6 +152,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
         "close",
     ),
     "failure": ("undo", "retry", "restart", "mute", "fullscreen"),
+    "log": ("confirm", "close", "guide", "hint", "mute", "fullscreen"),
     "guide": ("nav_prev", "nav_next", "confirm", "close", "guide", "hint", "mute"),
     "lesson_choice": ("confirm", "free_play", "guide", "hint", "pause", "mute"),
     "result": ("confirm", "close", "restart", "mute"),
@@ -174,6 +176,8 @@ LABELS: dict[tuple[str, str], str] = {
     ("result", "close"): "Chamber select",
     ("result", "restart"): "Play again",
     ("console", "close"): "Exit",
+    ("log", "confirm"): "Next",
+    ("log", "close"): "Close",
 }
 
 MOVE_DELTAS = {
@@ -258,6 +262,7 @@ def _status(
     scope: str,
     undoable: bool,
     failure: str,
+    reading: bool,
 ) -> tuple[str, bool, str]:
     label = LABELS.get((scope, action_id), BINDINGS[action_id].label)
     if action_id == "wait" and state.phase not in {Phase.RECORDING, Phase.REPLAY}:
@@ -268,6 +273,8 @@ def _status(
         and len(state.recording) >= state.chamber.max_turns
     ):
         return label, False, resolve("Recording full; {key:echo} saves it")
+    if action_id == "console" and reading:
+        return "Read log", True, ""
     if action_id == "console" and state.player not in state.chamber.consoles:
         return label, False, "Stand on the hub console to change power"
     if action_id == "echo":
@@ -309,25 +316,32 @@ def available_actions(
     *,
     undoable: bool = False,
     failure: str = "",
+    terminals: tuple[story.Terminal, ...] = (),
 ) -> list[Action]:
     """Actions for the current context, each enabled or disabled with a reason.
 
     `modal` is the active overlay in the game screen (console, pause, failure,
     guide, settings, lesson_choice, result) or None for plain gameplay.
     `failure` is "replay" or "recording" while the failure card is open.
+    `terminals` are the chamber's log terminals: next to one (and not on the
+    console), the console key reads its log instead.
     """
     scope = scope_for(screen, modal)
+    reading = scope == "play" and story.in_reach(state, terminals) is not None
     actions = []
     for action_id in SCOPES[scope]:
-        label, enabled, reason = _status(action_id, state, scope, undoable, failure)
+        label, enabled, reason = _status(
+            action_id, state, scope, undoable, failure, reading
+        )
+        binding = BINDINGS[action_id]
         actions.append(
             Action(
                 action_id,
-                BINDINGS[action_id].cap,
+                binding.cap,
                 label,
                 enabled,
                 reason,
-                BINDINGS[action_id].short,
+                binding.short if label == binding.label else "",
             )
         )
     return actions
@@ -382,7 +396,7 @@ def shown_actions(level: int) -> frozenset[str]:
 PLACEHOLDER = re.compile(r"\{(key|label):([a-z_]+)\}")
 DESCRIPTIONS = {
     "wait": "Wait one turn",
-    "console": "Open the power console while standing on the hub console",
+    "console": "Open the power console on the hub console, or read a log terminal on or next to you",
     "echo": "Record at the hub, save the recording, then launch the echo",
     "undo": "Undo the last move",
     "retry": "Run the echo again from launch",

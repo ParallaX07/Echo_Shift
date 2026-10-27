@@ -656,6 +656,38 @@
     "Your echo can stand on the pad while you walk through the gate.",
     "Walk left to the console, switch on LIFT-POWER and walk back to the door. Record one move right and three waits, save with {key:echo}, launch with {key:echo}, then walk right four times."
   ],
+  "terminals": [
+    {
+      "position": [
+        2,
+        2
+      ],
+      "lines": [
+        "I recorded myself today. A blue copy of me walked my path again.",
+        "It did not complain about the walk."
+      ]
+    },
+    {
+      "position": [
+        10,
+        4
+      ],
+      "lines": [
+        "The recording does not know I am watching.",
+        "It only knows the steps I gave it."
+      ]
+    },
+    {
+      "position": [
+        3,
+        9
+      ],
+      "lines": [
+        "Strange to share a room with my own habits.",
+        "It is the first time in a long while that I am not alone."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

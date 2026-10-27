@@ -99,6 +99,10 @@ hint and summary text. Fixtures without `tutorial_steps` still work. The tutoria
 and explanation functions do not import Pyxel; they observe the real engine.
 There is no alternative tutorial simulation or modification of timing rules.
 
+Chamber JSON may also list `terminals` (see "Log terminals" in `docs/rules.md`).
+They are validated by `ui/story.py`, ignored by the engine and never part of a
+lesson step.
+
 Local visit telemetry includes `mode` (`guided` or `free`) so moderator findings
 can distinguish the experiences. The deliberately rejected request is counted
 as an over-budget confirmation.

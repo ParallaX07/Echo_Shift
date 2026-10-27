@@ -643,6 +643,38 @@
     "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55 of 60.",
     "Walk left to the console. Leave AUX-POWER off, walk back to the door, save an empty recording, launch, then walk right three times."
   ],
+  "terminals": [
+    {
+      "position": [
+        1,
+        3
+      ],
+      "lines": [
+        "The generator can only feed so much at once.",
+        "Every switch is a small choice about what to leave in the dark."
+      ]
+    },
+    {
+      "position": [
+        6,
+        9
+      ],
+      "lines": [
+        "Day 4. I thank the console when it works.",
+        "The screen glows a little brighter. I know that is silly."
+      ]
+    },
+    {
+      "position": [
+        10,
+        2
+      ],
+      "lines": [
+        "Found a mug by the wall, cold and stained blue.",
+        "Whoever worked here before me left in a hurry."
+      ]
+    }
+  ],
   "tutorial_steps": [
     {
       "id": "walk-to-console",

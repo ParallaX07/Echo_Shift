@@ -729,6 +729,26 @@
           "2": 1
         }
       }
+    },
+    {
+      "id": "terminal",
+      "type": "prop",
+      "group": "devices",
+      "description": "Log terminal: the console recoloured with an amber screen, rust casing and blue indicator lights so it reads as a different device.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "console",
+      "op": "palette_swap",
+      "params": {
+        "map": {
+          "3": 9,
+          "12": 10,
+          "9": 12,
+          "13": 4,
+          "6": 13
+        }
+      }
     }
   ]
 }
