@@ -708,6 +708,27 @@
           "3": 11
         }
       }
+    },
+    {
+      "id": "floor_hub_inner",
+      "type": "tile",
+      "group": "floor",
+      "description": "Calm interior hub floor, the hub stripes muted to tone-on-tone so large safe rooms stay readable.",
+      "status": "ok",
+      "attempts": 0,
+      "source": "derived",
+      "from": "floor_hub",
+      "op": "palette_swap",
+      "params": {
+        "map": {
+          "10": 5,
+          "9": 5,
+          "4": 5,
+          "8": 13,
+          "14": 13,
+          "2": 1
+        }
+      }
     }
   ]
 }

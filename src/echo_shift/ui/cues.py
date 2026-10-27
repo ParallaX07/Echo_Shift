@@ -3,10 +3,25 @@
 from dataclasses import dataclass, replace
 
 from echo_shift.engine import lighting
-from echo_shift.engine.model import Device, Phase, Position, State, TileType
+from echo_shift.engine.model import Chamber, Device, Phase, Position, State, TileType
 from echo_shift.ui import camera
 
 STEPS = ((0, -1), (1, 0), (0, 1), (-1, 0))
+
+
+def hub_thresholds(chamber: Chamber) -> frozenset[Position]:
+    """Hub tiles where the safe room is left: the start and any hub tile that
+    touches a walkable tile outside the hub. Only these get the hazard stripes."""
+    return frozenset(
+        pos
+        for pos in chamber.hub
+        if pos == chamber.start
+        or any(
+            (near := Position(pos.x + dx, pos.y + dy)) not in chamber.hub
+            and chamber.tile_at(near) is not TileType.WALL
+            for dx, dy in STEPS
+        )
+    )
 
 
 def unsafe_neighbours(state: State) -> tuple[Position, ...]:

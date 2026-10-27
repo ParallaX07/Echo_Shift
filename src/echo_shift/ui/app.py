@@ -168,6 +168,7 @@ class Game:
         self.room_view = (self.layout.cell, self.layout.room_x, self.layout.room_y)
         self.shaken = self.room_view  # the room view with any failure shake applied
         self.room_bounds = (0, 0, 0, 0)
+        self.hub_edge: tuple[object, frozenset[Position]] = (None, frozenset())
         self.camera = camera.Camera()
         self.text_cache = {}
         self.fonts = {}
@@ -1325,6 +1326,9 @@ class Game:
         lit = lighting.lit_tiles(state)
         pads = {pad.position: pad for pad in state.chamber.pads}
         devices = {device.position: device for device in state.chamber.devices}
+        if self.hub_edge[0] is not state.chamber:
+            self.hub_edge = (state.chamber, cues.hub_thresholds(state.chamber))
+        hub_edge = self.hub_edge[1]
         left_x, top_y, right_x, bottom_y = route_bounds(state.chamber)
         route = {
             Position(x, y)
@@ -1390,7 +1394,7 @@ class Game:
                 names = [
                     "wall"
                     if tile is TileType.WALL
-                    else "floor_hub"
+                    else ("floor_hub" if pos in hub_edge else "floor_hub_inner")
                     if pos in state.chamber.hub
                     else "floor_lit"
                 ]

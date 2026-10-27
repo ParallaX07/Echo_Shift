@@ -299,5 +299,12 @@
     "v": 480,
     "width": 96,
     "height": 96
+  },
+  "floor_hub_inner": {
+    "bank": 0,
+    "u": 672,
+    "v": 480,
+    "width": 96,
+    "height": 96
   }
 }
