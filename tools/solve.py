@@ -51,6 +51,7 @@ def solve(number: int, args: argparse.Namespace) -> tuple[Chamber, Report]:
         max_seconds=args.max_seconds,
         solution_cap=args.solution_cap,
         idea_horizon=args.horizon,
+        full_hub=args.full_hub,
     )
     return chamber, report
 
@@ -153,6 +154,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--write-goals", action="store_true", help="store the goal traces"
+    )
+    parser.add_argument(
+        "--full-hub",
+        action="store_true",
+        help="search hub-to-hub steps while recording too (slow; re-checks the "
+        "hub shortcut)",
     )
     args = parser.parse_args()
     numbers = chamber_numbers() if args.all else args.chambers

@@ -225,8 +225,8 @@ The camera only changes what is drawn; it never touches the rules or the input.
   retry, a restart or an undo that moves the player more than one tile snaps the
   view.
 - **Mouse.** Clicks and hover use the view that is currently drawn, including
-  while the camera moves. Only tiles that are visible, and not under the console
-  drawer, can be hit.
+  while the camera moves or the room shakes. Only tiles that are visible, and not
+  under the console drawer (also while it slides), can be hit.
 - **Markers.** A small arrow on the room's edge points at each gate, pad,
   elevator or echo that is out of view, coloured by kind (amber gate, green pad,
   white elevator, blue echo). A guided step's target tile gets a yellow one.
@@ -295,10 +295,14 @@ that reaches its state or time cap is reported as inconclusive, never as a
 verdict.
 
 When the start tile is the hub's only door and only console, the search treats the
-rest of the hub as inert: a step between two hub tiles costs the same turns as
-waiting at the door and nothing in the hub can be pressed, opened or ridden, so
-takes start at the door and hub-to-hub steps are skipped. A bigger hub room adds no
-plays and no search cost. Any other hub shape is searched in full.
+rest of the hub as inert: it holds no pad, gate or lift, so a hub-to-hub step is
+taken as a wait at the door, and takes start only at the door. That is exact before
+and between takes and during replay. While recording it is an assumption, because
+those steps become recorded moves and an echo that a closed gate holds back would
+replay them from another tile; it was checked to give the same optima on chambers 3
+to 6. `tools/solve.py --full-hub` turns the reduction off for recording only (the
+take's start and replay keep it) so it can be re-verified when chambers change; it
+is much slower. Any other hub shape is searched in full.
 
 **Turns.** A run's turns are the turn-consuming actions from the chamber start
 to the exit: every move, wait and console change made while recording or

@@ -7,9 +7,10 @@ import pytest
 
 from echo_shift.engine import search
 from echo_shift.engine.loader import from_dict
-from echo_shift.engine.model import Phase, initial_state
+from echo_shift.engine.model import Phase, Position, TileType, initial_state
 from echo_shift.engine.recording import act, enter, launch
 from echo_shift.engine.search import (
+    UNCONSTRAINED,
     Constraints,
     Inconclusive,
     Limits,
@@ -127,6 +128,44 @@ def test_a_big_hub_room_behind_the_door_changes_nothing(gated_report):
     ]
     assert play(roomy, report.trace)[:3] == (True, 7, 3)
     assert exhaust_without_echo(roomy).verdict is Verdict.UNSOLVABLE
+
+
+def with_second_door(chamber):
+    """Two hub tiles above the corridor's first two: the second opens onto the pad."""
+    extra = {Position(1, 0), Position(2, 0)}
+    rows = [list(row) for row in chamber.tiles]
+    for tile in extra:
+        rows[tile.y][tile.x] = TileType.HUB
+    return replace(chamber, tiles=rows, hub=chamber.hub | extra)
+
+
+def test_the_hub_reduction_stays_off_with_a_second_door():
+    # A take that starts over the pad is not a wait at the first door, so the
+    # search must try it: it finds plays the reduced search never considers.
+    short = corridor("#HPGE#")
+    assert search._Search(short, UNCONSTRAINED, Limits(), 1).single_door
+    two_doors = with_second_door(short)
+    assert not search._Search(two_doors, UNCONSTRAINED, Limits(), 1).single_door
+    base = explore(short, count=True)
+    found = explore(two_doors, count=True)
+    assert found.verdict is Verdict.SOLVABLE and found.turns == base.turns
+    assert found.solutions > base.solutions
+    assert play(two_doors, found.trace)[:2] == (True, found.turns)
+
+
+def test_a_console_away_from_the_start_keeps_the_reduction_off():
+    roomy = corridor("#HP.GE#", room=1)
+    moved = replace(roomy, consoles=frozenset({Position(1, 1)}))
+    assert not search._Search(moved, UNCONSTRAINED, Limits(), 1).single_door
+
+
+def test_full_hub_changes_nothing_on_a_small_corridor():
+    roomy = corridor("#HPGE#", room=1)
+    assert search._Search(roomy, UNCONSTRAINED, Limits(), 1).single_door
+    reduced = explore(roomy, count=True)
+    full = explore(roomy, Constraints(full_hub=True), count=True)
+    assert (full.turns, full.solutions) == (reduced.turns, reduced.solutions)
+    assert play(roomy, full.trace)[:2] == (True, full.turns)
 
 
 def test_returned_traces_replay_on_the_real_engine(gated, gated_report):

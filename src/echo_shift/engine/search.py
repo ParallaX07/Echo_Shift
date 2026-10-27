@@ -154,6 +154,9 @@ class Constraints:
     max_turns: int | None = None  # search horizon: ignore plays longer than this
     config_ok: Callable[[frozenset[str]], bool] | None = None
     state_ok: Callable[[State], bool] | None = None
+    # Search hub-to-hub steps while recording too (see `_single_door`); replay and
+    # the take's start keep the reduction. Slower, for re-checking a chamber.
+    full_hub: bool = False
 
 
 UNCONSTRAINED = Constraints()
@@ -221,11 +224,14 @@ class _Search:
     def _single_door(self) -> bool:
         """True when the start tile is the hub's only door and only console.
 
-        Then everything the hub holds beyond that tile is inert: walking about
-        in it is the same as waiting at the door (it costs the same turns, there
-        is no pad, gate or lift in it, and the door is where the console is), so
-        a bigger hub adds no plays and the search skips hub-to-hub steps and
-        takes that start anywhere but the door.
+        Then everything the hub holds beyond that tile is inert: it has no pad,
+        gate or lift, and the door is where the console is. The search treats a
+        hub-to-hub step as a wait at the door and takes a start only at the door.
+        That is exact before and between takes and during replay. While
+        recording it is an assumption: such steps become recorded moves, and an
+        echo that a closed gate holds back would replay them from another tile.
+        It was checked to give the same optima on chambers 3 to 6; `full_hub`
+        turns it off for recording so a changed chamber can be re-verified.
         """
         chamber = self.chamber
         if not chamber.consoles <= {chamber.start}:
@@ -323,11 +329,12 @@ class _Search:
         tile = self.chamber.tile_at(Position(here.x + move.dx, here.y + move.dy))
         return tile is TileType.WALL
 
-    def _within_hub(self, here: Position, move: Move) -> bool:
+    def _within_hub(self, here: Position, move: Move, recording: bool) -> bool:
         """A hub-to-hub step the search skips (see `_single_door`)."""
         hub = self.chamber.hub
         return (
             self.single_door
+            and not (recording and self.cons.full_hub)
             and here in hub
             and Position(here.x + move.dx, here.y + move.dy) in hub
         )
@@ -343,7 +350,7 @@ class _Search:
                 (move, token, token)
                 for token, move in MOVES.items()
                 if not self._walled(state.player, move)
-                and not self._within_hub(state.player, move)
+                and not self._within_hub(state.player, move, recording)
             ]
             steps.append((Wait(), "wait", "wait"))
         if state.player in self.chamber.consoles:
@@ -534,6 +541,7 @@ def avoids_idea(
     idea: str,
     limits: Limits = DEFAULT_LIMITS,
     horizon: int | None = None,
+    full_hub: bool = False,
 ) -> bool:
     """True when some solution gets by without the taught idea.
 
@@ -545,18 +553,26 @@ def avoids_idea(
     - combined: avoids any one idea the chamber exercises.
 
     Every check covers all plays, or only those of at most `horizon` turns.
+    `full_hub` is passed on to each search (see `Constraints.full_hub`).
     Raises `Inconclusive` when a cap is hit.
     """
     if idea == "movement":
         return _solvable(
-            chamber, Constraints(max_turns=horizon, config_ok=lambda c: not c), limits
+            chamber,
+            Constraints(
+                max_turns=horizon, config_ok=lambda c: not c, full_hub=full_hub
+            ),
+            limits,
         )
     if idea == "power":
         return _solvable(
-            chamber, Constraints(max_turns=horizon, config_ok=_full(chamber)), limits
+            chamber,
+            Constraints(max_turns=horizon, config_ok=_full(chamber), full_hub=full_hub),
+            limits,
         )
     if idea == "echo":
-        if _solvable(chamber, Constraints(max_recorded=0, max_turns=horizon), limits):
+        cons = Constraints(max_recorded=0, max_turns=horizon, full_hub=full_hub)
+        if _solvable(chamber, cons, limits):
             return True
         outcome = _exhaust(chamber, limits, horizon)
         if outcome.verdict is Verdict.INCONCLUSIVE:
@@ -564,16 +580,23 @@ def avoids_idea(
         return outcome.verdict is Verdict.SOLVABLE
     if idea == "darkness":
         return _solvable(
-            chamber, Constraints(max_turns=horizon, state_ok=_echo_on_lit_tile), limits
+            chamber,
+            Constraints(
+                max_turns=horizon, state_ok=_echo_on_lit_tile, full_hub=full_hub
+            ),
+            limits,
         )
     if idea == "timed_pads":
         flat = replace(
             chamber, pads=tuple(replace(pad, timer_length=0) for pad in chamber.pads)
         )
-        return _solvable(flat, Constraints(max_turns=horizon), limits)
+        return _solvable(
+            flat, Constraints(max_turns=horizon, full_hub=full_hub), limits
+        )
     if idea == "combined":
         return any(
-            avoids_idea(chamber, part, limits, horizon) for part in features(chamber)
+            avoids_idea(chamber, part, limits, horizon, full_hub)
+            for part in features(chamber)
         )
     raise ValueError(f"unknown idea: {idea}")
 
@@ -603,28 +626,38 @@ def analyze(
     max_seconds: float | None = None,
     solution_cap: int = DEFAULT_SOLUTION_CAP,
     idea_horizon: int | None = None,
+    full_hub: bool = False,
 ) -> Report:
     """Solve a chamber from its start; any capped sub-search makes it inconclusive.
 
     `idea_horizon` limits the idea check to plays of at most that many turns;
-    the default checks every play.
+    the default checks every play. `full_hub` searches hub steps while recording
+    too (see `Constraints.full_hub`).
     """
     limits = Limits.seconds(max_states, max_seconds)
     try:
-        main = explore(chamber, limits=limits, count=True, count_cap=solution_cap)
+        main = explore(
+            chamber,
+            Constraints(full_hub=full_hub),
+            limits,
+            count=True,
+            count_cap=solution_cap,
+        )
         if main.verdict is Verdict.INCONCLUSIVE:
             raise Inconclusive("shortest-solution search hit a cap")
         if main.verdict is Verdict.UNSOLVABLE:
             return Report(Verdict.UNSOLVABLE, idea=chamber.idea)
-        recorded, fewest = _fewest_recorded(chamber, limits)
+        recorded, fewest = _fewest_recorded(chamber, limits, full_hub)
         trace = (
             fewest.trace
             if fewest.turns == main.turns
-            else _shortest_with_fewest_recorded(chamber, main, recorded, limits)
+            else _shortest_with_fewest_recorded(
+                chamber, main, recorded, limits, full_hub
+            )
         )
-        peak = _lowest_peak(chamber, main.turns, limits)
+        peak = _lowest_peak(chamber, main.turns, limits, full_hub)
         avoided = (
-            avoids_idea(chamber, chamber.idea, limits, idea_horizon)
+            avoids_idea(chamber, chamber.idea, limits, idea_horizon, full_hub)
             if chamber.idea
             else None
         )
@@ -651,28 +684,32 @@ def _checked(outcome: Outcome) -> Outcome:
     return outcome
 
 
-def _fewest_recorded(chamber: Chamber, limits: Limits) -> tuple[int, Outcome]:
+def _fewest_recorded(
+    chamber: Chamber, limits: Limits, full_hub: bool = False
+) -> tuple[int, Outcome]:
     for recorded in range(chamber.max_turns + 1):
-        outcome = _checked(explore(chamber, Constraints(max_recorded=recorded), limits))
+        cons = Constraints(max_recorded=recorded, full_hub=full_hub)
+        outcome = _checked(explore(chamber, cons, limits))
         if outcome.verdict is Verdict.SOLVABLE:
             return recorded, outcome
     raise Inconclusive("no solution within the recording limit")
 
 
 def _shortest_with_fewest_recorded(
-    chamber: Chamber, main: Outcome, floor: int, limits: Limits
+    chamber: Chamber, main: Outcome, floor: int, limits: Limits, full_hub: bool
 ) -> Trace:
     for recorded in range(floor, chamber.max_turns + 1):
-        outcome = _checked(explore(chamber, Constraints(max_recorded=recorded), limits))
+        cons = Constraints(max_recorded=recorded, full_hub=full_hub)
+        outcome = _checked(explore(chamber, cons, limits))
         if outcome.turns == main.turns:
             return outcome.trace
     return main.trace
 
 
-def _lowest_peak(chamber: Chamber, turns: int, limits: Limits) -> int:
+def _lowest_peak(chamber: Chamber, turns: int, limits: Limits, full_hub: bool) -> int:
     """Lowest peak load among the plays that take the fewest turns."""
     for peak in sorted({load_of(chamber, c) for c in power_choices(chamber)}):
-        cons = Constraints(max_load=peak, max_turns=turns)
+        cons = Constraints(max_load=peak, max_turns=turns, full_hub=full_hub)
         outcome = _checked(explore(chamber, cons, limits))
         if outcome.verdict is Verdict.SOLVABLE:
             return peak
