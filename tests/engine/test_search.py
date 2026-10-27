@@ -169,6 +169,17 @@ def test_a_console_away_from_the_door_keeps_the_reduction_on():
     assert len(reduced.paths[chamber.start, Position(1, 1)]) == 2
 
 
+def test_a_take_may_start_at_the_console_away_from_the_door():
+    chamber = away()
+    state = initial_state(chamber)
+    labels = {
+        edge[3]
+        for edge in search._Search(chamber, UNCONSTRAINED, Limits(), 1).edges(state)
+    }
+    assert ("enter", chamber.start) in labels
+    assert ("enter", Position(1, 1)) in labels
+
+
 def full_search(monkeypatch):
     """Turn the hub reduction off entirely, for replay and recording alike."""
     monkeypatch.setattr(search._Search, "_single_door", lambda self: False)

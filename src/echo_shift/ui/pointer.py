@@ -35,27 +35,35 @@ def tile_at(
     return None
 
 
+READ_LOG = "read_log"  # a click that reads the log terminal underfoot
+POWER = "power_console"  # a click on the console tile, never a log
+
+
 def click_action(
     state: State, position: Position, terminals: tuple[story.Terminal, ...] = ()
 ) -> str | None:
     """The action a click on `position` asks for; None when it asks for nothing.
 
-    An adjacent tile moves, exactly like the arrow key. The player's own tile
-    opens the console when it stands on one and waits otherwise. A console the
-    player is not standing on maps to the console action, which explains why it
-    is unavailable. A log terminal on or next to the player (console not
-    underfoot) maps to the same use action, whose key reads it.
+    An adjacent tile moves, exactly like the arrow key, terminal tiles included.
+    The player's own tile opens the console when it stands on one, reads the log
+    terminal when it stands on one (reading is free, so it replaces waiting there;
+    the bar's Wait button still waits) and waits otherwise. A console the player is
+    not standing on maps to the power action, which explains why it is unavailable.
     """
     reachable = story.in_reach(state, terminals)
-    if reachable is not None and reachable.position == position:
-        return "console"
+    if (
+        reachable is not None
+        and reachable.position == position
+        and position == state.player
+    ):
+        return READ_LOG
     dx, dy = position.x - state.player.x, position.y - state.player.y
     if (dx, dy) in MOVES:
         return MOVES[(dx, dy)]
     if position == state.player:
-        return "console" if position in state.chamber.consoles else "wait"
+        return POWER if position in state.chamber.consoles else "wait"
     if position in state.chamber.consoles:
-        return "console"
+        return POWER
     return None
 
 
@@ -67,7 +75,14 @@ def hover_action(
 ) -> str | None:
     """The action to outline under the pointer: only ones that would do something."""
     action_id = click_action(state, position, terminals)
-    if action_id is None or not controls.find(actions, action_id).enabled:
+    if action_id is None:
+        return None
+    if action_id == POWER:
+        # The bar's console action may read a log; the tile only opens the console.
+        if state.player not in state.chamber.consoles:
+            return None
+        action_id = "console"
+    if action_id != READ_LOG and not controls.find(actions, action_id).enabled:
         return None
     if action_id in MOVES.values() and (
         state.chamber.tile_at(position) is TileType.WALL

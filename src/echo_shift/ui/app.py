@@ -1030,13 +1030,20 @@ class Game:
         self.log, self.log_page = terminal, 1
         self.modal = "log"
 
-    def open_console(self) -> None:
-        if (terminal := story.in_reach(self.state, self.terminals)) is not None:
+    def open_console(self, *, power: bool = False) -> None:
+        """Open the console, or read a log in reach; a click on the tile only powers."""
+        terminals = () if power else self.terminals
+        if (terminal := story.in_reach(self.state, terminals)) is not None:
             self.open_log(terminal)
             return
         if not self.allow("open_console"):
             return
-        action = controls.find(self.actions(), "console")
+        action = controls.find(
+            controls.available_actions(self.state, "game", None, terminals=terminals)
+            if power
+            else self.actions(),
+            "console",
+        )
         if action.enabled:
             self.console = True
             self.pending = self.state.powered_circuits
@@ -1077,7 +1084,9 @@ class Game:
             before = self.snapshot()
             if action_id == "retry":
                 self.retry()
-            elif action_id == "console":
+            elif action_id in ("console", pointer.POWER):
+                self.open_console(power=action_id == pointer.POWER)
+            elif action_id == pointer.READ_LOG:
                 self.open_console()
             elif action_id == "echo":
                 self.echo_key(alias)

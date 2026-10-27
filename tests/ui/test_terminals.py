@@ -218,29 +218,51 @@ def test_the_guide_and_help_name_the_key_from_the_action_model():
 # ---- the mouse -------------------------------------------------------------------
 
 
-def test_clicks_on_a_terminal_in_reach_read_it_and_others_move():
+def test_clicking_your_own_terminal_reads_and_an_adjacent_one_moves():
     found, state = near()
     at = found[0].position
-    assert pointer.click_action(state, at, found) == "console"  # underfoot
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+    assert pointer.click_action(state, at, found) == pointer.READ_LOG  # underfoot
+    for (dx, dy), action_id in (
+        ((1, 0), "move_left"),
+        ((-1, 0), "move_right"),
+        ((0, 1), "move_up"),
+        ((0, -1), "move_down"),
+    ):
         beside = replace(state, player=Position(at.x + dx, at.y + dy))
         if beside.player in beside.chamber.hub:
-            assert pointer.click_action(beside, at, found) == "console"
+            assert pointer.click_action(beside, at, found) == action_id
     here = replace(state, player=Position(at.x + 1, at.y))
     away = Position(at.x + 2, at.y)
     assert pointer.click_action(here, away, found) == "move_right"
     far = replace(state, player=Position(at.x + 3, at.y))
-    assert pointer.click_action(far, at, found) is None  # not in reach, not adjacent
+    assert pointer.click_action(far, at, found) is None  # not adjacent
     assert pointer.click_action(far, at) is None
+    # Without the terminal, the own tile waits as ever.
+    assert pointer.click_action(state, at) == "wait"
 
 
-def test_hover_outlines_a_terminal_in_reach():
+def test_clicking_the_console_tile_never_asks_for_a_log():
+    found, state = near(dx=1)
+    (console,) = state.chamber.consoles
+    assert pointer.click_action(state, console, found) == pointer.POWER
+    on_console = replace(state, player=console)
+    assert pointer.click_action(on_console, console, found) == pointer.POWER
+
+
+def test_hover_outlines_your_terminal_but_not_a_far_console():
     found, state = near()
     at = found[0].position
     actions = controls.available_actions(state, "game", None, terminals=found)
-    assert pointer.hover_action(state, at, actions, found) == "console"
+    assert pointer.hover_action(state, at, actions, found) == pointer.READ_LOG
     plain = controls.available_actions(state, "game", None)
     assert pointer.hover_action(state, at, plain) is None
+    (console,) = state.chamber.consoles
+    # The bar's key reads the log here, but the console tile is not clickable.
+    assert controls.find(actions, "console").enabled
+    assert pointer.hover_action(state, console, actions, found) is None
+    on_console = replace(state, player=console)
+    on_actions = controls.available_actions(on_console, "game", None, terminals=found)
+    assert pointer.hover_action(on_console, console, on_actions, found) == "console"
 
 
 # ---- the running game ------------------------------------------------------------
@@ -366,25 +388,54 @@ def test_the_console_still_opens_on_the_console_and_refuses_elsewhere(player):
     assert game.message == "STAND ON THE HUB CONSOLE TO CHANGE POWER"
 
 
-def test_clicking_the_terminal_tile_next_to_the_player_opens_the_card(player):
+def test_clicking_the_terminal_tile_next_to_the_player_moves_onto_it(player):
     game = start(player, dx=1)
+    at = game.terminals[0].position
+    turns = game.state.turns
+    player.click_tile(at.x, at.y)
+    assert game.modal is None
+    assert game.state.player == at and game.state.turns == turns
+
+
+def test_clicking_underfoot_reads_instead_of_waiting_and_far_does_nothing(player):
+    game = start(player)
     at = game.terminals[0].position
     before = game.snapshot()
     player.click_tile(at.x, at.y)
     assert game.modal == "log" and game.log is game.terminals[0]
     assert game.snapshot() == before and len(game.history) == 0
-
-
-def test_clicking_underfoot_opens_the_card_and_a_far_terminal_does_nothing(player):
-    game = start(player)
-    at = game.terminals[0].position
-    player.click_tile(at.x, at.y)
-    assert game.modal == "log"
     player.press("ESCAPE")
     game.state = replace(game.state, player=Position(at.x + 4, at.y))
     before = game.snapshot()
     player.click_tile(at.x, at.y)
     assert game.modal is None and game.snapshot() == before
+
+
+def test_clicking_underfoot_reads_while_recording_and_the_wait_button_waits(player):
+    game = start(player)
+    at = game.terminals[0].position
+    player.press("RETURN")
+    assert game.state.phase is Phase.RECORDING
+    game.state = replace(game.state, player=at)
+    turns = game.state.turns
+    player.click_tile(at.x, at.y)
+    assert game.modal == "log" and game.state.turns == turns
+    player.press("ESCAPE")
+    player.button("wait")
+    assert game.modal is None and game.state.turns == turns + 1
+
+
+def test_clicking_the_far_console_with_a_terminal_beside_you_is_refused(player):
+    game = start(player, dx=1)
+    (console,) = game.state.chamber.consoles
+    before = game.snapshot()
+    player.click_tile(console.x, console.y)
+    assert game.modal is None and not game.console
+    assert game.message == "STAND ON THE HUB CONSOLE TO CHANGE POWER"
+    assert game.snapshot() == before
+    game.state = replace(game.state, player=console)
+    player.click_tile(console.x, console.y)
+    assert game.console and game.modal is None
 
 
 def test_the_bar_button_reads_the_log(player):

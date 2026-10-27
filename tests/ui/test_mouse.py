@@ -118,11 +118,11 @@ def test_the_own_tile_waits_and_the_console_tile_opens_the_console():
     state = chamber_state()
     (on_console,) = state.chamber.consoles
     state = replace(state, player=on_console)
-    assert pointer.click_action(state, on_console) == "console"
+    assert pointer.click_action(state, on_console) == pointer.POWER
     away = replace(state, player=Position(12, 6))
     assert pointer.click_action(away, Position(12, 6)) == "wait"
     far = replace(state, player=Position(13, 6))
-    assert pointer.click_action(far, on_console) == "console"  # shows its reason
+    assert pointer.click_action(far, on_console) == pointer.POWER  # shows its reason
     beside = replace(state, player=Position(on_console.x + 1, on_console.y))
     assert pointer.click_action(beside, on_console) == "move_left"
 

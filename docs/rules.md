@@ -184,8 +184,11 @@ away from the console and the door. They are listed in the chamber file as
 solver and the engine never read them, and the tile stays ordinary walkable hub
 floor. The use key (E) reads a terminal when the technician stands on it or
 next to it in the hub and is not standing on the console; the console keeps the
-key on its own tile. Clicking such a terminal, or pressing the bar button that
-then reads *Read log*, does the same. The card reveals one line at a time: Space,
+key on its own tile. Clicking the terminal tile the technician stands on, or
+pressing the bar button that then reads *Read log*, does the same. On a terminal
+tile a click on your own tile reads instead of waiting, so use the bar's Wait
+button to wait there; clicking an adjacent terminal tile moves onto it, like the
+arrow key, and clicking the console tile never opens a log. The card reveals one line at a time: Space,
 Enter or a click shows the next line and then closes it, and Esc, E or a
 right-click closes it at once. Reading is free at every stage of a take, passes no turn,
 changes no chamber state and leaves nothing for undo. Where no terminal is
