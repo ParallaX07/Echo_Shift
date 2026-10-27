@@ -4,17 +4,33 @@ from types import SimpleNamespace
 
 import pytest
 
-from echo_shift.ui import app, cuedraw, progress, telemetry
+from echo_shift.ui import app, controls, cuedraw, progress, telemetry
+
+
+@pytest.fixture(autouse=True)
+def keyboard_labels():
+    """Labels follow the last input device, a process-wide setting: reset it."""
+    controls.set_device("keys")
+    yield
+    controls.set_device("keys")
 
 
 @pytest.fixture
 def player(tmp_path, monkeypatch):
     real = app.pyxel
     keys = {name: getattr(real, name) for name in dir(real) if name.startswith("KEY_")}
+    pad = {
+        name: getattr(real, name)
+        for name in dir(real)
+        if name.startswith("GAMEPAD1_BUTTON_")
+    }
     held, pressed = set(), set()
-    drawn, played = [], []
+    drawn, played, modes, icons = [], [], [], []
     fake = SimpleNamespace(
         **keys,
+        **pad,
+        screen_mode=modes.append,
+        icon=lambda *a: icons.append(a),
         MOUSE_BUTTON_LEFT=real.MOUSE_BUTTON_LEFT,
         MOUSE_BUTTON_RIGHT=real.MOUSE_BUTTON_RIGHT,
         mouse_x=-1,
@@ -44,7 +60,9 @@ def player(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(app, "pyxel", fake)
     monkeypatch.setattr(cuedraw, "pyxel", fake)
-    monkeypatch.setattr(app, "Atlas", lambda: SimpleNamespace(draw=lambda *a: None))
+    monkeypatch.setattr(
+        app, "Atlas", lambda: SimpleNamespace(draw=lambda *a, **k: None)
+    )
     monkeypatch.setattr(
         app,
         "Display",
@@ -63,6 +81,19 @@ def player(tmp_path, monkeypatch):
         pressed.clear()
         held.clear()
         game.update()  # release frame, including the lesson's repeat guard
+
+    def press_pad(name, frames=1):
+        """Hold a gamepad button (A, DPAD_UP, START ...) for some frames, then release."""
+        button = pad["GAMEPAD1_BUTTON_" + name]
+        for frame in range(frames):
+            held.add(button)
+            if frame == 0:
+                pressed.add(button)
+            game.update()
+            game.draw()
+            pressed.clear()
+        held.discard(button)
+        game.update()  # release frame
 
     def to_console():
         """Walk the hub from the door to the console, as a player does."""
@@ -109,6 +140,7 @@ def player(tmp_path, monkeypatch):
     return SimpleNamespace(
         game=game,
         press=press,
+        press_pad=press_pad,
         to_console=to_console,
         click=click,
         click_at=click_at,
@@ -120,5 +152,7 @@ def player(tmp_path, monkeypatch):
         held=held,
         drawn=drawn,
         played=played,
+        modes=modes,
+        icons=icons,
         directory=tmp_path,
     )

@@ -29,6 +29,8 @@ class Binding:
     label: str
     hidden: tuple[str, ...] = ()
     short: str = ""
+    pad: tuple[str, ...] = ()
+    pad_cap: str = ""
 
 
 RIGHT_CLICK = "MOUSE_BUTTON_RIGHT"
@@ -41,39 +43,119 @@ def _names(names: str) -> tuple[str, ...]:
     )
 
 
+def _pad_names(names: str) -> tuple[str, ...]:
+    """Pyxel gamepad constant names: A, B, DPAD_UP, START ... on the first pad."""
+    return tuple(f"GAMEPAD1_BUTTON_{name}" for name in names.split())
+
+
 def _binding(
-    id: str, keys: str, cap: str, label: str, hidden: str = "", short: str = ""
+    id: str,
+    keys: str,
+    cap: str,
+    label: str,
+    hidden: str = "",
+    short: str = "",
+    pad: str = "",
+    pad_cap: str = "",
 ) -> tuple[str, Binding]:
-    return id, Binding(id, _names(keys), cap, label, _names(hidden), short)
+    return id, Binding(
+        id, _names(keys), cap, label, _names(hidden), short, _pad_names(pad), pad_cap
+    )
 
 
 BINDINGS: dict[str, Binding] = dict(
     (
-        _binding("move_up", "W UP", "W", "Move up"),
-        _binding("move_down", "S DOWN", "S", "Move down"),
-        _binding("move_left", "A LEFT", "A", "Move left"),
-        _binding("move_right", "D RIGHT", "D", "Move right"),
-        _binding("wait", "SPACE", "Space", "Wait"),
-        _binding("console", "E", "E", "Power console", short="Power"),
-        _binding("echo", "RETURN F", "Enter", "Echo", hidden="Q"),
-        _binding("undo", "Z BACKSPACE", "Z", "Undo last move", short="Undo"),
+        _binding("move_up", "W UP", "W", "Move up", pad="DPAD_UP", pad_cap="D-pad Up"),
+        _binding(
+            "move_down",
+            "S DOWN",
+            "S",
+            "Move down",
+            pad="DPAD_DOWN",
+            pad_cap="D-pad Down",
+        ),
+        _binding(
+            "move_left",
+            "A LEFT",
+            "A",
+            "Move left",
+            pad="DPAD_LEFT",
+            pad_cap="D-pad Left",
+        ),
+        _binding(
+            "move_right",
+            "D RIGHT",
+            "D",
+            "Move right",
+            pad="DPAD_RIGHT",
+            pad_cap="D-pad Right",
+        ),
+        _binding("wait", "SPACE", "Space", "Wait", pad="A", pad_cap="A"),
+        _binding(
+            "console", "E", "E", "Power console", short="Power", pad="Y", pad_cap="Y"
+        ),
+        _binding("echo", "RETURN F", "Enter", "Echo", hidden="Q", pad="X", pad_cap="X"),
+        _binding(
+            "undo",
+            "Z BACKSPACE",
+            "Z",
+            "Undo last move",
+            short="Undo",
+            pad="B",
+            pad_cap="B",
+        ),
         _binding("retry", "R", "R", "Retry from launch", short="Retry"),
         _binding("restart", "C", "C", "Restart chamber", short="Restart"),
         _binding("rerecord", "", "", "Re-record"),
-        _binding("preview_prev", "LEFTBRACKET", "[", "Preview earlier turn"),
-        _binding("preview_next", "RIGHTBRACKET", "]", "Preview later turn"),
-        _binding("pause", "ESCAPE P", "Esc", "Pause"),
-        _binding("guide", "T", "T", "Guide"),
+        _binding(
+            "preview_prev",
+            "LEFTBRACKET",
+            "[",
+            "Preview earlier turn",
+            pad="LEFTSHOULDER",
+            pad_cap="LB",
+        ),
+        _binding(
+            "preview_next",
+            "RIGHTBRACKET",
+            "]",
+            "Preview later turn",
+            pad="RIGHTSHOULDER",
+            pad_cap="RB",
+        ),
+        _binding("pause", "ESCAPE P", "Esc", "Pause", pad="START", pad_cap="Start"),
+        _binding("guide", "T", "T", "Guide", pad="BACK", pad_cap="Back"),
         _binding("hint", "H", "H", "Next hint", short="Hint"),
         _binding("mute", "M", "M", "Mute"),
         _binding("fullscreen", "F11", "F11", "Fullscreen"),
-        _binding("nav_prev", "UP W LEFT A", "Up", "Previous"),
-        _binding("nav_next", "DOWN S RIGHT D", "Down", "Next"),
-        _binding("confirm", "RETURN SPACE", "Enter", "Confirm"),
-        _binding("close", f"ESCAPE E {RIGHT_CLICK}", "Esc", "Close"),
-        _binding("toggle", "SPACE", "Space", "Toggle circuit"),
-        _binding("apply", "RETURN", "Enter", "Apply"),
-        _binding("free_play", "F", "F", "Play freely"),
+        _binding(
+            "nav_prev",
+            "UP W LEFT A",
+            "Up",
+            "Previous",
+            pad="DPAD_UP DPAD_LEFT",
+            pad_cap="D-pad Up",
+        ),
+        _binding(
+            "nav_next",
+            "DOWN S RIGHT D",
+            "Down",
+            "Next",
+            pad="DPAD_DOWN DPAD_RIGHT",
+            pad_cap="D-pad Down",
+        ),
+        _binding("confirm", "RETURN SPACE", "Enter", "Confirm", pad="A", pad_cap="A"),
+        _binding(
+            "close",
+            f"ESCAPE E {RIGHT_CLICK}",
+            "Esc",
+            "Close",
+            pad="B Y",
+            pad_cap="B",
+        ),
+        _binding("toggle", "SPACE", "Space", "Toggle circuit", pad="A", pad_cap="A"),
+        _binding("apply", "RETURN", "Enter", "Apply", pad="X", pad_cap="X"),
+        _binding("free_play", "F", "F", "Play freely", pad="X", pad_cap="X"),
         _binding("levels", "L", "L", "Chamber select"),
         _binding("quit_title", "", "", "Quit to title"),
         _binding("settings", "", "", "Settings"),
@@ -81,10 +163,29 @@ BINDINGS: dict[str, Binding] = dict(
         _binding("music_volume", "", "", "Music volume"),
         _binding("sfx_volume", "", "", "SFX volume"),
         _binding("reduced_motion", "", "", "Reduced motion"),
-        _binding("row_prev", "UP W", "Up", "Previous"),
-        _binding("row_next", "DOWN S", "Down", "Next"),
-        _binding("value_down", "LEFT A", "Left", "Lower"),
-        _binding("value_up", "RIGHT D", "Right", "Raise"),
+        _binding("crt", "", "", "CRT look"),
+        _binding(
+            "row_prev", "UP W", "Up", "Previous", pad="DPAD_UP", pad_cap="D-pad Up"
+        ),
+        _binding(
+            "row_next", "DOWN S", "Down", "Next", pad="DPAD_DOWN", pad_cap="D-pad Down"
+        ),
+        _binding(
+            "value_down",
+            "LEFT A",
+            "Left",
+            "Lower",
+            pad="DPAD_LEFT",
+            pad_cap="D-pad Left",
+        ),
+        _binding(
+            "value_up",
+            "RIGHT D",
+            "Right",
+            "Raise",
+            pad="DPAD_RIGHT",
+            pad_cap="D-pad Right",
+        ),
     )
 )
 
@@ -148,6 +249,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
         "sfx_volume",
         "mute",
         "reduced_motion",
+        "crt",
         "fullscreen",
         "close",
     ),
@@ -189,10 +291,54 @@ MOVE_DELTAS = {
 MODIFIER_KEYS = ("KEY_ALT", "KEY_LALT", "KEY_RALT")
 
 
+# B means "back out" inside overlays, so undo gives it up in the console and the
+# pause menu (undo stays on the key there, and the bar lists it as such).
+PAD_SHADOWED = frozenset({("console", "undo"), ("pause", "undo")})
+_device = "keys"
+
+
+def set_device(device: str) -> None:
+    """Remember the last input device ("keys" or "pad"): labels follow it."""
+    global _device
+    if device not in ("keys", "pad"):
+        raise ValueError(f"unknown input device {device!r}")
+    _device = device
+
+
+def pad_in_use() -> bool:
+    return _device == "pad"
+
+
 def key_names(action_id: str) -> tuple[str, ...]:
     """Every key name that triggers an action, hidden aliases included."""
     binding = BINDINGS[action_id]
     return binding.keys + binding.hidden
+
+
+def pad_names(action_id: str, scope: str | None = None) -> tuple[str, ...]:
+    """Gamepad button names that trigger an action in `scope` (any scope if None)."""
+    if (scope, action_id) in PAD_SHADOWED:
+        return ()
+    return BINDINGS[action_id].pad
+
+
+def cap(action_id: str, scope: str | None = None) -> str:
+    """The key cap to print: the pad glyph after pad use, else the key name.
+
+    An action with no pad button there keeps its key cap, which still works.
+    """
+    binding = BINDINGS[action_id]
+    if pad_in_use() and pad_names(action_id, scope) and binding.pad_cap:
+        return binding.pad_cap
+    return binding.cap
+
+
+def all_key_names() -> tuple[str, ...]:
+    return tuple(dict.fromkeys(n for i in BINDINGS for n in key_names(i)))
+
+
+def all_pad_names() -> tuple[str, ...]:
+    return tuple(dict.fromkeys(n for b in BINDINGS.values() for n in b.pad))
 
 
 def gameplay_key_names() -> tuple[str, ...]:
@@ -200,6 +346,17 @@ def gameplay_key_names() -> tuple[str, ...]:
     names: list[str] = []
     for action_id in SCOPES["play"] + SCOPES["console"]:
         names.extend(key_names(action_id))
+    return tuple(dict.fromkeys(names))
+
+
+def gameplay_pad_names() -> tuple[str, ...]:
+    """All gamepad buttons that can start a gameplay action."""
+    names = [
+        name
+        for scope in ("play", "console")
+        for action_id in SCOPES[scope]
+        for name in pad_names(action_id, scope)
+    ]
     return tuple(dict.fromkeys(names))
 
 
@@ -337,7 +494,7 @@ def available_actions(
         actions.append(
             Action(
                 action_id,
-                binding.cap,
+                cap(action_id, scope),
                 label,
                 enabled,
                 reason,
@@ -414,15 +571,17 @@ PREVIEW_TEXT = "Preview the echo's later turns once a recording is saved"
 def key_text(action_id: str) -> str:
     """How text names the key(s) of an action: "Enter", "D or Right", "WASD or ..."."""
     if action_id == "move":
+        if pad_in_use():
+            return "the D-pad"
         caps = "".join(
             BINDINGS[i].cap for i in ("move_up", "move_left", "move_down", "move_right")
         )
         return f"{caps} or the arrow keys"
     binding = BINDINGS[action_id]
-    if action_id in MOVE_IDS:
+    if action_id in MOVE_IDS and not (pad_in_use() and binding.pad):
         arrow = binding.keys[-1].removeprefix("KEY_").capitalize()
         return f"{binding.cap} or {arrow}"
-    return binding.cap
+    return cap(action_id)
 
 
 def check_text(text: str) -> None:
@@ -451,9 +610,8 @@ def controls_lines(level: int) -> list[str]:
         if action_id not in shown or action_id in MOVE_IDS:
             continue
         if action_id == "preview_prev":
-            keys = f"{BINDINGS[action_id].cap} {BINDINGS['preview_next'].cap}"
+            keys = f"{cap(action_id)} {cap('preview_next')}"
             lines.append(f"{keys}: {PREVIEW_TEXT}")
         elif action_id != "preview_next":
-            cap = BINDINGS[action_id].cap or "Bar button"
-            lines.append(f"{cap}: {DESCRIPTIONS[action_id]}")
+            lines.append(f"{cap(action_id) or 'Bar button'}: {DESCRIPTIONS[action_id]}")
     return lines

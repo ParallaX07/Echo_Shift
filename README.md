@@ -94,6 +94,25 @@ Delete `progress.json` to lock all chambers again.
 | M | Toggle mute |
 | F11 / Alt+Enter | Toggle fullscreen |
 
+A gamepad plays the whole game too (the first connected pad; the sticks are
+not used):
+
+| Button | Action |
+|---|---|
+| D-pad | Move one tile; hold to keep walking |
+| A | Wait one turn (confirm in menus and cards) |
+| X | The echo key: record, save or launch (apply at the console) |
+| Y | Open or close the power console, or read a log terminal |
+| B | Undo the last accepted input (back out of the console, guide, menus and log cards) |
+| LB / RB | Preview an earlier or later turn of the saved recording |
+| Start | Pause menu (resume it too) |
+| Back | Open or close the guide |
+
+Retry, restart, hints, mute and fullscreen have no pad button; the pause menu
+offers retry and restart and the guide reveals hints. The bottom bar and the
+guide show the pad button names after you last used the pad, and key names after
+you last used the keyboard or mouse.
+
 At the console, use Up/Down to select a circuit and Space to toggle it. Before
 you record and after you save, a switch takes effect at once; while recording or
 replaying it waits for Enter, which costs one turn. E closes the console.
@@ -106,9 +125,9 @@ chamber has introduced.
 
 In the guide, the arrow keys or WASD (or the previous and next rows) change
 page, and Esc, E or a right-click closes it. The pause menu has a Settings panel
-with music volume, SFX volume, mute, reduced motion and fullscreen (use Left and
-Right, or click a row's left or right half); settings are saved with your
-progress.
+with music volume, SFX volume, mute, reduced motion, an optional CRT look
+(scanlines, off by default) and fullscreen (use Left and Right, or click a row's
+left or right half); settings are saved with your progress.
 
 The mouse plays the whole game too: click a tile next to the technician to move,
 the technician's own tile to wait (or to open the console while standing on it),

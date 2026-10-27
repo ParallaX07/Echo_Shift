@@ -40,6 +40,9 @@ def test_atlas_loads_full_image_and_draws_entry_size(monkeypatch):
     assert made[0][0] == 768 and made[0][1] > 256
     assert drawn[0][0][5:7] == (96, 96)
     assert drawn[0][1]["scale"] == 80 / 96
+    atlas.Atlas().draw("player_idle_0", 10, 20, 80, 1.25)  # a pop grows it in place
+    assert drawn[1][0][:2] == drawn[0][0][:2]
+    assert drawn[1][1]["scale"] == 80 / 96 * 1.25
 
 
 def test_approved_idle_frames_share_their_baseline_and_bounds():

@@ -28,6 +28,18 @@ or P pauses, T opens the guide, H reveals the next hint, M mutes and F11
 toggles fullscreen. Inside an overlay the arrows or WASD navigate, Space or
 Enter confirm, and Esc or E close.
 
+A gamepad reads the same action table. The D-pad moves (and walks while held),
+A waits, X is the echo key, Y uses the console, B undoes, LB and RB preview
+earlier and later turns, Start pauses and Back opens the guide. Inside an
+overlay the D-pad navigates, A confirms, B (or Y) closes and X applies at the
+console. B is "back out" wherever undo would clash with it, so in the console
+and the pause menu it closes and undo keeps its key there. No pad button has two
+meanings in one context. Retry, restart, hint, mute and fullscreen are key-only
+(the pause menu lists retry and restart). Every key cap on the bars, in the
+guide and in lesson text follows the device used last: after any pad press the
+caps show the pad buttons ("A Wait"), after any key or mouse press the key names,
+and an action without a pad button keeps its key cap.
+
 The bottom bar introduces its buttons gradually. Chamber 1 shows move, wait,
 undo, the power console and the echo key (nothing outside the hub can be walked
 without a recording and a launch), chamber 3 adds retry and re-record, and every
@@ -56,10 +68,18 @@ preparation. It is a bar button and a pause-menu action without a bare key.
 
 The pause menu lists Resume, Undo, Retry from launch, Restart chamber,
 Re-record, Chamber select, Settings, Controls and Quit to title. Settings holds
-music volume and SFX volume (0 to 7, applied at once), mute, reduced motion and
-fullscreen; Left and Right (or a click on the left or right half of a row)
-change a value, and every change is saved at once. Controls opens the guide on
-its Controls page.
+music volume and SFX volume (0 to 7, applied at once), mute, reduced motion, the
+CRT look and fullscreen; Left and Right (or a click on the left or right half of
+a row) change a value, and every change is saved at once. Controls opens the
+guide on its Controls page. The CRT look is Pyxel's retro screen mode (the window
+adds the scanline filter); it is off by default, so the crisp mode is used. The
+window icon is cut from the player sprite and silently left at the default if
+that fails.
+
+Safe and dark floor differ by texture as well as colour: lit and hub floor are
+striped or speckled while the dark remap flattens the floor towards a single
+grey. A test converts both to grayscale and compares where the grey level steps
+sharply, so a brightness match cannot hide the difference.
 
 Moves are eased on screen: a step is a steady glide of about a quarter of a
 second (the game runs at 60 frames per second), a refused move leans toward the
@@ -79,7 +99,8 @@ again steps at once. Mouse clicks are single steps. Undo plays the undone step
 backwards at double speed (instantly with reduced motion), and a new input still
 ends it first. Small idle touches (a breathing bob, the echo's fading trail, a
 console flicker, a pulse along the powered conduit rails, a few dust motes over
-lit floor, timeline slots that pop when filled, a pulsing playback slot, an
+lit floor, timeline slots that pop when filled (the sprite is scaled about its centre, no
+extra frame), a pulsing playback slot, an
 eased power bar, and a console drawer and bar buttons that slide) are all
 presentation and are off with reduced motion.
 

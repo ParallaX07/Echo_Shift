@@ -4,6 +4,7 @@ import re
 from dataclasses import replace
 
 import pytest
+import pyxel
 
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Phase, Position, initial_state
@@ -173,6 +174,7 @@ def test_every_action_id_is_in_the_binding_table_and_keys_exist(phases):
         "music_volume",
         "sfx_volume",
         "reduced_motion",
+        "crt",
     }
     gameplay = {
         a.id for a in controls.available_actions(phases["prepare"], "game", None)
@@ -288,3 +290,77 @@ def test_disclosure_only_lists_play_actions_and_never_hides_always_shown_ones():
         assert set(controls.ALWAYS_SHOWN) <= controls.shown_actions(level)
         assert set(controls.MOVE_IDS) <= controls.shown_actions(level)
         assert controls.shown_actions(level) <= controls.shown_actions(level + 1)
+
+
+# ---- gamepad ---------------------------------------------------------------------
+
+
+def test_every_pad_button_is_a_real_pyxel_constant():
+    names = controls.all_pad_names()
+    assert names and all(hasattr(pyxel, name) for name in names)
+
+
+def test_no_pad_button_is_bound_to_two_verbs_in_one_context():
+    extra = {"pause": ("close",)}  # B closes the pause menu too
+    for scope, ids in controls.SCOPES.items():
+        owners: dict[str, str] = {}
+        for action_id in (*ids, *extra.get(scope, ())):
+            for button in controls.pad_names(action_id, scope):
+                assert owners.setdefault(button, action_id) == action_id, (
+                    scope,
+                    button,
+                )
+
+
+def test_b_is_undo_in_play_and_backs_out_where_it_would_clash():
+    b = "GAMEPAD1_BUTTON_B"
+    assert controls.pad_names("undo", "play") == (b,)
+    assert controls.pad_names("undo", "failure") == (b,)
+    for scope in ("console", "pause"):
+        assert controls.pad_names("undo", scope) == ()
+    assert b in controls.pad_names("close")
+
+
+def test_locked_pad_bindings():
+    def pad(action_id):
+        return {
+            n.removeprefix("GAMEPAD1_BUTTON_") for n in controls.pad_names(action_id)
+        }
+
+    assert pad("move_up") == {"DPAD_UP"} and pad("move_right") == {"DPAD_RIGHT"}
+    assert pad("wait") == {"A"} and pad("undo") == {"B"}
+    assert pad("echo") == {"X"} and pad("console") == {"Y"}
+    assert pad("pause") == {"START"} and pad("guide") == {"BACK"}
+    assert pad("confirm") == {"A"} and pad("nav_next") == {"DPAD_DOWN", "DPAD_RIGHT"}
+    assert pad("preview_prev") == {"LEFTSHOULDER"}
+    assert pad("preview_next") == {"RIGHTSHOULDER"}
+    for action_id in ("retry", "restart", "hint", "mute", "fullscreen"):
+        assert pad(action_id) == set()
+
+
+def test_every_pad_action_has_a_glyph_and_keys_stay_the_default(phases):
+    for action_id, binding in controls.BINDINGS.items():
+        assert bool(binding.pad) == bool(binding.pad_cap), action_id
+    assert not controls.pad_in_use()
+    actions = controls.available_actions(phases["prepare"], "game", None)
+    assert controls.find(actions, "wait").key == "Space"
+    with pytest.raises(ValueError):
+        controls.set_device("touch")
+
+
+def test_pad_glyphs_label_the_bar_and_fall_back_to_keys_without_a_button(phases):
+    controls.set_device("pad")
+    actions = controls.available_actions(phases["recording"], "game", None)
+    caps = {a.id: a.key for a in actions}
+    assert caps["wait"] == "A" and caps["undo"] == "B" and caps["echo"] == "X"
+    assert caps["console"] == "Y" and caps["pause"] == "Start"
+    assert caps["guide"] == "Back" and caps["preview_prev"] == "LB"
+    assert caps["retry"] == "R" and caps["restart"] == "C"
+    assert controls.legend(actions, ("wait", "echo")) == "A Wait  X Save recording"
+    pause = controls.available_actions(phases["recording"], "game", "pause")
+    assert controls.find(pause, "undo").key == "Z"  # B closes the menu there
+    controls.set_device("keys")
+    actions = controls.available_actions(phases["recording"], "game", None)
+    assert (
+        controls.legend(actions, ("wait", "echo")) == "Space Wait  Enter Save recording"
+    )

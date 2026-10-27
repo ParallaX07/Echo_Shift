@@ -29,6 +29,7 @@ from echo_shift.ui import (
     cues,
     goals,
     guide,
+    icon,
     motion,
     pointer,
     preview,
@@ -112,9 +113,14 @@ SETTINGS_ITEMS = (
     "sfx_volume",
     "mute",
     "reduced_motion",
+    "crt",
     "fullscreen",
     "close",
 )
+ICON_SPRITE = "player_idle_0"
+ICON_SIZE = 32
+ICON_SCALE = 2
+SCREEN_CRISP, SCREEN_RETRO = 0, 2  # pyxel.screen_mode values
 FPS = motion.FPS
 PULSE_GROW = motion.PULSE_GROW
 INTRO_FRAMES = 5 * FPS  # highlight for a newly shown button
@@ -177,6 +183,8 @@ class Game:
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
         self.atlas = Atlas()
         self.progress = progress.load(LEVEL_COUNT)
+        self.apply_screen_mode()
+        self.set_icon()
         self.audio = audio.Audio(pyxel)
         self.heard = None
         self.motion = motion.Motion(self.progress.settings.reduced_motion)
@@ -319,18 +327,45 @@ class Game:
             self.progress.unlocked = unlocked
             progress.save(self.progress)
 
-    def actions(self) -> list[controls.Action]:
-        modal = (
+    def apply_screen_mode(self) -> None:
+        """The optional CRT look is Pyxel's retro screen mode; off is crisp."""
+        if hasattr(pyxel, "screen_mode"):
+            pyxel.screen_mode(
+                SCREEN_RETRO if self.progress.settings.crt else SCREEN_CRISP
+            )
+
+    def set_icon(self) -> None:
+        """Window icon from the player sprite; any problem leaves the default."""
+        try:
+            entry = self.atlas.entries[ICON_SPRITE]
+            image = self.atlas.image
+            rows = icon.rows(
+                lambda x, y: image.pget(entry["u"] + x, entry["v"] + y),
+                entry["width"],
+                entry["height"],
+                ICON_SIZE,
+            )
+            pyxel.icon(rows, ICON_SCALE, 0)
+        except Exception:
+            logger.debug("window icon not set", exc_info=True)
+
+    def modal_name(self) -> str | None:
+        return (
             ("settings" if self.settings_open else "pause")
             if self.paused
             else "failure"
             if self.failure
             else self.modal or ("console" if self.console else None)
         )
+
+    def scope(self) -> str:
+        return controls.scope_for(self.mode, self.modal_name())
+
+    def actions(self) -> list[controls.Action]:
         return controls.available_actions(
             self.state,
             self.mode,
-            modal,
+            self.modal_name(),
             undoable=len(self.history) > 0,
             failure=self.failure.kind if self.failure else "",
             terminals=self.terminals,
@@ -363,15 +398,22 @@ class Game:
         kwargs = {"hold": REPEAT_HOLD, "repeat": REPEAT_RATE} if repeat else {}
         return any(
             pyxel.btnp(getattr(pyxel, name), **kwargs)
-            for name in only or controls.key_names(action_id)
+            for name in only or self.input_names(action_id)
             if hasattr(pyxel, name)
+        )
+
+    def input_names(self, action_id: str) -> tuple[str, ...]:
+        """Keys and gamepad buttons that trigger an action in the current scope."""
+        return controls.key_names(action_id) + controls.pad_names(
+            action_id, self.scope()
         )
 
     def held(self, ids: tuple[str, ...]) -> bool:
         return hasattr(pyxel, "btn") and any(
             pyxel.btn(getattr(pyxel, name))
             for action_id in ids
-            for name in controls.key_names(action_id)
+            for name in self.input_names(action_id)
+            if hasattr(pyxel, name)
         )
 
     def snapshot(self) -> Snapshot:
@@ -555,6 +597,7 @@ class Game:
         if self.mode == "game" and self.modal != "lesson_choice":
             self.intro_frames = max(0, self.intro_frames - 1)
         self.motion.set_reduced(self.progress.settings.reduced_motion)
+        self.track_device()
         if self.gameplay_input():
             self.motion.snap()  # new input ends running animations first
         before, seen, mode = self.state, self.ui_marks(), self.mode
@@ -571,11 +614,25 @@ class Game:
         self.motion.tick()
 
     def gameplay_input(self) -> bool:
-        """Whether any gameplay key or mouse button went down this frame."""
+        """Whether any gameplay key, pad or mouse button went down this frame."""
+        names = (
+            *controls.gameplay_key_names(),
+            *controls.gameplay_pad_names(),
+            "MOUSE_BUTTON_LEFT",
+        )
+        return self.any_down(names)
+
+    def any_down(self, names: tuple[str, ...]) -> bool:
         if not hasattr(pyxel, "btnp"):
             return False
-        names = (*controls.gameplay_key_names(), "MOUSE_BUTTON_LEFT")
         return any(pyxel.btnp(getattr(pyxel, n)) for n in names if hasattr(pyxel, n))
+
+    def track_device(self) -> None:
+        """Labels follow the device used last: pad glyphs or key names."""
+        if self.any_down(controls.all_pad_names()):
+            controls.set_device("pad")
+        elif self.any_down((*controls.all_key_names(), "MOUSE_BUTTON_LEFT")):
+            controls.set_device("keys")
 
     def animate(self, before: State, mode: str) -> None:
         """Start motion from what this frame changed; presentation only."""
@@ -822,7 +879,9 @@ class Game:
             self.settings_input()
             return
         clicked = self.clicked_row()
-        if self.pressed("pause") or self.pressed("close", only=(controls.RIGHT_CLICK,)):
+        if self.pressed("pause") or self.pressed(
+            "close", only=(controls.RIGHT_CLICK, *controls.pad_names("close"))
+        ):
             self.paused = False
         elif clicked is not None and clicked.startswith("pause:"):
             action_id = clicked.removeprefix("pause:")
@@ -891,8 +950,10 @@ class Game:
         elif item == "fullscreen":
             self.toggle_fullscreen()
             return
-        elif item in ("mute", "reduced_motion"):
+        elif item in ("mute", "reduced_motion", "crt"):
             setattr(settings, item, not getattr(settings, item))
+            if item == "crt":
+                self.apply_screen_mode()
         else:
             return
         progress.save(self.progress)
@@ -1100,15 +1161,14 @@ class Game:
                 self.commit(before)
 
     def play_input(self) -> None:
-        echo = controls.BINDINGS["echo"]
         if self.pressed("retry"):
             self.perform("retry")
         elif self.pressed("console"):
             self.perform("console")
-        elif self.pressed("echo", only=echo.keys):
-            self.perform("echo")
-        elif self.pressed("echo", only=echo.hidden):
+        elif self.pressed("echo", only=controls.BINDINGS["echo"].hidden):
             self.perform("echo", alias=True)
+        elif self.pressed("echo"):
+            self.perform("echo")
         elif self.pressed("wait"):
             self.perform("wait")
         elif self.pressed("preview_prev"):
@@ -1783,8 +1843,7 @@ class Game:
         text_x = x + layout.pad + item.lead
         if item.kind == "slot":
             index = int(item.key.removeprefix("timeline:"))
-            swell = round(width * (self.motion.pop(index) - 1) / 2)
-            self.atlas.draw(item.text, x - swell, y - swell, width + 2 * swell)
+            self.atlas.draw(item.text, x, y, width, self.motion.pop(index))
             if item.cap:
                 self.text(
                     x + (width - len(item.cap) * char) // 2,
@@ -1793,8 +1852,8 @@ class Game:
                     13,
                 )
             if item.on:
-                swell = round(width * PULSE_GROW * self.motion.pulse() / 2)
-                self.atlas.draw("slot_current", x - swell, y - swell, width + 2 * swell)
+                pulse = 1 + PULSE_GROW * self.motion.pulse()
+                self.atlas.draw("slot_current", x, y, width, pulse)
             if self.slot_done(index):
                 pyxel.dither(0.5)
                 pyxel.rect(x, y, width, height, 1)
@@ -2002,9 +2061,7 @@ class Game:
             lines.append("OVER BUDGET - CANNOT APPLY")
         lines.append("WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"))
         rows[len(lines)] = "apply"
-        lines.append(
-            f"  {controls.BINDINGS['apply'].cap} {controls.apply_label(self.state)}"
-        )
+        lines.append(f"  {controls.cap('apply')} {controls.apply_label(self.state)}")
         x, y, width, height = self.layout.console_drawer()
         hidden = self.motion.drawer_hidden() or 0.0
         slid = round(hidden * width)
@@ -2112,7 +2169,7 @@ class Game:
         pyxel.rectb(x, y, width, height, 10 if hovered or pulse else 9)
         accent = max(2, self.layout.text_scale)
         pyxel.rect(x + accent, y + accent, max(12, width // 5), accent, 12)
-        key = controls.BINDINGS["confirm"].cap.upper()
+        key = controls.cap("confirm").upper()
         label = f"{key} / CLICK" if width < 250 else f"CLICK OR {key} TO START"
         text_scale = max(1, self.layout.text_scale + 1)
         self.text(
@@ -2313,7 +2370,9 @@ class Game:
         scale = 1 if self.layout.width < 900 else 2
         heading = step.say("title").upper()
         body = step.say("explanation")
-        footer = f"{controls.BINDINGS['apply'].cap} OR CLICK TO CLOSE, OR JUST DO THE STEP".upper()
+        footer = (
+            f"{controls.cap('apply')} OR CLICK TO CLOSE, OR JUST DO THE STEP".upper()
+        )
         chars = max(8, (width - 24) // self.char_width(scale))
         rows = sum(len(textwrap.wrap(text, chars)) for text in (heading, body, footer))
         height = rows * self.line_height(scale) + 44
@@ -2408,7 +2467,7 @@ class Game:
         last = self.log_page >= len(lines)
         keys = self.actions()
         footer = (
-            f"{controls.BINDINGS['confirm'].cap} {controls.find(keys, 'close').label}"
+            f"{controls.cap('confirm')} {controls.find(keys, 'close').label}"
             if last
             else controls.legend(keys, ("confirm", "close"))
         )

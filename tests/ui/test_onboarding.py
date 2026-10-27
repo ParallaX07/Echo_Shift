@@ -390,7 +390,6 @@ def test_settings_back_returns_to_the_pause_menu_and_labels_come_from_controls(p
     shown = text_of(player)
     for item in app.SETTINGS_ITEMS:
         assert controls.find(game.actions(), item).label in shown
-    assert "CRT" not in shown.upper()
     player.press("ESCAPE")
     assert game.paused and not game.settings_open
     game.pause_index = app.PAUSE_ITEMS.index("settings")

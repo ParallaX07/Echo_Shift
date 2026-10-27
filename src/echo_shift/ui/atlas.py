@@ -26,10 +26,14 @@ class Atlas:
             ):
                 raise ValueError(f"{sprite_id}: atlas entry exceeds image bounds")
 
-    def draw(self, sprite_id: str, x: int, y: int, cell: int) -> None:
+    def draw(
+        self, sprite_id: str, x: int, y: int, cell: int, grow: float = 1.0
+    ) -> None:
+        """Draw a sprite centred in a `cell`-pixel square, optionally scaled by
+        `grow` about its centre (a pop or squash needs no extra frame)."""
         sprite = self.entries[sprite_id]
         width, height = sprite["width"], sprite["height"]
-        scale = cell / max(width, height)
+        scale = cell / max(width, height) * grow
         pyxel.blt(
             x + (cell - width) / 2,
             y + (cell - height) / 2,

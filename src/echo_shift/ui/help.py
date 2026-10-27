@@ -3,12 +3,13 @@
 from echo_shift.engine import lighting
 from echo_shift.engine.model import Phase, Position, State
 from echo_shift.engine.turn import Move, Wait
-from echo_shift.ui.controls import BINDINGS, key_text, stages_power
+from echo_shift.ui import controls
+from echo_shift.ui.controls import key_text, stages_power
 from echo_shift.ui.story import Terminal
 
 
 def cap(action_id: str) -> str:
-    return BINDINGS[action_id].cap
+    return controls.cap(action_id)
 
 
 def pad_label(state: State, pad_id: str) -> str:
