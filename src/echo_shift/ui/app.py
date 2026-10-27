@@ -119,7 +119,8 @@ PULSE_GROW = motion.PULSE_GROW
 INTRO_FRAMES = 5 * FPS  # highlight for a newly shown button
 MESSAGE_FRAMES = 4 * FPS  # how long a feedback line stays up
 FLASH_FRAMES = FPS * 2 // 5  # the red room outline after a refusal
-REPEAT_HOLD, REPEAT_RATE = FPS * 4 // 15, FPS // 6  # held-move key repeat, in frames
+# Held-key repeat for the settings values, in frames (moves use the walk timing).
+REPEAT_HOLD, REPEAT_RATE = FPS * 4 // 15, FPS // 6
 ECHO_EVENTS = {"record": "enter", "save": "enter", "launch": "launch"}
 ENTER_ACTIONS = {"enter", "launch", "apply"}
 GATED_IDS = (
@@ -1109,7 +1110,7 @@ class Game:
             hasattr(pyxel, "MOUSE_BUTTON_LEFT") and pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT)
         ):
             return None
-        tile = self.pointer_tile(self.room_view)
+        tile = self.pointer_tile(self.shaken)
         return pointer.click_action(self.state, tile) if tile is not None else None
 
     def clicked_row(self) -> str | None:
@@ -1317,7 +1318,13 @@ class Game:
     def pointer_tile(self, view: cuedraw.View) -> Position | None:
         """The room tile under the pointer, or None off the room or under the drawer."""
         mx, my = self.menu_mouse_position()
-        drawer = self.layout.console_drawer()[0] if self.console else None
+        x, _, width, _ = self.layout.console_drawer()
+        hidden = self.motion.drawer_hidden()
+        drawer = None
+        if hidden is not None:  # sliding: the edge where the drawer is drawn
+            drawer = x + round(hidden * width)
+        elif self.console:
+            drawer = x
         return pointer.tile_at(view, self.room_bounds, self.layout.room, mx, my, drawer)
 
     def draw_room(self) -> None:
@@ -1351,11 +1358,11 @@ class Game:
         view = (cell, origin_x, origin_y)
         self.room_view = view
         self.room_bounds = bounds
-        hover = self.pointer_tile(view)
         shake_x, shake_y = self.motion.shake()
         origin_x += round(shake_x * cell)
         origin_y += round(shake_y * cell)
         view = self.shaken = (cell, origin_x, origin_y)
+        hover = self.pointer_tile(view)
         pyxel.clip(*layout.room)
         seen = camera.visible_tiles(view, layout.room, bounds)
         min_x, min_y, max_x, max_y = seen if seen else (0, 0, -1, -1)
@@ -2281,7 +2288,7 @@ class Game:
             self.lesson is not None and self.menu_hit(self.lesson_card_rect)
         ):
             return None
-        position = self.pointer_tile(self.room_view)
+        position = self.pointer_tile(self.shaken)
         return room_info(self.state, position) if position is not None else None
 
     def draw_hover(self) -> None:

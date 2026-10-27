@@ -12,7 +12,7 @@ from echo_shift.engine import lighting, recording
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Phase, Position, initial_state
 from echo_shift.engine.turn import Failed, InteractAtConsole, Move
-from echo_shift.ui import bars, motion
+from echo_shift.ui import bars, motion, pointer
 from echo_shift.ui.motion import Motion
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -776,6 +776,27 @@ def test_the_console_drawer_slides_but_its_rows_stay_where_they_rest(player):
     assert not any(key_.startswith("row:") for _, key_ in game.ui_hits)
     idle(player, motion.DRAWER_FRAMES)
     assert game.motion.drawer_hidden() is None
+
+
+def test_tiles_under_a_sliding_drawer_are_not_hit_but_those_beside_it_are(player):
+    game = player.game
+    game.open_level(1)
+    player.press("F")
+    tap(player, "E")
+    tap(player, "ESCAPE")  # the drawer is sliding out; the console flag is off
+    hidden = game.motion.drawer_hidden()
+    assert not game.console and hidden is not None and hidden > 0
+    game.draw()
+    x, _, width, _ = game.layout.console_drawer()
+    edge = x + round(hidden * width)
+    y = game.layout.room_y + game.layout.room_h // 2
+    bounds = game.room_bounds
+    for px, hit in ((edge - 1, True), (edge, False), (edge + width // 2, False)):
+        player.fake.mouse_x, player.fake.mouse_y = px, y
+        free = pointer.tile_at(game.shaken, bounds, game.layout.room, px, y)
+        assert free is not None, px  # the world reaches under the strip
+        assert (game.pointer_tile(game.shaken) is not None) is hit, px
+    player.fake.mouse_x = player.fake.mouse_y = -1
 
 
 def test_a_button_that_leaves_the_bar_sinks_without_a_hit_rect(player):
