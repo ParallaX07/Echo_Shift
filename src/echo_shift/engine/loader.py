@@ -6,8 +6,10 @@ from typing import Any
 
 from .model import (
     IDEAS,
+    Cell,
     Chamber,
     Circuit,
+    Conduit,
     Device,
     Goals,
     Pad,
@@ -111,6 +113,22 @@ def from_dict(data: Any) -> Chamber:
             )
             for item in data["devices"]
         )
+        cells = tuple(
+            Cell(
+                item["id"],
+                _position(item["position"], "cell position"),
+                item["value"],
+            )
+            for item in data.get("cells", ())
+        )
+        conduits = tuple(
+            Conduit(
+                item["id"],
+                item["circuit"],
+                tuple(_position(pos, "conduit tile") for pos in item["tiles"]),
+            )
+            for item in data.get("conduits", ())
+        )
         capacity = data["capacity"]
         max_turns = data.get("max_turns", 12)
     except (KeyError, TypeError, ValueError) as exc:
@@ -158,6 +176,8 @@ def from_dict(data: Any) -> Chamber:
             max_turns,
             idea,
             goals,
+            cells,
+            conduits,
         )
     except ValueError as exc:
         raise LevelError(str(exc)) from exc
@@ -182,12 +202,15 @@ def from_dict(data: Any) -> Chamber:
     ):
         raise LevelError("exit must link to an elevator device")
     identifiers = [
-        item.id for group in (zones, circuits, pads, devices) for item in group
+        item.id
+        for group in (zones, circuits, pads, devices, cells, conduits)
+        for item in group
     ]
     if len(identifiers) != len(set(identifiers)):
         raise LevelError("duplicate ids across chamber entities")
     total = sum(circuit.load for circuit in circuits)
-    if any(circuit.load > capacity for circuit in circuits):
+    ceiling = capacity + sum(cell.value for cell in cells)
+    if any(circuit.load > ceiling for circuit in circuits):
         raise LevelError("single circuit load exceeds generator capacity")
     if total < 0:
         raise LevelError("circuit loads must be non-negative")

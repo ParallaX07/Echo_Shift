@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from echo_shift.engine.loader import LevelError, from_dict, load
+from echo_shift.engine.model import Position
 
 
 @pytest.fixture
@@ -81,3 +82,53 @@ def test_idea_and_goals_are_optional_and_read_when_present(example_data):
     chamber = from_dict(example_data)
     assert chamber.idea == "timed_pads"
     assert (chamber.goals.turns, chamber.goals.recorded) == (7, 2)
+
+
+CELL = {"id": "cell-a", "position": [3, 1], "value": 15}
+CONDUIT = {"id": "line-a", "circuit": "lab-lights", "tiles": [[3, 1], [4, 1]]}
+
+
+def test_cells_and_conduits_are_optional_and_read_when_present(example_data):
+    plain = from_dict(example_data)
+    assert plain.cells == () and plain.conduits == ()
+    example_data.update(cells=[CELL], conduits=[CONDUIT])
+    chamber = from_dict(example_data)
+    assert chamber.cells[0].value == 15
+    assert chamber.cells[0].position == Position(3, 1)
+    assert chamber.conduits[0].circuit_id == "lab-lights"
+    assert chamber.conduits[0].tiles == (Position(3, 1), Position(4, 1))
+
+
+def test_a_cell_can_make_a_heavy_circuit_possible(example_data):
+    example_data["circuits"][0]["load"] = 70
+    with pytest.raises(LevelError, match="exceeds generator capacity"):
+        from_dict(example_data)
+    example_data["cells"] = [CELL]
+    assert from_dict(example_data).circuits[0].load == 70
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (lambda d: d.update(cells=[{**CELL, "value": 0}]), "positive integer"),
+        (lambda d: d.update(cells=[{**CELL, "value": 1.5}]), "positive integer"),
+        (lambda d: d.update(cells=[{**CELL, "value": True}]), "positive integer"),
+        (lambda d: d.update(cells=[{**CELL, "position": [9, 9]}]), "outside"),
+        (lambda d: d.update(cells=[{**CELL, "position": [0, 1]}]), "walkable"),
+        (lambda d: d.update(cells=[{**CELL, "position": [4, 1]}]), "walkable"),
+        (lambda d: d.update(cells=[{**CELL, "position": [1, 1]}]), "start tile"),
+        (lambda d: d.update(cells=[CELL, dict(CELL)]), "duplicate cell id"),
+        (lambda d: d.update(cells=[{**CELL, "id": "lab"}]), "duplicate ids"),
+        (lambda d: d.update(cells=[{"id": "x", "position": [3, 1]}]), "invalid"),
+        (lambda d: d.update(conduits=[{**CONDUIT, "circuit": "nope"}]), "circuit"),
+        (lambda d: d.update(conduits=[{**CONDUIT, "tiles": [[9, 9]]}]), "outside"),
+        (lambda d: d.update(conduits=[{**CONDUIT, "tiles": [[0, 1]]}]), "wall"),
+        (lambda d: d.update(conduits=[{**CONDUIT, "tiles": [[1, 1]]}]), "hub"),
+        (lambda d: d.update(conduits=[CONDUIT, dict(CONDUIT)]), "duplicate conduit"),
+        (lambda d: d.update(conduits=[{**CONDUIT, "id": "lab"}]), "duplicate ids"),
+    ],
+)
+def test_rejects_invalid_cells_and_conduits(example_data, mutate, message):
+    mutate(example_data)
+    with pytest.raises(LevelError, match=message):
+        from_dict(example_data)

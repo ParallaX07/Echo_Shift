@@ -72,6 +72,35 @@ class Pad:
 
 
 @dataclass(frozen=True)
+class Cell:
+    """An energy cell: stepping on it adds `value` to the generator capacity."""
+
+    id: str
+    position: Position
+    value: int
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.value, int)
+            or isinstance(self.value, bool)
+            or self.value < 1
+        ):
+            raise ValueError(f"cell {self.id} value must be a positive integer")
+
+
+@dataclass(frozen=True)
+class Conduit:
+    """Floor that is deadly to the player while its circuit is powered."""
+
+    id: str
+    circuit_id: str
+    tiles: tuple[Position, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "tiles", tuple(self.tiles))
+
+
+@dataclass(frozen=True)
 class Device:
     id: str
     kind: TileType
@@ -95,6 +124,8 @@ class Chamber:
     max_turns: int = 12
     idea: str | None = None
     goals: Goals | None = None
+    cells: tuple[Cell, ...] = ()
+    conduits: tuple[Conduit, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -104,7 +135,7 @@ class Chamber:
         )
         object.__setattr__(self, "hub", frozenset(self.hub))
         object.__setattr__(self, "consoles", frozenset(self.consoles))
-        for name in ("zones", "circuits", "pads", "devices"):
+        for name in ("zones", "circuits", "pads", "devices", "cells", "conduits"):
             object.__setattr__(self, name, tuple(getattr(self, name)))
         if (
             not self.tiles
@@ -133,6 +164,8 @@ class Chamber:
             ("zone", self.zones),
             ("pad", self.pads),
             ("device", self.devices),
+            ("cell", self.cells),
+            ("conduit", self.conduits),
         ):
             if len({value.id for value in values}) != len(values):
                 raise ValueError(f"duplicate {name} id")
@@ -163,6 +196,28 @@ class Chamber:
         )
         if any(not self.contains(position) for position in positions):
             raise ValueError("zone, pad or device position outside chamber")
+        for cell in self.cells:
+            if not self.contains(cell.position):
+                raise ValueError(f"cell {cell.id} is outside the chamber")
+            if self.tile_at(cell.position) in {TileType.WALL, TileType.GATE}:
+                raise ValueError(f"cell {cell.id} must lie on walkable floor")
+            if cell.position == self.start:
+                raise ValueError(f"cell {cell.id} cannot lie on the start tile")
+        for conduit in self.conduits:
+            if conduit.circuit_id not in circuits:
+                raise ValueError(f"conduit {conduit.id} links an unknown circuit")
+            for tile in conduit.tiles:
+                if not self.contains(tile):
+                    raise ValueError(f"conduit {conduit.id} is outside the chamber")
+                if (
+                    self.tile_at(tile)
+                    in {TileType.WALL, TileType.HUB, TileType.CONSOLE}
+                    or tile in self.hub
+                    or tile in self.consoles
+                ):
+                    raise ValueError(
+                        f"conduit {conduit.id} cannot cross a wall, hub or console"
+                    )
 
     @property
     def width(self) -> int:
@@ -199,9 +254,11 @@ class State:
     echo_hold: int = 0
     pad_timers: tuple[tuple[str, int], ...] = ()
     retry_snapshot: object | None = None
+    cells_taken: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         for name in (
+            "cells_taken",
             "powered_circuits",
             "pad_occupied",
             "pad_active",
@@ -240,21 +297,25 @@ class State:
             self.echo_index,
             self.echo_hold,
             snapshot_key,
+            self.cells_taken,
         )
 
 
 def initial_state(
-    chamber: Chamber, powered_circuits: frozenset[str] = frozenset()
+    chamber: Chamber,
+    powered_circuits: frozenset[str] = frozenset(),
+    cells_taken: frozenset[str] = frozenset(),
 ) -> State:
-    from .power import apply
+    from .power import apply, capacity_with
 
-    configured = apply(chamber, powered_circuits)
+    configured = apply(chamber, powered_circuits, capacity_with(chamber, cells_taken))
     if not configured.ok:
         raise ValueError(configured.error)
     state = State(
         chamber,
         chamber.start,
         configured.circuits,
+        cells_taken=frozenset(cells_taken),
         pad_timers=tuple((pad.id, 0) for pad in chamber.pads),
     )
     from .turn import refresh_devices

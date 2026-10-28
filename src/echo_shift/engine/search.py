@@ -7,7 +7,8 @@ reaches its state or time cap reports `Verdict.INCONCLUSIVE` and never a verdict
 Cost model: only turn-consuming actions cost anything. A move or wait while
 recording or replaying, and a console change made in either phase, costs one
 turn. Free hub walking, free console changes before launch, starting a take,
-saving it and launching cost nothing.
+saving it and launching cost nothing. Free roam beyond the hub, and so picking up
+energy cells before launch, is not searched here.
 """
 
 import heapq
@@ -21,7 +22,7 @@ from itertools import combinations
 
 from . import lighting
 from .model import Chamber, Phase, Position, State, TileType, initial_state
-from .power import apply
+from .power import apply, max_capacity
 from .recording import act, enter, launch
 from .turn import Accepted, Failed, InteractAtConsole, Move, Rejected, Wait, step
 
@@ -69,14 +70,16 @@ class Limits:
 DEFAULT_LIMITS = Limits()
 
 
-def power_choices(chamber: Chamber) -> tuple[frozenset[str], ...]:
-    """Every power configuration the budget allows, smallest first."""
+def power_choices(
+    chamber: Chamber, capacity: int | None = None
+) -> tuple[frozenset[str], ...]:
+    """Every power configuration `capacity` allows (base if omitted), smallest first."""
     ids = [circuit.id for circuit in chamber.circuits]
     return tuple(
         choice
         for size in range(len(ids) + 1)
         for names in combinations(ids, size)
-        if apply(chamber, choice := frozenset(names)).ok
+        if apply(chamber, choice := frozenset(names), capacity).ok
     )
 
 
@@ -109,10 +112,10 @@ def exhaust_without_echo(
 def _exhaust(
     chamber: Chamber, limits: Limits, horizon: int | None = None
 ) -> Exhaustion:
-    choices = power_choices(chamber)
+    choices = power_choices(chamber, max_capacity(chamber))
     queue = deque(
         replace(initial_state(chamber, choice), phase=Phase.REPLAY)
-        for choice in choices
+        for choice in power_choices(chamber)
     )
     seen = {state.search_key() for state in queue}
     actions = (
@@ -198,7 +201,7 @@ class _Search:
         self.count_cap = count_cap
         self.choices = tuple(
             c
-            for c in power_choices(chamber)
+            for c in power_choices(chamber, max_capacity(chamber))
             if (cons.max_load is None or load_of(chamber, c) <= cons.max_load)
             and (cons.config_ok is None or cons.config_ok(c))
         )

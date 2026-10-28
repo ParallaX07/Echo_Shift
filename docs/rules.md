@@ -8,16 +8,77 @@ replay, timed pads and chamber loading are implemented in the headless engine.
 Enter starts a take only from the hub and records that tile as the echo start.
 Enter commits from any tile, resets the player and chamber dynamics to their
 starting positions, and keeps the recording and selected power configuration.
-Preparation and committed movement inside the hub, and power changes at the hub
-console in those phases, are free. A take captures accepted moves and waits up
-to the chamber's `max_turns` limit.
+Preparation and committed movement over lit tiles (see "Free roam" below), and
+power changes at the hub console in those phases, are free. A take captures
+accepted moves and waits up to the chamber's `max_turns` limit.
 
 Launching from the hub resets dynamic chamber state and the player to the
 defined start, keeps the power configuration and recording, creates an
 unadvanced echo, then captures the retry snapshot. R restores that snapshot. C
-returns to the preparation state and clears power and recording. A replay
-failure restores the launch snapshot; a recording failure discards that take and
-returns to preparation.
+returns to the preparation state and clears power, recording and taken energy
+cells. A replay failure restores the launch snapshot; a recording failure
+discards that take and returns to preparation. Energy cells already taken stay
+taken through launch, R and both kinds of failure.
+
+## Free roam
+
+In preparation and after a take is saved, the player may step onto any lit tile
+that is open: the hub, or a tile of a zone whose circuit is on. Free steps cost
+no turn, are not recorded and leave the world exactly as it was: pads are not
+pressed, timers and gates do not change, and an elevator is not taken even if
+the player steps onto it. A step is refused, with no change at all, for these
+reasons:
+
+- "wall or closed gate blocks movement": a wall, or a gate that is closed (every
+  gate is closed while roaming, because nothing reacts to the player);
+- "that conduit is live": the tile belongs to a conduit whose circuit is on;
+- "too dark to walk there": the tile is not lit.
+
+Free roam never fails an attempt. A take still starts only on a hub tile, the
+launch still works only on a hub tile and puts the player back at the start, and
+power still changes only at the console.
+
+Worked sequence (a wing lit by circuit `lamp`): power `lamp` at the console,
+walk two tiles into the wing (no turn passes, `turns` stays 0), try a third
+tile that no zone lights (refused: too dark to walk there), walk back to the hub
+and press Enter to start the take.
+
+## Energy cells
+
+A chamber may hold energy cells, each with an id, a floor position and a
+positive value. The player takes a cell by ending a move on its tile, in any
+phase: free roam, recording or replay. The echo never takes one. Each taken
+cell adds its value to the generator capacity. Power stays a simultaneous limit,
+so capacity only ever grows and a valid power choice never becomes invalid.
+A cell is never on a wall, a gate or the start tile, and an over-budget check
+always uses the capacity at that moment.
+
+In a turn the pickup happens in step 3, right after the player has moved and
+before step 4 and the safety check of step 5. A cell on a tile that then turns
+out to be unsafe is still taken, so a failed attempt keeps what it collected.
+
+Worked sequence (base capacity 3, circuits `lamp` 2 and `aux` 3, a cell worth 2
+in the lit wing): choosing `lamp` and `aux` together needs 5 and is refused.
+Walk onto the cell (capacity 5) and back to the hub, then the same choice is
+accepted. Launch, press R or fail a replay: the cell stays taken and the choice
+stays valid. C puts the cell back and the capacity returns to 3.
+
+## Live conduits
+
+A conduit is a set of floor tiles tied to one circuit. While that circuit is on
+its tiles are live and deadly: ending a turn on one fails the attempt with
+"player ended the turn on a live conduit", checked in step 5 before the unlit
+check, and free roam refuses to step onto one. While the circuit is off the
+conduit is ordinary floor, safe whenever some powered zone lights it. The echo
+is immune to conduits, as it is to darkness. A conduit never covers a wall, the
+hub or a console, so a power change at the console can never light one under
+the player.
+
+Worked sequence (circuit `arc` owns a conduit in the lit wing): with `lamp` and
+`arc` on, record a move into the wing, then a move onto the conduit tile. The
+second move ends the turn on a live conduit and the take fails. With `arc` off
+the same two moves are fine. An echo that walks the same two moves while `arc`
+is on stands on the conduit unharmed.
 
 ## Keys, undo and the failure card
 
@@ -283,9 +344,10 @@ Each accepted action advances one turn in this order:
 
 1. Remove an expired echo, then refresh pad states and linked devices.
 2. Apply a valid power change, then refresh linked devices.
-3. Move the player and echo using the current gate state.
+3. Move the player and echo using the current gate state. The player then
+   takes the energy cell under it, if any.
 4. Update pad occupancy and timers, then refresh linked devices.
-5. Check player safety and the exit.
+5. Check player safety (an unlit tile or a live conduit fails) and the exit.
 
 Rejected actions leave the complete state and turn counter unchanged. Safety is
 checked only after the turn resolves. The hub is always safe. An elevator exit

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, replace
 
-from . import power
+from . import lighting, power
 from .model import Phase, Position, State, initial_state
 from .turn import (
     Accepted,
@@ -13,6 +13,8 @@ from .turn import (
     Rejected,
     StepResult,
     Wait,
+    _destination,
+    collect_cell,
     refresh_devices,
     step,
 )
@@ -64,7 +66,7 @@ def launch(state: State) -> State:
         return state
     if state.echo_start is None:
         return state
-    reset = initial_state(state.chamber, state.powered_circuits)
+    reset = initial_state(state.chamber, state.powered_circuits, state.cells_taken)
     replay = refresh_devices(
         replace(
             reset,
@@ -87,7 +89,7 @@ def retry(state: State) -> State:
     snapshot = state.retry_snapshot
     if not isinstance(snapshot, PlaybackSnapshot):
         return state
-    reset = initial_state(state.chamber, snapshot.powered_circuits)
+    reset = initial_state(state.chamber, snapshot.powered_circuits, state.cells_taken)
     return refresh_devices(
         replace(
             reset,
@@ -110,21 +112,27 @@ def act(state: State, action: Action) -> StepResult:
     """Apply gameplay input, including free hub actions and recording capture."""
     if state.phase in {Phase.PREPARE, Phase.COMMITTED}:
         if isinstance(action, Move):
-            destination = Position(
-                state.player.x + action.dx, state.player.y + action.dy
-            )
-            if destination not in state.chamber.hub:
-                return Rejected(state, "free movement is limited to hub tiles")
             if (action.dx, action.dy) not in {(0, -1), (1, 0), (0, 1), (-1, 0)}:
                 return Rejected(state, "move must be one cardinal tile")
-            return Accepted(replace(state, player=destination))
+            # Free roam: any lit, open tile that is not a live conduit. The world
+            # does not react, so only the player moves (and may pick up a cell).
+            destination = _destination(state, state.player, action.dx, action.dy)
+            if destination is None:
+                return Rejected(state, "wall or closed gate blocks movement")
+            if destination in lighting.live_conduit_tiles(state):
+                return Rejected(state, "that conduit is live")
+            if destination not in lighting.lit_tiles(state):
+                return Rejected(state, "too dark to walk there")
+            return Accepted(collect_cell(replace(state, player=destination)))
         if isinstance(action, InteractAtConsole):
             if (
                 state.player not in state.chamber.hub
                 or state.player not in state.chamber.consoles
             ):
                 return Rejected(state, "free power changes require the hub console")
-            configured = power.apply(state.chamber, action.powered_circuits)
+            configured = power.apply(
+                state.chamber, action.powered_circuits, power.capacity_of(state)
+            )
             if not configured.ok:
                 return Rejected(
                     state, configured.error or "invalid power configuration"

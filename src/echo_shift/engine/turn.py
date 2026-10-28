@@ -111,12 +111,22 @@ def _validate_action(state: State, action: Action) -> str | None:
     elif isinstance(action, InteractAtConsole):
         if state.player not in state.chamber.consoles:
             return "player is not at a console"
-        result = power.apply(state.chamber, action.powered_circuits)
+        result = power.apply(
+            state.chamber, action.powered_circuits, power.capacity_of(state)
+        )
         if not result.ok:
             return result.error
     elif not isinstance(action, Wait):
         return "unknown action"
     return None
+
+
+def collect_cell(state: State) -> State:
+    """Add the energy cell under the player, if any, to the taken cells."""
+    for cell in state.chamber.cells:
+        if cell.position == state.player and cell.id not in state.cells_taken:
+            return replace(state, cells_taken=state.cells_taken | {cell.id})
+    return state
 
 
 def _timer_update(state: State) -> tuple[tuple[str, int], ...]:
@@ -148,14 +158,22 @@ def step(state: State, action: Action) -> StepResult:
 
     # 2. Power takes effect before movement.
     if isinstance(action, InteractAtConsole):
-        configured = power.apply(current.chamber, action.powered_circuits)
+        configured = power.apply(
+            current.chamber, action.powered_circuits, power.capacity_of(current)
+        )
         current = _refresh(replace(current, powered_circuits=configured.circuits))
 
     # 3. Move the player and consume one echo command. Blocked echo moves are consumed.
+    # The player picks up an energy cell on its new tile right after moving, before
+    # steps 4 and 5; the echo never does.
     if isinstance(action, Move):
-        current = replace(
-            current,
-            player=Position(current.player.x + action.dx, current.player.y + action.dy),
+        current = collect_cell(
+            replace(
+                current,
+                player=Position(
+                    current.player.x + action.dx, current.player.y + action.dy
+                ),
+            )
         )
     commands = current.recording
     echo_advanced = current.echo_position is not None and current.echo_index < len(
@@ -187,8 +205,9 @@ def step(state: State, action: Action) -> StepResult:
     current = _refresh(current)
 
     # 5. Check player safety and exit conditions.
-    if not lighting.is_safe(current, current.player):
-        return Failed(current, "player ended the turn on an unlit tile")
+    reason = lighting.hazard(current, current.player)
+    if reason:
+        return Failed(current, reason)
     succeeded = any(
         device.kind is TileType.ELEVATOR
         and device.position == current.player

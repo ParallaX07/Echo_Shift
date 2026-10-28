@@ -1050,7 +1050,9 @@ class Game:
         if not action.enabled:
             self.refuse(action)
             return
-        self.state = initial_state(self.state.chamber, self.state.powered_circuits)
+        self.state = initial_state(
+            self.state.chamber, self.state.powered_circuits, self.state.cells_taken
+        )
         self.pending = self.state.powered_circuits
         self.console = False
         self.heard = audio.Cue("ui_select")
@@ -1241,7 +1243,9 @@ class Game:
     def apply_console(self) -> None:
         if not self.allow("apply"):
             return
-        if not power.apply(self.state.chamber, self.pending).ok:
+        if not power.apply(
+            self.state.chamber, self.pending, power.capacity_of(self.state)
+        ).ok:
             if controls.stages_power(self.state):
                 self.attempt.unsafe_power_choices += 1  # free mode counted it
             self.notice("OVER BUDGET - REMOVE A CIRCUIT", True)
@@ -1281,7 +1285,9 @@ class Game:
         """Preparation and committed power changes take effect at once, for free."""
         if self.pending == self.state.powered_circuits:
             return
-        if not power.apply(self.state.chamber, self.pending).ok:
+        if not power.apply(
+            self.state.chamber, self.pending, power.capacity_of(self.state)
+        ).ok:
             self.attempt.unsafe_power_choices += 1
             self.notice("OVER BUDGET - REMOVE A CIRCUIT", True)
             return
@@ -2029,7 +2035,9 @@ class Game:
 
     def draw_console(self) -> None:
         circuits = self.state.chamber.circuits
-        configured = power.apply(self.state.chamber, self.pending)
+        configured = power.apply(
+            self.state.chamber, self.pending, power.capacity_of(self.state)
+        )
         pending_load = sum(c.load for c in circuits if c.id in self.pending)
         before = lighting.lit_tiles(self.state)
         after = lighting.lit_tiles(replace(self.state, powered_circuits=self.pending))
