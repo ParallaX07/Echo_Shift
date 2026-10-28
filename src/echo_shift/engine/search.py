@@ -1,14 +1,15 @@
 """Exhaustive search over the real turn engine.
 
 Every transition here is `recording.act`, `recording.enter`, `recording.launch`
-or `turn.step`; states are identified with `State.search_key()`. A search that
+or `turn.step`; states are identified with `State.search_key()`
+(with equivalent echoes merged, see `_Keys`). A search that
 reaches its state or time cap reports `Verdict.INCONCLUSIVE` and never a verdict.
 
 Cost model: only turn-consuming actions cost anything. A move or wait while
 recording or replaying, and a console change made in either phase, costs one
-turn. Free hub walking, free console changes before launch, starting a take,
-saving it and launching cost nothing. Free roam beyond the hub, and so picking up
-energy cells before launch, is not searched here.
+turn. Free roam over lit tiles before a take and between a take and its launch
+(which also picks up energy cells and changes power at a console), starting a
+take, saving it and launching cost nothing.
 """
 
 import heapq
@@ -18,6 +19,7 @@ from collections import deque
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from enum import Enum
+from functools import lru_cache
 from itertools import combinations
 
 from . import lighting
@@ -87,6 +89,113 @@ def load_of(chamber: Chamber, config: frozenset[str]) -> int:
     return sum(c.load for c in chamber.circuits if c.id in config)
 
 
+# --- Free roam ----------------------------------------------------------------
+
+Node = tuple[Position, frozenset[str], frozenset[str]]  # tile, powered, cells taken
+
+
+def _node(state: State) -> Node:
+    return state.player, state.powered_circuits, state.cells_taken
+
+
+class RoamGraph:
+    """Everything free roam can do before a take and before a launch, at no cost.
+
+    In `PREPARE` and `COMMITTED` the player walks onto lit tiles, changes power at
+    a console and picks up cells for no turns, and the world never reacts. What
+    the player can reach is therefore a graph on `(tile, powered circuits, cells
+    taken)` whose edges are `recording.act` calls, and whatever a search wants from
+    free roam (where to start a take, what to launch with) is read off the part of
+    that graph reachable from where the player stands. Taking the closure instead
+    of choosing a walk is exact: moving costs nothing, so no walk beats another.
+
+    The graph is the same for every take and every launch. Free roam never touches
+    the recording, the echo, the pad timers or the turn count, and the devices it
+    leaves behind (no gate or lift is ever open, since no pad is active with the
+    player in the hub and the timers at zero) depend only on the node. One graph
+    per chamber is therefore built lazily and shared, and a search that wants
+    fewer power settings (a constraint) filters the console edges instead of
+    building its own.
+
+    Cells are taken here and nowhere else: a turn never picks one up, so the cells
+    taken are fixed from the end of free roam through the take and the replay.
+    More cells never hurt: capacity only grows, so a console edge that was open
+    stays open. The closure itself does not prune on that; every reachable
+    `(powered, cells)` is kept, because the state key tells them apart.
+    """
+
+    def __init__(self, chamber: Chamber):
+        self.chamber = chamber
+        # Every setting some capacity allows; `act` checks the one in force.
+        self.configs = power_choices(chamber, max_capacity(chamber))
+        self._states: dict[Node, State] = {}
+        self._edges: dict[Node, tuple[tuple[Token, Node, frozenset | None], ...]] = {}
+        self._reach: dict[tuple[Node, frozenset], dict[Node, tuple[Token, ...]]] = {}
+
+    def root(self, powered: frozenset[str], cells: frozenset[str]) -> Node:
+        """The node of a player standing on the start tile with this much done."""
+        node = (self.chamber.start, powered, cells)
+        if node not in self._states:
+            self._states[node] = initial_state(self.chamber, powered, cells)
+        return node
+
+    def state(self, node: Node) -> State:
+        """The `PREPARE` state a player in free roam reaches at this node."""
+        return self._states[node]
+
+    def edges(self, node: Node) -> tuple[tuple[Token, Node, frozenset | None], ...]:
+        """(token, child, power setting or None) for each legal free action."""
+        found = self._edges.get(node)
+        if found is None:
+            state = self._states[node]
+            out = []
+            for token, move in MOVES.items():
+                result = act(state, move)
+                if isinstance(result, Accepted):
+                    child = _node(result.state)
+                    self._states.setdefault(child, result.state)
+                    out.append((token, child, None))
+            if state.player in self.chamber.consoles:
+                for config in self.configs:
+                    if config == state.powered_circuits:
+                        continue
+                    result = act(state, InteractAtConsole(config))
+                    if isinstance(result, Accepted):
+                        child = _node(result.state)
+                        self._states.setdefault(child, result.state)
+                        out.append(({"power": sorted(config)}, child, config))
+            found = self._edges[node] = tuple(out)
+        return found
+
+    def reach(
+        self, root: Node, allowed: frozenset, limits: Limits | None = None
+    ) -> dict[Node, tuple[Token, ...]]:
+        """Every node free roam reaches from `root`, with a shortest walk to it.
+
+        Console edges to a setting outside `allowed` are not taken.
+        """
+        key = (root, allowed)
+        found = self._reach.get(key)
+        if found is None:
+            found = {root: ()}
+            queue = deque([root])
+            while queue:
+                here = queue.popleft()
+                for token, there, config in self.edges(here):
+                    if (config is None or config in allowed) and there not in found:
+                        found[there] = (*found[here], token)
+                        queue.append(there)
+                        if limits is not None:
+                            limits.check(len(found))
+            self._reach[key] = found
+        return found
+
+
+@lru_cache(maxsize=16)
+def roam_graph(chamber: Chamber) -> RoamGraph:
+    return RoamGraph(chamber)
+
+
 # --- No-echo exhaustion -----------------------------------------------------
 
 
@@ -112,21 +221,60 @@ def exhaust_without_echo(
 def _exhaust(
     chamber: Chamber, limits: Limits, horizon: int | None = None
 ) -> Exhaustion:
-    choices = power_choices(chamber, max_capacity(chamber))
-    queue = deque(
-        replace(initial_state(chamber, choice), phase=Phase.REPLAY)
-        for choice in power_choices(chamber)
-    )
-    seen = {state.search_key() for state in queue}
-    actions = (
-        *MOVES.values(),
-        Wait(),
-        *(InteractAtConsole(choice) for choice in choices),
-    )
+    """Plain search over every play in which the echo never acts.
+
+    A play in two parts, as in the game. Part one is a take: the player starts it
+    on any hub tile free roam reaches, then moves, waits and uses the console for
+    up to `max_turns` recorded commands (console changes record nothing), with no
+    echo in the world. Part two is the replay: after a free roam of the take's end
+    (which may pick up cells and change power at the console) the chamber resets
+    with the power and cells carried, and the player plays on with no echo, for as
+    long as it likes. The exit counts in either part. Cells come only from free
+    roam, so a turn never adds capacity, but every power change is valid at the
+    capacity the cells taken so far give.
+
+    An echo that did act could only be given more to work with, so a chamber that
+    no such play solves needs an echo; the search is exhaustive, so it is a proof.
+    """
+    roam = roam_graph(chamber)
+    everything = frozenset(roam.configs)
+    actions = (*MOVES.values(), Wait(), *(InteractAtConsole(c) for c in roam.configs))
+    tie = itertools.count()
+    heap: list[tuple[int, int, State, int | None]] = []  # turns, tie, state, used
+    seen: set[object] = set()
+    launched: set[Node] = set()
+
+    def push(state: State, used: int | None) -> None:
+        # `used` counts recorded commands in a take and is None during the replay.
+        key = (state.search_key(), used, state.turns if horizon is not None else 0)
+        if key not in seen:
+            seen.add(key)
+            heapq.heappush(heap, (state.turns, next(tie), state, used))
+            limits.check(len(seen))
+
+    def commit(state: State) -> None:
+        """Save the take as it stands and launch, after a free roam in between."""
+        root = roam.root(state.powered_circuits, state.cells_taken)
+        if root in launched:
+            return
+        launched.add(root)
+        for tile, config, cells in roam.reach(root, everything, limits):
+            if tile in chamber.hub:
+                reset = initial_state(chamber, config, cells)
+                push(replace(reset, turns=state.turns, phase=Phase.REPLAY), None)
+
     try:
-        while queue:
-            state = queue.popleft()
-            if horizon is not None and state.turns >= horizon:
+        start = roam.root(frozenset(), frozenset())
+        for node in roam.reach(start, everything, limits):
+            if node[0] in chamber.hub:
+                push(replace(roam.state(node), phase=Phase.RECORDING, turns=0), 0)
+        while heap:
+            turns, _, state, used = heapq.heappop(heap)
+            if used is not None:
+                commit(state)
+                if used >= chamber.max_turns:
+                    continue  # the recording is full
+            if horizon is not None and turns >= horizon:
                 continue
             for action in actions:
                 result = step(state, action)
@@ -134,11 +282,11 @@ def _exhaust(
                     continue
                 if result.succeeded:
                     return Exhaustion(Verdict.SOLVABLE, len(seen))
-                key = result.state.search_key()
-                if key not in seen:
-                    seen.add(key)
-                    queue.append(result.state)
-                    limits.check(len(seen))
+                if used is None:
+                    push(result.state, None)
+                else:
+                    recorded = not isinstance(action, InteractAtConsole)
+                    push(result.state, used + recorded)
     except Inconclusive:
         return Exhaustion(Verdict.INCONCLUSIVE, len(seen))
     return Exhaustion(Verdict.UNSOLVABLE, len(seen))
@@ -157,9 +305,7 @@ class Constraints:
     max_turns: int | None = None  # search horizon: ignore plays longer than this
     config_ok: Callable[[frozenset[str]], bool] | None = None
     state_ok: Callable[[State], bool] | None = None
-    # Search hub-to-hub steps while recording too (see `_single_door`); replay and
-    # the take's start keep the reduction. Slower, for re-checking a chamber.
-    full_hub: bool = False
+    echo_safe: bool = False  # the echo never stands on an unlit tile or live conduit
 
 
 UNCONSTRAINED = Constraints()
@@ -176,19 +322,114 @@ class Outcome:
 
 
 GOAL = "goal"
+UNREACHABLE = 10**6  # a distance no play reaches
 
 
-def _key(state: State) -> tuple[object, ...]:
-    """`search_key()` of the state, ignoring the recording once the echo is gone.
+NOWHERE = Position(-1, -1)  # stands for "an echo, wherever it is" in a state key
 
-    A replay with no echo never reads the recording again (failed attempts are
-    not explored), so plays that differ only in a spent recording share a key.
+
+class _Keys:
+    """State identity for the search: `State.search_key()` with equal echoes merged.
+
+    The echo reaches the world through one thing, the pad it stands on each turn.
+    While it follows its recording undisturbed, where it stands off a pad does not
+    matter, so two takes that put the echo on the same pads on the same turns are
+    interchangeable once saved: replayed from the same state they play out the same,
+    for the echo and for everything it touches. A replay therefore needs only the
+    pads the echo is still to stand on, and one with none left is a replay with no
+    echo. While a take is being recorded the length and the pads so far are kept,
+    because the commands appended next carry on from them.
+
+    The echo is disturbed only when a command takes it onto a closed gate, and a
+    gate tile has to be on the recording's own route for that, so a recording whose
+    route never touches a gate tile is merged this way. One that does keeps its
+    commands in the key, and so does every recording when an opaque constraint reads
+    the state (`exact`). A constraint on the echo's safety (`granular`) also needs
+    what lights each tile it crosses and which conduits run under it, so tiles are
+    told apart by that too. A retry snapshot never matters: attempts that fail are
+    not explored, so nothing returns to it. A search then pays for the routes that
+    differ in what they do to the world, not for every walk through a hub or wing.
     """
-    if state.phase is Phase.REPLAY and state.echo_position is None:
-        state = replace(
-            state, recording=(), echo_index=0, echo_hold=0, retry_snapshot=None
+
+    def __init__(self, chamber: Chamber, exact: bool, granular: bool):
+        self.exact = exact
+        self.chamber = chamber
+        self.granular = granular
+        self.gates = frozenset(
+            device.position
+            for device in chamber.devices
+            if device.kind is TileType.GATE
         )
-    return state.search_key()
+        self.pads = {pad.position: pad.id for pad in chamber.pads}
+        self._routes: dict[tuple[Position, tuple], tuple | None] = {}
+        self._labels: dict[Position, object] = {}
+
+    def label(self, tile: Position) -> object:
+        """What the world and the constraints can tell about a tile the echo is on."""
+        found = self._labels.get(tile, False)
+        if found is False:
+            found = self.pads.get(tile)
+            if self.granular:
+                chamber = self.chamber
+                zones = {z.id: z for z in chamber.zones if tile in z.tiles}
+                lit = (
+                    True
+                    if tile in chamber.hub
+                    else frozenset(
+                        c.id for c in chamber.circuits if zones.keys() & set(c.zones)
+                    )
+                )
+                live = frozenset(
+                    c.circuit_id for c in chamber.conduits if tile in c.tiles
+                )
+                found = (found, lit, live)
+            self._labels[tile] = found
+        return found
+
+    def route(self, start: Position, recording: tuple) -> tuple | None:
+        """The label under the echo after each command, or None if it nears a gate."""
+        known = self._routes.get((start, recording), False)
+        if known is not False:
+            return known
+        at, labels = start, []
+        for command in recording:
+            if isinstance(command, Move):
+                at = Position(at.x + command.dx, at.y + command.dy)
+                if at in self.gates:
+                    self._routes[start, recording] = None
+                    return None
+            labels.append(self.label(at))
+        found = self._routes[start, recording] = (*labels, self.label(at))
+        return found
+
+    def __call__(self, state: State) -> tuple[object, ...]:
+        replaying = state.phase is Phase.REPLAY
+        if replaying and state.echo_position is None:
+            ahead = ()  # with no echo the recording is never read again
+        elif self.exact or state.echo_start is None:
+            return replace(state, retry_snapshot=None).search_key()
+        else:
+            route = self.route(state.echo_start, state.recording)
+            if route is None:
+                return replace(state, retry_snapshot=None).search_key()
+            # The echo holds its last tile for one more turn after the recording.
+            ahead = route
+            if replaying:
+                ahead = ahead[state.echo_index + state.echo_hold :]
+                while ahead and ahead[-1] is None:
+                    ahead = ahead[:-1]
+            elif state.phase is Phase.RECORDING:
+                ahead = route[:-1]  # more commands are still to come
+        gone = replaying and not ahead
+        return replace(
+            state,
+            recording=() if gone else ("route", ahead),
+            echo_start=NOWHERE,
+            echo_index=0,
+            echo_hold=0,
+            echo_position=None if gone or state.echo_position is None else NOWHERE,
+            retry_snapshot=None,
+        ).search_key()
 
 
 class _Search:
@@ -199,108 +440,15 @@ class _Search:
         self.cons = cons
         self.limits = limits
         self.count_cap = count_cap
+        self.roam = roam_graph(chamber)
+        self._key = _Keys(chamber, cons.state_ok is not None, cons.echo_safe)
         self.choices = tuple(
             c
-            for c in power_choices(chamber, max_capacity(chamber))
+            for c in self.roam.configs
             if (cons.max_load is None or load_of(chamber, c) <= cons.max_load)
             and (cons.config_ok is None or cons.config_ok(c))
         )
-        self.paths = self._hub_paths()
-        self.consoles = sorted(chamber.consoles)
-        self.single_door = self._single_door()
-        # The hub tiles where anything happens: the door and the consoles.
-        self.stops = [chamber.start, *sorted(chamber.consoles - {chamber.start})]
-
-    def _hub_paths(self) -> dict[tuple[Position, Position], tuple[str, ...]]:
-        hub = self.chamber.hub
-        paths = {}
-        for origin in hub:
-            paths[origin, origin] = ()
-            queue = deque([origin])
-            while queue:
-                here = queue.popleft()
-                for token, move in MOVES.items():
-                    there = Position(here.x + move.dx, here.y + move.dy)
-                    if there in hub and (origin, there) not in paths:
-                        paths[origin, there] = (*paths[origin, here], token)
-                        queue.append(there)
-        return paths
-
-    def _single_door(self) -> bool:
-        """True when the start tile is the hub's only door.
-
-        Then the hub holds no pad, gate or lift (the loader allows only hub and
-        console tiles in it), and the player can leave it only at the start. What
-        the player does inside it has two effects: the turns it takes, and
-        whether a console is within reach. The search therefore replaces every
-        hub-to-hub step by a trip along a shortest path between two stops (the
-        door and the consoles), which costs its length in turns, and takes a
-        start only at a stop.
-
-        Before a take and between takes this is exact: walking is free, so only
-        the order of console visits and the final tile matter. During replay it
-        is exact too. Nothing in the hub reacts to the player, so any walk that
-        is longer than a shortest path can be rewritten as the shortest path
-        followed by waits at the stop, one turn each, and a wait costs the same
-        as a step. A power change fixes the turn it happens on, and waiting at
-        the console reaches that turn just as well as a longer walk would. The
-        echo and the timers never read where the player stands in the hub.
-
-        While recording it is an assumption. Hub steps become recorded moves,
-        and the echo replays them from its own tile. A hub move that is legal for
-        the player is legal for the echo unless something earlier displaced it, and
-        only a gate that is closed for the echo can do that. Then the echo
-        would walk the rest from another tile, and a recording that used such a
-        walk on purpose is not tried. It was checked to give the same optima on
-        chambers 3 to 6, and `full_hub` turns the trips off for recording so a
-        changed chamber can be re-verified.
-        """
-        chamber = self.chamber
-        if not chamber.consoles <= chamber.hub:
-            return False
-        return all(
-            tile == chamber.start
-            for tile in chamber.hub
-            for move in MOVES.values()
-            if chamber.tile_at(Position(tile.x + move.dx, tile.y + move.dy))
-            not in (TileType.WALL, TileType.HUB, TileType.CONSOLE)
-        )
-
-    def _walk(self, state: State, tokens: tuple[str, ...]) -> State | None:
-        for token in tokens:
-            result = act(state, MOVES[token])
-            if not isinstance(result, Accepted):
-                return None
-            state = result.state
-        return state
-
-    def _to_console(self, state: State) -> tuple[State, tuple[Token, ...]] | None:
-        """Walk to the nearest console; None when no console is reachable."""
-        options = [
-            (len(self.paths[state.player, tile]), tile)
-            for tile in self.consoles
-            if (state.player, tile) in self.paths
-        ]
-        if not options:
-            return None
-        tokens = self.paths[state.player, min(options)[1]]
-        walked = self._walk(state, tokens)
-        return None if walked is None else (walked, tokens)
-
-    def _configured(
-        self, state: State, config: frozenset[str]
-    ) -> tuple[State, tuple[Token, ...]] | None:
-        """Free power change at the hub console, with the walk to reach it."""
-        if config == state.powered_circuits:
-            return state, ()
-        reached = self._to_console(state)
-        if reached is None:
-            return None
-        walked, tokens = reached
-        result = act(walked, InteractAtConsole(config))
-        if not isinstance(result, Accepted):
-            return None
-        return result.state, (*tokens, {"power": sorted(config)})
+        self.allowed = frozenset(self.choices)
 
     def edges(self, state: State) -> Iterator[tuple]:
         """Yield (child, cost, tokens, label, exited) for each legal next step."""
@@ -315,84 +463,56 @@ class _Search:
         elif state.phase is Phase.REPLAY:
             yield from self._turns(state, recording=False)
 
+    def _free_roam(self, state: State) -> dict[Node, tuple[Token, ...]]:
+        root = self.roam.root(state.powered_circuits, state.cells_taken)
+        return self.roam.reach(root, self.allowed, self.limits)
+
     def _roots(self, state: State) -> Iterator[tuple]:
-        for config in self.choices:
-            configured = self._configured(state, config)
-            if configured is None:
+        """Start a take on any hub tile free roam reaches, with any power and cells.
+
+        This is only asked of the first state of a search.
+        """
+        for node, path in self._free_roam(state).items():
+            tile, config, _ = node
+            if tile not in self.chamber.hub or config not in self.allowed:
                 continue
-            ready, tokens = configured
-            doors = self.stops if self.single_door else sorted(self.chamber.hub)
-            for tile in doors:
-                path = self.paths.get((ready.player, tile))
-                walked = None if path is None else self._walk(ready, path)
-                if walked is None:
-                    continue
-                started = enter(walked)
-                if started is walked:
-                    continue
-                yield started, 0, (*tokens, *path, "enter"), ("enter", tile), False
+            ready = self.roam.state(node)
+            started = enter(ready)
+            if started is not ready:
+                yield started, 0, (*path, "enter"), ("enter",), False
 
     def _launches(self, state: State) -> Iterator[tuple]:
-        for config in self.choices:
-            configured = self._configured(state, config)
-            if configured is None:
+        """Launch after a free roam: any power and cells it reaches at a hub tile."""
+        done = set()
+        for node, path in self._free_roam(state).items():
+            tile, config, cells = node
+            if tile not in self.chamber.hub or config not in self.allowed:
                 continue
-            ready, tokens = configured
+            if (config, cells) in done:
+                continue
+            done.add((config, cells))
+            ready = replace(
+                state, player=tile, powered_circuits=config, cells_taken=cells
+            )
             launched = launch(ready)
             if launched is ready:
                 continue
-            if self.cons.state_ok is not None and not self.cons.state_ok(launched):
+            if not self._acceptable(launched):
                 continue
             label = ("launch", tuple(sorted(config)))
-            yield launched, 0, (*tokens, "launch"), label, False
+            yield launched, 0, (*path, "launch"), label, False
+
+    def _acceptable(self, state: State) -> bool:
+        """Whether a replay state passes the constraints on the play."""
+        cons = self.cons
+        if cons.state_ok is not None and not cons.state_ok(state):
+            return False
+        return not (cons.echo_safe and not _echo_on_safe_tile(state))
 
     def _walled(self, here: Position, move: Move) -> bool:
         """Cheap skip of moves the engine would reject for a wall anyway."""
         tile = self.chamber.tile_at(Position(here.x + move.dx, here.y + move.dy))
         return tile is TileType.WALL
-
-    def _reduced(self, recording: bool) -> bool:
-        """Whether hub walking is searched as trips (see `_single_door`)."""
-        return self.single_door and not (recording and self.cons.full_hub)
-
-    def _within_hub(self, here: Position, move: Move, recording: bool) -> bool:
-        """A hub-to-hub step the search skips in favour of trips."""
-        hub = self.chamber.hub
-        return (
-            self._reduced(recording)
-            and here in hub
-            and Position(here.x + move.dx, here.y + move.dy) in hub
-        )
-
-    def _trips(self, state: State, recording: bool) -> Iterator[tuple]:
-        """Walk the shortest path from this stop to each other one."""
-        limit = self.cons.max_recorded
-        for tile in self.stops:
-            path = self.paths.get((state.player, tile))
-            if not path:
-                continue
-            if (
-                recording
-                and limit is not None
-                and len(state.recording) + len(path) > limit
-            ):
-                continue
-            child: State | None = state
-            for token in path:
-                result = act(child, MOVES[token])
-                if not isinstance(result, Accepted):
-                    child = None  # the recording is full
-                    break
-                child = result.state
-                if (
-                    not recording
-                    and self.cons.state_ok
-                    and not self.cons.state_ok(child)
-                ):
-                    child = None
-                    break
-            if child is not None:
-                yield child, len(path), path, ("walk", tile), False
 
     def _turns(self, state: State, recording: bool) -> Iterator[tuple]:
         limit = self.cons.max_recorded
@@ -405,7 +525,6 @@ class _Search:
                 (move, token, token)
                 for token, move in MOVES.items()
                 if not self._walled(state.player, move)
-                and not self._within_hub(state.player, move, recording)
             ]
             steps.append((Wait(), "wait", "wait"))
         if state.player in self.chamber.consoles:
@@ -415,38 +534,76 @@ class _Search:
                     steps.append(
                         (InteractAtConsole(config), {"power": sorted(config)}, label)
                     )
-        if self._reduced(recording) and state.player in self.stops:
-            yield from self._trips(state, recording)
         for action, token, label in steps:
             result = act(state, action)
             if isinstance(result, (Rejected, Failed)):
                 continue
             child = result.state
-            if not recording and self.cons.state_ok and not self.cons.state_ok(child):
+            if not recording and not self._acceptable(child):
                 continue
             yield child, 1, (token,), label, result.succeeded
 
+    def _distances(self) -> dict[Position, int]:
+        """Moves from each tile to the exit if gates, light and power never mattered."""
+        chamber, exit_tile = self.chamber, self.chamber.exit
+        found = {} if exit_tile is None else {exit_tile: 0}
+        queue = deque(found)
+        while queue:
+            here = queue.popleft()
+            for move in MOVES.values():
+                there = Position(here.x + move.dx, here.y + move.dy)
+                if there not in found and chamber.tile_at(there) is not TileType.WALL:
+                    found[there] = found[here] + 1
+                    queue.append(there)
+        return found
+
+    def _toward_exit(self, state: State) -> int:
+        """A lower bound on the turns still to play, the same for equal keys.
+
+        A replay needs at least as many turns as the player has tiles to cross.
+        A take that is still being recorded may end by walking to the exit or by
+        saving and replaying from the start, so it needs the lesser of the two;
+        before a take, or while one is saved, only the replay's walk and the
+        start of a take count (a take can start anywhere in the hub). The bound
+        never falls along a free step and falls by at most one along a turn, so
+        searching in order of turns so far plus this bound stays exact.
+        """
+        far = self.far
+        if state.phase is Phase.REPLAY:
+            return far.get(state.player, UNREACHABLE)
+        replay = far.get(self.chamber.start, UNREACHABLE)
+        if state.phase is Phase.RECORDING:
+            return min(far.get(state.player, UNREACHABLE), replay)
+        if state.phase is Phase.COMMITTED:
+            return replay
+        return min(far.get(tile, UNREACHABLE) for tile in self.chamber.hub)
+
     def run(self, count: bool) -> Outcome:
-        """Dijkstra over zero-or-one-cost edges; `count` also counts shortest plays."""
+        """A* over zero-or-one-cost edges; `count` also counts shortest plays."""
+        self.far = self._distances()
         start = initial_state(self.chamber)
-        root = _key(start)
+        root = self._key(start)
         dist: dict[object, int] = {root: 0}
         parents: dict[object, list[tuple[object, tuple, object]]] = {root: []}
         tie = itertools.count()
-        heap = [(0, next(tie), start)]
+        bound = self._toward_exit(start)
+        heap = [(bound, bound, next(tie), 0, start)]
         best = None
         while heap:
-            cost, _, state = heapq.heappop(heap)
-            if best is not None and cost > best:
+            priority, _, _, cost, state = heapq.heappop(heap)
+            if best is not None and priority >= best + count:
                 break
-            key = _key(state)
+            key = self._key(state)
             if cost > dist[key]:
                 continue
             for child, step_cost, tokens, label, exited in self.edges(state):
                 total = cost + step_cost
-                if self.cons.max_turns is not None and total > self.cons.max_turns:
+                ahead = 0 if exited else self._toward_exit(child)
+                if self.cons.max_turns is not None and (
+                    total + ahead > self.cons.max_turns
+                ):
                     continue
-                target = GOAL if exited else _key(child)
+                target = GOAL if exited else self._key(child)
                 known = dist.get(target)
                 if known is None or total < known:
                     dist[target] = total
@@ -458,19 +615,15 @@ class _Search:
                     continue
                 if exited:
                     best = total if best is None else min(best, total)
-                    if not count:
-                        return Outcome(
-                            Verdict.SOLVABLE,
-                            total,
-                            self._trace(parents, GOAL),
-                            states=len(dist),
-                        )
                 else:
-                    heapq.heappush(heap, (total, next(tie), child))
+                    entry = (total + ahead, ahead, next(tie), total, child)
+                    heapq.heappush(heap, entry)
                 self.limits.check(len(dist))
         if best is None:
             return Outcome(Verdict.UNSOLVABLE, states=len(dist))
         trace = self._trace(parents, GOAL)
+        if not count:
+            return Outcome(Verdict.SOLVABLE, best, trace, states=len(dist))
         solutions, capped = self._count(parents)
         return Outcome(Verdict.SOLVABLE, best, trace, solutions, capped, len(dist))
 
@@ -568,10 +721,9 @@ def _full(chamber: Chamber) -> Callable[[frozenset[str]], bool]:
     return lambda config: config == everything
 
 
-def _echo_on_lit_tile(state: State) -> bool:
-    return state.echo_position is None or state.echo_position in lighting.lit_tiles(
-        state
-    )
+def _echo_on_safe_tile(state: State) -> bool:
+    """The echo is not on an unlit tile or a live conduit (it is immune to both)."""
+    return state.echo_position is None or lighting.is_safe(state, state.echo_position)
 
 
 def _solvable(chamber: Chamber, cons: Constraints, limits: Limits) -> bool:
@@ -584,9 +736,9 @@ def _solvable(chamber: Chamber, cons: Constraints, limits: Limits) -> bool:
 def features(chamber: Chamber) -> tuple[str, ...]:
     """The ideas a chamber actually exercises, for `combined` chambers."""
     found = ["echo"]
-    if sum(c.load for c in chamber.circuits) > chamber.capacity:
+    if chamber.cells or sum(c.load for c in chamber.circuits) > chamber.capacity:
         found.append("power")
-    if any(circuit.zones for circuit in chamber.circuits):
+    if chamber.conduits or any(circuit.zones for circuit in chamber.circuits):
         found.append("darkness")
     if any(pad.timer_length > 0 for pad in chamber.pads):
         found.append("timed_pads")
@@ -598,37 +750,32 @@ def avoids_idea(
     idea: str,
     limits: Limits = DEFAULT_LIMITS,
     horizon: int | None = None,
-    full_hub: bool = False,
 ) -> bool:
     """True when some solution gets by without the taught idea.
 
     - movement: solvable with no circuit ever powered (no lit route needed).
     - power: solvable with every circuit powered all the time (no allocation).
+      Cells count: a setting is valid at the capacity in force, so powering
+      everything can wait for a cell, but only when the cell can be reached
+      without powering less first.
     - echo: solvable with an empty recording, or with no echo at all.
-    - darkness: solvable with the echo never standing on an unlit tile.
+    - darkness: solvable with the echo never on an unlit tile or a live conduit.
     - timed_pads: still solvable when every pad timer is zero.
     - combined: avoids any one idea the chamber exercises.
 
     Every check covers all plays, or only those of at most `horizon` turns.
-    `full_hub` is passed on to each search (see `Constraints.full_hub`).
     Raises `Inconclusive` when a cap is hit.
     """
     if idea == "movement":
         return _solvable(
-            chamber,
-            Constraints(
-                max_turns=horizon, config_ok=lambda c: not c, full_hub=full_hub
-            ),
-            limits,
+            chamber, Constraints(max_turns=horizon, config_ok=lambda c: not c), limits
         )
     if idea == "power":
         return _solvable(
-            chamber,
-            Constraints(max_turns=horizon, config_ok=_full(chamber), full_hub=full_hub),
-            limits,
+            chamber, Constraints(max_turns=horizon, config_ok=_full(chamber)), limits
         )
     if idea == "echo":
-        cons = Constraints(max_recorded=0, max_turns=horizon, full_hub=full_hub)
+        cons = Constraints(max_recorded=0, max_turns=horizon)
         if _solvable(chamber, cons, limits):
             return True
         outcome = _exhaust(chamber, limits, horizon)
@@ -637,23 +784,16 @@ def avoids_idea(
         return outcome.verdict is Verdict.SOLVABLE
     if idea == "darkness":
         return _solvable(
-            chamber,
-            Constraints(
-                max_turns=horizon, state_ok=_echo_on_lit_tile, full_hub=full_hub
-            ),
-            limits,
+            chamber, Constraints(max_turns=horizon, echo_safe=True), limits
         )
     if idea == "timed_pads":
         flat = replace(
             chamber, pads=tuple(replace(pad, timer_length=0) for pad in chamber.pads)
         )
-        return _solvable(
-            flat, Constraints(max_turns=horizon, full_hub=full_hub), limits
-        )
+        return _solvable(flat, Constraints(max_turns=horizon), limits)
     if idea == "combined":
         return any(
-            avoids_idea(chamber, part, limits, horizon, full_hub)
-            for part in features(chamber)
+            avoids_idea(chamber, part, limits, horizon) for part in features(chamber)
         )
     raise ValueError(f"unknown idea: {idea}")
 
@@ -683,38 +823,28 @@ def analyze(
     max_seconds: float | None = None,
     solution_cap: int = DEFAULT_SOLUTION_CAP,
     idea_horizon: int | None = None,
-    full_hub: bool = False,
 ) -> Report:
     """Solve a chamber from its start; any capped sub-search makes it inconclusive.
 
     `idea_horizon` limits the idea check to plays of at most that many turns;
-    the default checks every play. `full_hub` searches hub steps while recording
-    too (see `Constraints.full_hub`).
+    the default checks every play.
     """
     limits = Limits.seconds(max_states, max_seconds)
     try:
-        main = explore(
-            chamber,
-            Constraints(full_hub=full_hub),
-            limits,
-            count=True,
-            count_cap=solution_cap,
-        )
+        main = explore(chamber, limits=limits, count=True, count_cap=solution_cap)
         if main.verdict is Verdict.INCONCLUSIVE:
             raise Inconclusive("shortest-solution search hit a cap")
         if main.verdict is Verdict.UNSOLVABLE:
             return Report(Verdict.UNSOLVABLE, idea=chamber.idea)
-        recorded, fewest = _fewest_recorded(chamber, limits, full_hub)
+        recorded, fewest = _fewest_recorded(chamber, limits)
         trace = (
             fewest.trace
             if fewest.turns == main.turns
-            else _shortest_with_fewest_recorded(
-                chamber, main, recorded, limits, full_hub
-            )
+            else _shortest_with_fewest_recorded(chamber, main, recorded, limits)
         )
-        peak = _lowest_peak(chamber, main.turns, limits, full_hub)
+        peak = _lowest_peak(chamber, main.turns, limits)
         avoided = (
-            avoids_idea(chamber, chamber.idea, limits, idea_horizon, full_hub)
+            avoids_idea(chamber, chamber.idea, limits, idea_horizon)
             if chamber.idea
             else None
         )
@@ -741,11 +871,9 @@ def _checked(outcome: Outcome) -> Outcome:
     return outcome
 
 
-def _fewest_recorded(
-    chamber: Chamber, limits: Limits, full_hub: bool = False
-) -> tuple[int, Outcome]:
+def _fewest_recorded(chamber: Chamber, limits: Limits) -> tuple[int, Outcome]:
     for recorded in range(chamber.max_turns + 1):
-        cons = Constraints(max_recorded=recorded, full_hub=full_hub)
+        cons = Constraints(max_recorded=recorded)
         outcome = _checked(explore(chamber, cons, limits))
         if outcome.verdict is Verdict.SOLVABLE:
             return recorded, outcome
@@ -753,20 +881,21 @@ def _fewest_recorded(
 
 
 def _shortest_with_fewest_recorded(
-    chamber: Chamber, main: Outcome, floor: int, limits: Limits, full_hub: bool
+    chamber: Chamber, main: Outcome, floor: int, limits: Limits
 ) -> Trace:
     for recorded in range(floor, chamber.max_turns + 1):
-        cons = Constraints(max_recorded=recorded, full_hub=full_hub)
+        cons = Constraints(max_recorded=recorded)
         outcome = _checked(explore(chamber, cons, limits))
         if outcome.turns == main.turns:
             return outcome.trace
     return main.trace
 
 
-def _lowest_peak(chamber: Chamber, turns: int, limits: Limits, full_hub: bool) -> int:
+def _lowest_peak(chamber: Chamber, turns: int, limits: Limits) -> int:
     """Lowest peak load among the plays that take the fewest turns."""
-    for peak in sorted({load_of(chamber, c) for c in power_choices(chamber)}):
-        cons = Constraints(max_load=peak, max_turns=turns, full_hub=full_hub)
+    loads = {load_of(chamber, c) for c in roam_graph(chamber).configs}
+    for peak in sorted(loads):
+        cons = Constraints(max_load=peak, max_turns=turns)
         outcome = _checked(explore(chamber, cons, limits))
         if outcome.verdict is Verdict.SOLVABLE:
             return peak

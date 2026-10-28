@@ -38,13 +38,29 @@ def test_free_roam_picks_up_a_cell(wing_chamber):
     assert power.capacity_of(result.state) == 5
 
 
-def test_recording_move_picks_up_a_cell_after_moving(wing_chamber):
+def test_a_recorded_move_onto_a_cell_leaves_it_untaken(wing_chamber):
     started = recording.enter(prepared(wing_chamber))
     result = recording.act(started, RIGHT)
     assert isinstance(result, Accepted)
-    assert result.state.cells_taken == {"c1"}
+    assert result.state.player == CELL
+    assert result.state.cells_taken == frozenset()
     assert result.state.turns == 1
     assert result.state.recording == (RIGHT,)
+    # Saved and back in free roam, stepping onto it takes it.
+    saved = recording.enter(result.state)
+    assert saved.phase is Phase.COMMITTED and saved.cells_taken == frozenset()
+    roamed = recording.act(saved, RIGHT)
+    assert roamed.state.cells_taken == {"c1"}
+
+
+def test_a_replay_move_onto_a_cell_leaves_it_untaken(wing_chamber):
+    state = recording.act(recording.enter(prepared(wing_chamber)), Wait()).state
+    launched = recording.launch(recording.enter(state))
+    result = step(launched, RIGHT)
+    assert isinstance(result, Accepted)
+    assert result.state.player == CELL
+    assert result.state.cells_taken == frozenset()
+    assert recording.retry(result.state).cells_taken == frozenset()
 
 
 def test_a_cell_is_taken_once(wing_chamber):
@@ -108,10 +124,10 @@ def test_cells_survive_launch_with_a_choice_that_needs_them(wing_chamber):
     assert recording.retry(launched).powered_circuits == LAMP_AUX
 
 
-def test_cells_taken_during_replay_survive_retry(wing_chamber):
-    state = recording.act(recording.enter(prepared(wing_chamber)), Wait()).state
+def test_cells_taken_before_launch_survive_retry(wing_chamber):
+    state = take_in_prepare(wing_chamber)
+    state = recording.act(recording.enter(state), Wait()).state
     launched = recording.launch(recording.enter(state))
-    assert launched.cells_taken == frozenset()
     walked = recording.act(launched, RIGHT).state
     assert walked.cells_taken == {"c1"}
     restored = recording.retry(walked)
@@ -121,10 +137,16 @@ def test_cells_taken_during_replay_survive_retry(wing_chamber):
     assert restored.turns == launched.turns
 
 
+def dark(chamber):
+    """Cell taken in free roam, then every circuit off so the wing is unlit."""
+    return recording.act(take_in_prepare(chamber), InteractAtConsole(frozenset())).state
+
+
 def test_cells_taken_before_a_replay_failure_are_kept(wing_chamber):
-    state = recording.act(recording.enter(prepared(wing_chamber, frozenset())), Wait())
-    launched = recording.launch(recording.enter(state.state))
-    # The wing is dark: the player takes the cell, then fails on its unlit tile.
+    state = recording.act(recording.enter(dark(wing_chamber)), Wait()).state
+    launched = recording.launch(recording.enter(state))
+    assert launched.cells_taken == {"c1"}
+    # The wing is dark: the player fails on its unlit tile.
     result = recording.act(launched, RIGHT)
     assert isinstance(result, Failed)
     assert result.state.cells_taken == {"c1"}
@@ -133,8 +155,15 @@ def test_cells_taken_before_a_replay_failure_are_kept(wing_chamber):
     assert result.state.retry_snapshot.turns == launched.turns
 
 
-def test_cells_survive_a_recording_failure(wing_chamber):
+def test_a_failed_move_onto_a_cell_takes_nothing(wing_chamber):
     started = recording.enter(prepared(wing_chamber, frozenset()))
+    result = recording.act(started, RIGHT)
+    assert isinstance(result, Failed)
+    assert result.state.cells_taken == frozenset()
+
+
+def test_cells_survive_a_recording_failure(wing_chamber):
+    started = recording.enter(dark(wing_chamber))
     result = recording.act(started, RIGHT)
     assert isinstance(result, Failed)
     assert result.state.phase is Phase.PREPARE

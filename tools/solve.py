@@ -15,6 +15,7 @@ from pathlib import Path
 
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Chamber
+from echo_shift.engine.power import max_capacity
 from echo_shift.engine.search import (
     DEFAULT_MAX_STATES,
     Report,
@@ -51,7 +52,6 @@ def solve(number: int, args: argparse.Namespace) -> tuple[Chamber, Report]:
         max_seconds=args.max_seconds,
         solution_cap=args.solution_cap,
         idea_horizon=args.horizon,
-        full_hub=args.full_hub,
     )
     return chamber, report
 
@@ -77,7 +77,10 @@ def print_report(number: int, chamber: Chamber, report: Report) -> None:
         return
     print(f"  fewest turns        {report.turns}")
     print(f"  fewest recorded     {report.recorded} (in {report.recorded_turns} turns)")
-    print(f"  lowest peak load    {report.peak_load} of {chamber.capacity}")
+    print(
+        f"  lowest peak load    {report.peak_load} of {max_capacity(chamber)}"
+        + (" max capacity, every cell taken" if chamber.cells else "")
+    )
     print(f"  shortest solutions  {count_text(report)}")
     print(f"  taught idea         {idea_text(report)}")
     goals = chamber.goals
@@ -100,7 +103,7 @@ def print_table(rows: list[tuple[int, Chamber, Report]]) -> None:
         "idea",
         "turns",
         "recorded",
-        "peak/cap",
+        "peak/max cap",
         "solutions",
         "idea skipped",
         "goals",
@@ -124,7 +127,7 @@ def print_table(rows: list[tuple[int, Chamber, Report]]) -> None:
                 chamber.idea or "-",
                 str(report.turns),
                 f"{report.recorded} ({report.recorded_turns}t)",
-                f"{report.peak_load}/{chamber.capacity}",
+                f"{report.peak_load}/{max_capacity(chamber)}",
                 count_text(report),
                 skipped,
                 goals,
@@ -154,12 +157,6 @@ def main() -> int:
     )
     parser.add_argument(
         "--write-goals", action="store_true", help="store the goal traces"
-    )
-    parser.add_argument(
-        "--full-hub",
-        action="store_true",
-        help="search hub-to-hub steps while recording too (slow, and needs a "
-        "larger --max-states such as 6000000; re-checks the hub shortcut)",
     )
     args = parser.parse_args()
     numbers = chamber_numbers() if args.all else args.chambers

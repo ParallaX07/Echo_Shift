@@ -122,7 +122,10 @@ def _validate_action(state: State, action: Action) -> str | None:
 
 
 def collect_cell(state: State) -> State:
-    """Add the energy cell under the player, if any, to the taken cells."""
+    """Add the energy cell under the player, if any, to the taken cells.
+
+    Only free roam calls this: a move during a take or a replay leaves cells alone.
+    """
     for cell in state.chamber.cells:
         if cell.position == state.player and cell.id not in state.cells_taken:
             return replace(state, cells_taken=state.cells_taken | {cell.id})
@@ -164,16 +167,11 @@ def step(state: State, action: Action) -> StepResult:
         current = _refresh(replace(current, powered_circuits=configured.circuits))
 
     # 3. Move the player and consume one echo command. Blocked echo moves are consumed.
-    # The player picks up an energy cell on its new tile right after moving, before
-    # steps 4 and 5; the echo never does.
+    # A turn never picks up an energy cell; only free roam does (`collect_cell`).
     if isinstance(action, Move):
-        current = collect_cell(
-            replace(
-                current,
-                player=Position(
-                    current.player.x + action.dx, current.player.y + action.dy
-                ),
-            )
+        current = replace(
+            current,
+            player=Position(current.player.x + action.dx, current.player.y + action.dy),
         )
     commands = current.recording
     echo_advanced = current.echo_position is not None and current.echo_index < len(

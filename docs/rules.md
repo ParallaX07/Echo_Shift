@@ -46,22 +46,25 @@ and press Enter to start the take.
 ## Energy cells
 
 A chamber may hold energy cells, each with an id, a floor position and a
-positive value. The player takes a cell by ending a move on its tile, in any
-phase: free roam, recording or replay. The echo never takes one. Each taken
+positive value. The player takes a cell by ending a free-roam move on its tile,
+which is only possible before a take or after saving one. A move during a take or
+a replay never picks one up, and neither does the echo. Each taken
 cell adds its value to the generator capacity. Power stays a simultaneous limit,
 so capacity only ever grows and a valid power choice never becomes invalid.
 A cell is never on a wall, a gate or the start tile, and an over-budget check
 always uses the capacity at that moment.
 
-In a turn the pickup happens in step 3, right after the player has moved and
-before step 4 and the safety check of step 5. A cell on a tile that then turns
-out to be unsafe is still taken, so a failed attempt keeps what it collected.
+A turn never takes a cell, so walking over one during a take or a replay leaves
+it where it is; a cell can only be fetched on a lit tile in free roam. Cells that
+are already taken stay taken through a launch, a failed or restarted replay and a
+failed take.
 
 Worked sequence (base capacity 3, circuits `lamp` 2 and `aux` 3, a cell worth 2
 in the lit wing): choosing `lamp` and `aux` together needs 5 and is refused.
 Walk onto the cell (capacity 5) and back to the hub, then the same choice is
 accepted. Launch, press R or fail a replay: the cell stays taken and the choice
-stays valid. C puts the cell back and the capacity returns to 3.
+stays valid. Recording a move onto the cell's tile instead leaves it untaken. C
+puts the cell back and the capacity returns to 3.
 
 ## Live conduits
 
@@ -344,8 +347,8 @@ Each accepted action advances one turn in this order:
 
 1. Remove an expired echo, then refresh pad states and linked devices.
 2. Apply a valid power change, then refresh linked devices.
-3. Move the player and echo using the current gate state. The player then
-   takes the energy cell under it, if any.
+3. Move the player and echo using the current gate state. No energy cell is
+   taken in a turn.
 4. Update pad occupancy and timers, then refresh linked devices.
 5. Check player safety (an unlit tile or a live conduit fails) and the exit.
 
@@ -399,27 +402,42 @@ shortest trace; `tools/solve.py --all` prints the difficulty table. A search
 that reaches its state or time cap is reported as inconclusive, never as a
 verdict.
 
-When the start tile is the hub's only door, the search treats the rest of the hub
-as inert: it holds no pad, gate or lift, and the technician can leave it only
-through the door. Walking inside it matters only as a trip between the door and a
-console, so the search replaces every hub step by a trip along a shortest path
-between those stops, costing its length in turns, and takes a start only at a
-stop. That is exact before and between takes. It is exact during replay too: a
-longer walk is the shortest path followed by waits, which cost the same, and a
-power change waits for its turn at the console just as well. While recording it is
-an assumption, because those steps become recorded moves and an echo that a
-closed gate holds back would replay them from another tile; it was checked to give
-the same optima on chambers 3 to 6. `tools/solve.py --full-hub` turns the trips
-off for recording only (the take's start and replay keep them) so it can be
-re-verified when chambers change; it is much slower and needs a larger state cap
-(`--max-states 6000000`, about a minute per chamber). A hub with a second door is
-searched in full. Because the console is a walk from the door, a power change
-during replay costs the trip as well as its turn, so the fewest-turn plays set
-their power before launching.
+Free roam is searched as a closure, not turn by turn. Before a take and between
+a saved take and its launch, walking over lit tiles, changing power at a console
+and picking up cells cost no turns, so what a player can reach is a graph on
+(tile, powered circuits, cells taken) whose edges are real engine calls. The
+solver takes everything reachable from where the player stands: any hub tile to
+start a take on, any power and cells to launch with, so no walk is preferred over
+another. A power setting is an edge only when the capacity in force (the generator
+plus the cells taken so far) allows it, and a cell taken only adds capacity, so
+nothing a walk opens ever closes. One such graph is built per chamber and shared by
+every search, and a constraint such as "no circuit is ever powered" only filters
+its console edges.
+
+During a take and a replay every move, wait and console change is searched one
+turn at a time, with no shortcut for walking inside the hub. Two plays are merged
+only when the rest of the game cannot tell them apart. The echo reaches the world through the pad it
+stands on each turn, so while its recording never touches a gate tile (the only
+thing that can hold it back), two takes that put it on the same pads on the same
+turns are one state, whatever route they take elsewhere, and a replay needs only
+the pads the echo is still to stand on. A recording that crosses a gate tile keeps
+its commands. The search runs in order of turns so far plus the walk still needed
+to reach the exit, counted as if nothing blocked it, which never overestimates.
+
+Cells come only from free roam, so the cells taken are fixed from the end of the
+free roam through the take and the replay, and the closure above is the whole
+story for capacity. A cell the player can only reach during a run is never taken
+by any play, and the search never counts on it.
+
+The no-echo proof (`echo` below) covers the same plays with no echo: a take with
+no echo in the world, a free roam after it that may pick up cells, then a replay
+that goes on as long as it likes, with every power change valid at the capacity
+the cells give. A play with an echo only has more to work with, so a chamber that
+no such play solves needs one.
 
 **Turns.** A run's turns are the turn-consuming actions from the chamber start
 to the exit: every move, wait and console change made while recording or
-replaying. Walking inside the hub before a take or launch, changing power at the
+replaying. Free roam over lit tiles before a take or launch, changing power at the
 console before launch, starting a take, saving it and launching are free. The
 count covers the take that was saved plus the launch that reached the exit.
 Retrying from launch does not add the discarded attempt (the count returns to
@@ -435,12 +453,13 @@ recorded commands are the take so far.
 - *Fewest recorded*: the shortest saved recording of any play (0 means an empty
   recording is enough), with the fewest turns among those plays.
 - *Lowest peak load*: the lowest power load in force during any turn, among the
-  plays that take the fewest turns.
+  plays that take the fewest turns. The table shows it against the capacity with
+  every cell taken (the most the generator ever carries).
 - *Shortest solutions*: how many distinct plays take the fewest turns. A play is
-  the ordered list of its turn-consuming actions, the hub tile a take starts on,
-  the power set at launch and each console change; free power set before
-  recording only has to make the take legal and is not part of the identity.
-  The count stops at a cap and is then shown as "at least".
+  the ordered list of its turn-consuming actions (moves, waits and console
+  changes) and the power set at launch. Where a take starts, free roam and the
+  power set before recording only have to make the take legal and are not part of
+  the identity. The count stops at a cap and is then shown as "at least".
 - *Idea skipped*: whether some play avoids the chamber's taught idea.
 
 **Goals.** A chamber may store `goals` (`turns` and `recorded`) copied from the
@@ -459,14 +478,17 @@ result card and saves no recording goal.
 - `movement`: nothing is ever powered. The lift always needs a powered circuit,
   so this stays false unless a chamber is malformed.
 - `power`: every circuit stays powered for the whole play. Impossible when the
-  generator cannot carry them all, which is when allocation is needed.
+  generator cannot carry them all, which is when allocation is needed. A cell
+  raises the capacity once it is taken, so powering everything can wait for a cell,
+  but only when the cell can be fetched without powering less first.
 - `echo`: the recording is empty, or the exit is reached with no echo at all
   (checked by exhausting every no-echo play, whatever its length).
-- `darkness`: the echo never stands on an unlit tile.
+- `darkness`: the echo never stands on an unlit tile or a live conduit.
 - `timed_pads`: the chamber is still solvable with every pad timer at zero, so
   no countdown is needed.
 - `combined`: any one of the ideas the chamber exercises is skipped. The echo
-  is always counted, power when the circuits together exceed the generator,
-  darkness when a circuit lights a zone and timed pads when a pad has a timer.
+  is always counted, power when the circuits together exceed the generator or the
+  chamber has cells, darkness when a circuit lights a zone or the chamber has a
+  conduit, and timed pads when a pad has a timer.
 
 The idea checks cover every play unless a horizon (a turn limit) is given.
