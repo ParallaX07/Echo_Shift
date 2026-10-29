@@ -30,6 +30,7 @@ REQUIRED_SFX = (
     "ui_select",
     "dialogue",
     "undo",
+    "pickup",
 )
 MUSIC_IDS = {"title", "play_calm", "play_replay", "clear_sting", "final"}
 SOURCE_KEYS = {"preset", "transp", "instr", "seed", "pyxel_version"}

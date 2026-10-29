@@ -1497,11 +1497,17 @@ class Game:
         letter = max(1, min(4, cell // 40))
         letter_char = self.char_width(letter)
         terminal_tiles = {terminal.position for terminal in self.terminals}
+        conduit_tiles = {tile for c in state.chamber.conduits for tile in c.tiles}
+        hot_tiles = lighting.live_conduit_tiles(state)
+        cell_tiles = {
+            c.position for c in state.chamber.cells if c.id not in state.cells_taken
+        }
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
                 tile = state.chamber.tiles[y][x]
                 pos = Position(x, y)
-                dark = pos not in lit and tile is not TileType.WALL
+                hot = pos in hot_tiles  # a live conduit glows, lit or not
+                dark = pos not in lit and tile is not TileType.WALL and not hot
                 distant_wall = tile is TileType.WALL and not any(
                     Position(x + dx, y + dy) in route
                     for dx, dy in ((0, 0), *cues.STEPS)
@@ -1520,6 +1526,8 @@ class Game:
                     if tile is TileType.WALL
                     else ("floor_hub" if pos in hub_edge else "floor_hub_inner")
                     if pos in state.chamber.hub
+                    else ("conduit_live" if hot else "conduit_off")
+                    if pos in conduit_tiles
                     else "floor_lit"
                 ]
                 if pos in pads:
@@ -1558,7 +1566,7 @@ class Game:
                 # A tile whose light just changed shows its old look, then fades
                 # to the new one with a dither.
                 looks = ((dark, 1.0),)
-                fading = self.motion.light(pos) if live else None
+                fading = self.motion.light(pos) if live and not hot else None
                 if fading and tile is not TileType.WALL:
                     looks = ((not fading[0], 1.0), (dark, fading[1]))
                 for look_dark, alpha in looks:
@@ -1571,6 +1579,8 @@ class Game:
                     pyxel.dither(1.0)
                     if look_dark:
                         pyxel.pal()
+                if pos in cell_tiles:  # cells glow in the dark too
+                    self.sprite("cell", (x, y - self.motion.breath(x * 7 + y * 3)))
                 if pos in pads or pos in devices:
                     pad_id = pads[pos].id if pos in pads else devices[pos].pad_id
                     link = focus.get(devices[pos].id) if pos in devices else None
@@ -1646,6 +1656,8 @@ class Game:
             )
         if (sparks := self.motion.burst()) is not None:
             cuedraw.burst(view, (sparks[0].x, sparks[0].y), sparks[1])
+        for at, sparks in self.motion.sparkles():
+            cuedraw.burst(view, (at.x, at.y), sparks)
         cuedraw.offscreen(
             view,
             port,
@@ -1900,9 +1912,17 @@ class Game:
             color = 7 if item.on else 13
         elif item.kind == "power":
             shown = self.motion.power_load(hud.load)
-            fill = round((width - 2 * layout.pad) * shown / max(1, hud.capacity))
-            pyxel.rect(text_x, y + height - 3, width - 2 * layout.pad, 1, 5)
+            span = width - 2 * layout.pad
+            total = max(1.0, self.motion.capacity(hud.capacity))
+            fill = round(span * min(shown, total) / total)
+            # The track's tail is the capacity the energy cells added.
+            own = round(span * min(hud.base, total) / total)
+            pyxel.rect(text_x, y + height - 3, own, 1, 5)
+            pyxel.rect(text_x + own, y + height - 3, span - own, 1, 10)
             pyxel.rect(text_x, y + height - 3, fill, 1, 11)
+            if (swell := self.motion.capacity_pulse()) > 0:
+                grow = round(swell * 2)
+                pyxel.rectb(x - grow, y - grow, width + 2 * grow, height + 2 * grow, 10)
         elif item.kind == "safety":
             color = 11 if item.on else 8
         elif item.kind == "hints":
@@ -2003,7 +2023,7 @@ class Game:
                 )
             if title == "POWER CONSOLE":
                 for circuit in self.state.chamber.circuits:
-                    if circuit.id.upper() in line and "UNITS" in line:
+                    if circuit.id.upper() in line and " UNIT" in line:
                         self.ui_hits.append(
                             (
                                 (x + pad, line_top, width - 2 * pad, cursor - line_top),
@@ -2061,13 +2081,20 @@ class Game:
             for index, circuit in enumerate(circuits)
         }
         lines += [
-            f"{'>' if index == self.selection else ' '} {'*' if self.lesson is not None and self.lesson.current is not None and self.lesson.current.target.get('id') == circuit.id else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNITS"
+            f"{'>' if index == self.selection else ' '} {'*' if self.lesson is not None and self.lesson.current is not None and self.lesson.current.target.get('id') == circuit.id else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNIT{'' if circuit.load == 1 else 'S'}"
             for index, circuit in enumerate(circuits)
         ]
-        lines += [f"PENDING LOAD {pending_load}/{self.state.chamber.capacity}"]
+        lines += [f"PENDING LOAD {pending_load}/{power.capacity_of(self.state)}"]
         if not configured.ok:
             lines.append("OVER BUDGET - CANNOT APPLY")
         lines.append("WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"))
+        if live := sorted(
+            conduit.id
+            for conduit in self.state.chamber.conduits
+            if conduit.circuit_id in self.pending
+            and conduit.circuit_id not in self.state.powered_circuits
+        ):
+            lines.append("WILL GO LIVE: " + ", ".join(live).upper())
         rows[len(lines)] = "apply"
         lines.append(f"  {controls.cap('apply')} {controls.apply_label(self.state)}")
         x, y, width, height = self.layout.console_drawer()

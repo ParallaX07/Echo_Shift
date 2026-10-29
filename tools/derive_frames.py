@@ -232,6 +232,49 @@ def ring(
     return result
 
 
+def stamp(
+    image: Image.Image,
+    rows: list[str],
+    legend: dict[str, int],
+    scale: int = 3,
+    x: int = 0,
+    y: int = 0,
+    clear: bool = False,
+) -> Image.Image:
+    """Paint a small pixel map over the parent, each map pixel `scale` x `scale`.
+
+    `rows` are equal-length strings; a character found in `legend` paints that
+    palette index (1-15), any other character leaves the parent as it is. With
+    `clear` the parent is wiped first, so it only fixes the shared scale and
+    anchor. The map starts at (x, y) and must fit inside the image.
+    """
+    width = len(rows[0]) if rows else 0
+    if (
+        not width
+        or scale < 1
+        or any(len(row) != width for row in rows)
+        or x < 0
+        or y < 0
+        or x + width * scale > image.width
+        or y + len(rows) * scale > image.height
+    ):
+        raise ValueError("stamp needs equal-length rows that fit inside the image")
+    result = Image.new("RGBA", image.size) if clear else image.copy()
+    for j, row in enumerate(rows):
+        for i, char in enumerate(row):
+            if char in legend:
+                result.paste(
+                    colour(legend[char]),
+                    (
+                        x + i * scale,
+                        y + j * scale,
+                        x + (i + 1) * scale,
+                        y + (j + 1) * scale,
+                    ),
+                )
+    return result
+
+
 OPS = {
     "copy": copy,
     "rotate": rotate,
@@ -241,6 +284,7 @@ OPS = {
     "dissolve": dissolve,
     "slide": slide,
     "ring": ring,
+    "stamp": stamp,
 }
 
 

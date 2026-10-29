@@ -261,6 +261,23 @@ def hatch(view: View, pos: Position, room: Rect) -> None:
     pyxel.clip(*room)
 
 
+def live_warning(view: View, pos: Position) -> None:
+    """A red frame and a yellow zigzag: the tile would turn into a live conduit."""
+    x, y, cell, _ = tile(view, pos)
+    for inset in range(max(2, cell // 30)):
+        pyxel.rectb(x + inset, y + inset, cell - 2 * inset, cell - 2 * inset, RED)
+    steps = 6
+    margin = cell // 6
+    span = cell - 2 * margin
+    points = [
+        (x + margin + span * i // steps, y + cell // 2 + (cell // 8) * (-1) ** i)
+        for i in range(steps + 1)
+    ]
+    for (x1, y1), (x2, y2) in pairwise(points):
+        for offset in range(max(2, cell // 40)):
+            pyxel.line(x1, y1 + offset, x2, y2 + offset, YELLOW)
+
+
 def console_preview(
     view: View,
     found: ConsolePreview,
@@ -269,9 +286,12 @@ def console_preview(
     still: bool,
     room: Rect,
 ) -> None:
-    """Dim what would go dark; pulse (or outline, when still) changing devices."""
+    """Dim what would go dark, frame what would turn live; pulse (or outline,
+    when still) changing devices."""
     for pos in sorted(found.dark):
         hatch(view, pos, room)
+    for pos in sorted(found.live):
+        live_warning(view, pos)
     for pos in sorted(found.lit):
         x, y, cell, _ = tile(view, pos)
         pyxel.rectb(x + 2, y + 2, cell - 4, cell - 4, GREEN)

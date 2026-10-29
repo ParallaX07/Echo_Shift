@@ -522,8 +522,8 @@ def legend(actions: list[Action], ids: tuple[str, ...]) -> str:
 #
 # Chambers introduce the bar buttons gradually. Only the bar and the guide's
 # Controls page hide an action; its key keeps working. Chamber 1 already needs
-# the console and the echo key: nothing outside the hub can be walked without a
-# recording and a launch, so a chamber's own lesson never hides what it needs.
+# the console and the echo key: recording and launching start in the hub, so a
+# chamber's own lesson never hides what it needs.
 
 MOVE_IDS = ("move_up", "move_down", "move_left", "move_right")
 ALWAYS_SHOWN = ("restart", "pause", "guide", "hint", "mute", "fullscreen")

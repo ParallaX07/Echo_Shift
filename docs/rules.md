@@ -105,8 +105,8 @@ caps show the pad buttons ("A Wait"), after any key or mouse press the key names
 and an action without a pad button keeps its key cap.
 
 The bottom bar introduces its buttons gradually. Chamber 1 shows move, wait,
-undo, the power console and the echo key (nothing outside the hub can be walked
-without a recording and a launch), chamber 3 adds retry and re-record, and every
+undo, the power console and the echo key (recording and launching start in the
+hub, so the first lesson needs them), chamber 3 adds retry and re-record, and every
 later chamber shows everything. Wait, undo, restart, pause, guide, hint, mute and
 fullscreen are always shown. A new button blinks for a few seconds the first
 time its chamber opens (it stays lit with reduced motion). Only the bar and the
@@ -143,7 +143,20 @@ that fails.
 Safe and dark floor differ by texture as well as colour: lit and hub floor are
 striped or speckled while the dark remap flattens the floor towards a single
 grey. A test converts both to grayscale and compares where the grey level steps
-sharply, so a brightness match cannot hide the difference.
+sharply, so a brightness match cannot hide the difference. The same check holds
+for conduits: an idle conduit (grey cable rails), a live one (red and yellow
+diagonal stripes with a spark line, deliberately not the hub's yellow and navy
+stripes) and plain floor differ in texture, not only in hue.
+
+Energy cells and conduits are drawn as their own sprites. An untaken cell glows
+in the dark so it can be found; a live conduit is never dimmed, lit or not. The
+power bar shows `load/capacity` with the capacity from the cells taken so far,
+the share the cells added is the yellow tail of its track, and the bar eases to
+a new capacity and pulses once when a cell is picked up (a sparkle rises from the
+cell; a chime plays). Reduced motion shows only the end state. The console drawer
+lists "WILL GO LIVE" for conduits a pending choice would energise and frames those
+tiles in red with a zigzag, and a live or unlit tile next to you is outlined in
+red. Refusals read "too dark to walk there" and "that conduit is live".
 
 Moves are eased on screen: a step is a steady glide of about a quarter of a
 second (the game runs at 60 frames per second), a refused move leans toward the

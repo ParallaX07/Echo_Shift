@@ -70,7 +70,7 @@ def sfx_for(prev: State, result: object, new: State) -> str | None:
 
     `result` is an engine result, a `Refusal`, a `Cue`, a UI cue (an effect id as
     text) or None. Priority: fail, a `Cue` (it replaces the state difference),
-    clear, reject, record/commit/launch, echo expiry,
+    clear, reject, an energy cell pickup, record/commit/launch, echo expiry,
     gate, elevator, pad, power, then move/wait (a recorded step ticks instead).
     A UI cue only sounds when the state itself changed in no audible way.
     """
@@ -89,6 +89,8 @@ def sfx_for(prev: State, result: object, new: State) -> str | None:
 
 
 def _diff(prev: State, new: State) -> str | None:
+    if new.cells_taken - prev.cells_taken:
+        return "pickup"
     phases = (prev.phase, new.phase)
     if phases == (Phase.PREPARE, Phase.RECORDING):
         return "record_start"

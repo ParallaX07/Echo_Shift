@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from echo_shift.engine.lighting import is_safe
 from echo_shift.engine.model import Phase, State
+from echo_shift.engine.power import capacity_of
 from echo_shift.engine.turn import Move, Wait
 from echo_shift.ui import controls
 
@@ -15,6 +16,7 @@ class Hud:
     safe: bool
     circuits: tuple[tuple[str, bool], ...]
     timeline: tuple[tuple[str, bool, str], ...]
+    base: int = 0  # the generator's own capacity; the cells taken add the rest
 
 
 def model(state: State) -> Hud:
@@ -45,10 +47,11 @@ def model(state: State) -> Hud:
         slots.append((kind, current, direction))
     return Hud(
         load,
-        state.chamber.capacity,
+        capacity_of(state),
         is_safe(state, state.player),
         tuple((c.id, c.id in state.powered_circuits) for c in state.chamber.circuits),
         tuple(slots),
+        state.chamber.capacity,
     )
 
 

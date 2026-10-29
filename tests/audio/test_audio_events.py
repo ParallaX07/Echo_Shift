@@ -88,6 +88,17 @@ def test_phase_changes(base):
     assert after(replay, phase=Phase.RESULT) == "clear"
 
 
+def test_taking_an_energy_cell_chimes_above_the_move_sound(base):
+    moved = replace(base, player=Position(2, 2), cells_taken=frozenset({"c1"}))
+    assert sfx_for(base, Accepted(moved), moved) == "pickup"
+    plain = replace(base, player=Position(2, 2))
+    assert sfx_for(base, Accepted(plain), plain) == "move"
+    # Putting a cell back (undo, restart) is not a pickup.
+    assert sfx_for(moved, Accepted(base), base) == "move"
+    # The refused move onto a dark tile still sounds as a refusal.
+    assert sfx_for(base, Rejected(base, "too dark to walk there"), base) == "reject"
+
+
 def test_echo_expiry_only_during_replay(base):
     echo = Position(1, 1)
     replay = replace(base, phase=Phase.REPLAY, echo_position=echo)

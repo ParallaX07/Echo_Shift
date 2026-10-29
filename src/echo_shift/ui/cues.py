@@ -25,17 +25,15 @@ def hub_thresholds(chamber: Chamber) -> frozenset[Position]:
 
 
 def unsafe_neighbours(state: State) -> tuple[Position, ...]:
-    """Unlit tiles next to the player that a move could actually enter.
+    """Unlit or live tiles next to the player that a move could actually enter.
 
-    The hub is always lit, so these are all outside it. Walls and closed gates
-    cannot be entered and are left out.
+    Walls and closed gates cannot be entered and are left out.
     """
-    lit = lighting.lit_tiles(state)
     found = []
     for dx, dy in STEPS:
         tile = Position(state.player.x + dx, state.player.y + dy)
         kind = state.chamber.tile_at(tile)
-        if kind is TileType.WALL or tile in lit:
+        if kind is TileType.WALL or lighting.hazard(state, tile) is None:
             continue
         closed = any(
             d.position == tile and d.id not in state.gates_open
@@ -48,7 +46,10 @@ def unsafe_neighbours(state: State) -> tuple[Position, ...]:
 
 
 def warns_unsafe(state: State) -> bool:
-    """Whether moves spend turns here, so stepping into the dark would fail."""
+    """Whether moves spend turns here, so stepping onto a hazard would fail.
+
+    Walking freely (before a take, or after saving one) only refuses such a move.
+    """
     return state.phase in (Phase.RECORDING, Phase.REPLAY)
 
 
@@ -101,15 +102,16 @@ class ConsolePreview:
     lit: frozenset[Position]
     losing: frozenset[str]
     gaining: frozenset[str]
+    live: frozenset[Position] = frozenset()  # conduit tiles that would turn live
 
     @property
     def changed(self) -> bool:
-        return bool(self.dark or self.lit or self.losing or self.gaining)
+        return bool(self.dark or self.lit or self.losing or self.gaining or self.live)
 
 
 def console_preview(state: State, pending: frozenset[str]) -> ConsolePreview:
-    before = lighting.lit_tiles(state)
-    after = lighting.lit_tiles(replace(state, powered_circuits=pending))
+    chosen = replace(state, powered_circuits=pending)
+    before, after = lighting.lit_tiles(state), lighting.lit_tiles(chosen)
     losing = {
         d.id
         for d in state.chamber.devices
@@ -121,7 +123,11 @@ def console_preview(state: State, pending: frozenset[str]) -> ConsolePreview:
         if d.circuit_id in pending and d.circuit_id not in state.powered_circuits
     }
     return ConsolePreview(
-        before - after, after - before, frozenset(losing), frozenset(gaining)
+        before - after,
+        after - before,
+        frozenset(losing),
+        frozenset(gaining),
+        lighting.live_conduit_tiles(chosen) - lighting.live_conduit_tiles(state),
     )
 
 

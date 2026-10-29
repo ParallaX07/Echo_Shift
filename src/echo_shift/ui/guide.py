@@ -23,13 +23,15 @@ GOAL = (
         "is active. Pads carry letters so you can match them to their machines."
     ),
     (
-        "Every turn you take must end on a lit tile or in the hub. A dark tile ends "
-        "the attempt."
+        "Every turn you take must end on a lit tile or in the hub. A dark tile, or a "
+        "live conduit, ends the attempt."
     ),
     (
-        "Outside the hub you can only move while recording or while your echo runs: "
-        "press {key:echo} at the hub to record, {key:echo} again to save, and "
-        "{key:echo} at the hub to launch."
+        "Before a take and after saving one you can walk freely over any lit tile; "
+        "it costs nothing and changes nothing in the chamber. Dark tiles and live "
+        "conduits are refused. Pads, gates and the elevator only react to what you "
+        "do while recording or while your echo runs: press {key:echo} at the hub to "
+        "record, {key:echo} again to save, and {key:echo} at the hub to launch."
     ),
 )
 ECHO = (
@@ -56,6 +58,17 @@ POWER = (
     (
         "The generator can run a limited amount at once. This is a limit, not a "
         "battery: nothing drains while the circuits stay on."
+    ),
+    (
+        "Some chambers hold energy cells. Walk onto one to add its value to the "
+        "generator capacity, before a take or after saving one. A take or a replay "
+        "never picks one up. A cell you took stays taken through launch and retry; "
+        "restarting the chamber puts it back."
+    ),
+    (
+        "Some floor is a conduit. While its circuit is on, the conduit is live and "
+        "deadly to you, and a free move onto it is refused. The echo is immune. The "
+        "console previews which tiles a choice would turn live."
     ),
     (
         "Stand on the hub console and press {key:console} to open the console. "
@@ -124,14 +137,14 @@ def objects(state: State, terminals: tuple[Terminal, ...] = ()) -> list[str]:
     notes = [
         "YOU: the amber technician. Your tile must be lit at the end of every turn.",
         "ECHO: the blue copy that replays your recording.",
-        "HUB: always lit and safe. Moving inside it before a launch is free.",
+        "HUB: always lit and safe. Recording starts and the echo launches here.",
         (
             f"HUB CONSOLE: stand on it and press {controls.key_text('console')} to choose "
             "which circuits are on."
         ),
         (
-            "LIT AND DARK FLOOR: dark tiles are unsafe to end a turn on; the echo "
-            "ignores darkness."
+            "LIT AND DARK FLOOR: you can walk onto lit tiles freely; dark tiles are "
+            "refused and fail a turn that ends on one. The echo ignores darkness."
         ),
     ]
     if terminals:
@@ -143,6 +156,16 @@ def objects(state: State, terminals: tuple[Terminal, ...] = ()) -> list[str]:
             ),
         )
     chamber = state.chamber
+    if chamber.cells:
+        notes.append(
+            "ENERGY CELL: walk onto it to add its value to the generator capacity. "
+            "A take or a replay never picks one up."
+        )
+    if chamber.conduits:
+        notes.append(
+            "CONDUIT: deadly while its circuit is on (live), ordinary floor while it "
+            "is off. The echo is immune."
+        )
     seen: list[Position] = [pad.position for pad in chamber.pads]
     seen += [device.position for device in chamber.devices]
     for position in seen:

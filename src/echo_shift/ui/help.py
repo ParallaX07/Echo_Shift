@@ -1,6 +1,6 @@
 """Live explanations shared by keyboard help and pointer inspection."""
 
-from echo_shift.engine import lighting
+from echo_shift.engine import lighting, power
 from echo_shift.engine.model import Phase, Position, State
 from echo_shift.engine.turn import Move, Wait
 from echo_shift.ui import controls
@@ -29,6 +29,11 @@ def command_name(action: object) -> str:
     return "Empty"
 
 
+def safety_word(state: State) -> str:
+    why = lighting.hazard(state, state.player)
+    return "safe" if why is None else "live" if why == lighting.LIVE else "dark"
+
+
 def room_info(
     state: State,
     position: Position,
@@ -47,13 +52,37 @@ def room_info(
         )
     if position in state.chamber.hub:
         parts.append(
-            "The hub is permanently lit and safe. Preparation and committed movement inside it are free."
+            "The hub is permanently lit and safe. Recording starts and the echo launches only from a hub tile."
         )
     if position in state.chamber.consoles:
         title = "HUB CONSOLE"
         parts.append(
             f"{cap('console')} opens power selection. {cap('nav_prev')}/{cap('nav_next')} selects, {cap('toggle')} switches a circuit, {cap('apply')} applies, {cap('close')} closes. Changes are free before recording and after saving; during a recording or replay they wait for {cap('apply')} and cost one turn."
         )
+    for energy in state.chamber.cells:
+        if energy.position == position:
+            if energy.id in state.cells_taken:
+                parts.append(
+                    f"An empty cell socket: its energy cell is taken (+{energy.value} capacity). Restarting the chamber puts it back."
+                )
+            else:
+                title = "ENERGY CELL"
+                parts.append(
+                    f"Energy cell: +{energy.value} generator capacity. Walk onto it to pick it up, before a take or after saving one. A take or a replay never picks one up. Taken cells stay taken through launch and retry; restarting the chamber puts them back."
+                )
+    for conduit in state.chamber.conduits:
+        if position in conduit.tiles:
+            on = conduit.circuit_id in state.powered_circuits
+            name = conduit.circuit_id.upper().replace("-", " ")
+            title = "LIVE CONDUIT" if on else "CONDUIT (OFF)"
+            parts.append(
+                f"Conduit on circuit {name}: {'LIVE' if on else 'off'}. "
+                + (
+                    "While this circuit is ON the tile is deadly: ending a turn here fails your attempt, and a free move onto it is refused. The echo is immune."
+                    if on
+                    else "Switch that circuit ON and this tile turns deadly. While it is off it is ordinary floor, safe when lit."
+                )
+            )
     if any(terminal.position == position for terminal in terminals):
         title = "LOG TERMINAL"
         parts.append(
@@ -119,10 +148,13 @@ def room_info(
                 + (", ".join(light_circuits) or "none")
                 + ". A zone groups tiles lit by the same circuit."
             )
+        why = lighting.hazard(state, position)
         parts.append(
             "Lit: safe to end a turn here."
-            if lighting.is_safe(state, position)
-            else "Dark: ending a turn here fails your attempt. The echo is safe in darkness."
+            if why is None
+            else "Live: do not step here."
+            if why == lighting.LIVE
+            else "Dark: you cannot walk here freely, and ending a turn here fails your attempt. The echo is safe in darkness."
         )
     return title, " ".join(parts)
 
@@ -135,6 +167,15 @@ def topics(
 ) -> list[tuple[str, str, str]]:
     load = sum(c.load for c in state.chamber.circuits if c.id in state.powered_circuits)
     pending_load = sum(c.load for c in state.chamber.circuits if c.id in pending)
+    capacity = power.capacity_of(state)
+    cells = state.chamber.cells
+    taken = [c for c in cells if c.id in state.cells_taken]
+    cell_note = (
+        f"Generator: {state.chamber.capacity} base + {capacity - state.chamber.capacity} from "
+        f"{len(taken)}/{len(cells)} energy cells taken. Walk onto a cell to add its capacity. "
+        if cells
+        else ""
+    )
     echo_next = (
         command_name(state.recording[state.echo_index])
         if state.echo_index < len(state.recording)
@@ -148,18 +189,14 @@ def topics(
         (
             "power",
             "POWER CAPACITY",
-            f"Applied load: {load}/{state.chamber.capacity} units. "
-            + (
-                f"Pending choice: {pending_load}/{state.chamber.capacity}. "
-                if console
-                else ""
-            )
+            f"Applied load: {load}/{capacity} units. {cell_note}"
+            + (f"Pending choice: {pending_load}/{capacity}. " if console else "")
             + "Capacity limits simultaneous powered circuits; it does not drain. Over-budget requests are refused entirely and spend no turn. An active pad does not supply electricity.",
         ),
         (
             "safety",
             "LIGHT AND SAFETY",
-            f"Your tile is {'safe' if lighting.is_safe(state, state.player) else 'dark'}. The hub is always lit. Elsewhere, a tile is lit when a circuit powering its zone is ON. Ending a turn on an unlit tile fails. Power changes affect safety on that same turn.",
+            f"Your tile is {safety_word(state)}. The hub is always lit. Elsewhere, a tile is lit when a circuit powering its zone is ON. You can walk freely onto lit tiles; a free move onto a dark tile is refused. Ending a recorded or replayed turn on a dark tile fails. A conduit whose circuit is ON is live and just as deadly. Power changes affect safety on that same turn.",
         ),
         (
             "state",
@@ -169,7 +206,7 @@ def topics(
         (
             "recording",
             "RECORDING AND LAUNCH",
-            f"Saved commands: {len(state.recording)}/{state.chamber.max_turns}. {cap('echo')} starts a take only at the hub; {cap('echo')} again saves it from anywhere. Only accepted moves/waits are saved. A full take refuses further actions until saved. {cap('echo')} at the hub then launches: it resets dynamics and player position, keeps power and the take, and creates an unadvanced echo.",
+            f"Saved commands: {len(state.recording)}/{state.chamber.max_turns}. Before a take and after saving one you can walk freely over lit tiles at no cost. {cap('echo')} starts a take only at the hub; {cap('echo')} again saves it from anywhere. Only accepted moves/waits are saved. A full take refuses further actions until saved. {cap('echo')} at the hub then launches: it resets dynamics and player position, keeps power and the take, and creates an unadvanced echo.",
         ),
         (
             "echo",
@@ -179,7 +216,7 @@ def topics(
         (
             "turns",
             "MOVEMENT, WAITING AND TIMING",
-            f"{key_text('move')} move one tile; {cap('wait')} waits without moving. Accepted moves, waits and active-take console changes spend a turn. Rejected player moves spend nothing. Echo expiry happens first, then power changes, movement, pad/device updates, and safety/exit checks. Reading, hovering, menus and pause never advance turns.",
+            f"{key_text('move')} move one tile; {cap('wait')} waits without moving. Accepted moves, waits and console changes during a take or replay spend a turn. Free walking, rejected moves and reading spend nothing. Echo expiry happens first, then power changes, movement, pad/device updates, and safety/exit checks. Reading, hovering, menus and pause never advance turns.",
         ),
         (
             "recovery",

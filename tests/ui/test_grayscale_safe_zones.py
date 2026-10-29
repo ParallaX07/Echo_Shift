@@ -92,3 +92,34 @@ def test_safe_floor_is_busier_than_dark_floor_in_grey():
     unsafe = len(edge_map(grey(dark("floor_lit"))))
     for name in SAFE:
         assert len(edge_map(grey(indices(name)))) > 1.5 * unsafe, name
+
+
+CONDUITS = ("conduit_off", "conduit_live")
+
+
+def test_live_conduit_off_conduit_and_floor_differ_in_texture_not_only_hue():
+    floors = {name: grey(indices(name)) for name in ("floor_lit", *CONDUITS)}
+    assert difference(floors["conduit_live"], floors["conduit_off"]) >= MIN_DIFFERENT
+    for name in CONDUITS:
+        assert difference(floors[name], floors["floor_lit"]) >= MIN_DIFFERENT, name
+
+
+def test_a_live_conduit_is_busier_and_brighter_than_an_idle_one_in_grey():
+    live, off = (grey(indices(name)) for name in reversed(CONDUITS))
+
+    def mean(levels):
+        return sum(map(sum, levels)) / (len(levels) * len(levels[0]))
+
+    assert len(edge_map(live)) > 1.3 * len(edge_map(off))
+    assert mean(live) > mean(off)
+
+
+def test_the_live_conduit_is_red_where_the_safe_hub_stripe_is_navy():
+    """Hazard stripes mean the safe hub; a live conduit must not pass for one."""
+
+    def share(name, colour):
+        flat = [i for row in indices(name) for i in row]
+        return flat.count(colour) / len(flat)
+
+    assert share("conduit_live", 8) > 0.25
+    assert share("floor_hub", 8) < 0.01

@@ -313,5 +313,26 @@
     "v": 576,
     "width": 96,
     "height": 96
+  },
+  "cell": {
+    "bank": 0,
+    "u": 96,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "conduit_off": {
+    "bank": 0,
+    "u": 192,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "conduit_live": {
+    "bank": 0,
+    "u": 288,
+    "v": 576,
+    "width": 96,
+    "height": 96
   }
 }

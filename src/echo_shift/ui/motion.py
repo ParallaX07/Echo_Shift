@@ -13,7 +13,7 @@ import math
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from echo_shift.engine import lighting
+from echo_shift.engine import lighting, power
 from echo_shift.engine.model import Phase, Position, State
 from echo_shift.engine.turn import Failed
 
@@ -39,6 +39,11 @@ BURST_FRAMES = 36  # chamber-clear sparks
 BURST_COUNT = 12
 BURST_RADIUS = 1.2  # tiles
 BURST_COLOURS = (10, 9, 7, 11)
+SPARKLE_FRAMES = 24  # a picked-up energy cell's sparks
+SPARKLE_COUNT = 8
+SPARKLE_RADIUS = 0.7  # tiles
+SPARKLE_COLOURS = (10, 7, 9)
+CAPACITY_FRAMES = 30  # the power bar easing to a new capacity, and pulsing
 FADE_FRAMES = 18  # a new screen fading in from the background colour
 UNDO_PACE = 2  # an undo replays the step it undoes backwards, this much faster
 POP_FRAMES = 8  # a timeline slot growing and settling as it is filled
@@ -74,6 +79,8 @@ LENGTHS = {
     "vignette": VIGNETTE_FRAMES,
     "burst": BURST_FRAMES,
     "fade": FADE_FRAMES,
+    "sparkle": SPARKLE_FRAMES,
+    "capacity": CAPACITY_FRAMES,
     "pop": POP_FRAMES,
     "power": POWER_FRAMES,
     "drawer": DRAWER_FRAMES,
@@ -225,6 +232,28 @@ def burst(elapsed: int) -> tuple[Particle, ...]:
         )
         for i in range(BURST_COUNT)
     )
+
+
+def sparkle(elapsed: int) -> tuple[Particle, ...]:
+    """Small sparks rising off a cell that was just picked up; empty when over."""
+    if elapsed >= SPARKLE_FRAMES:
+        return ()
+    p = progress(elapsed, SPARKLE_FRAMES)
+    reach = ease_out(p) * SPARKLE_RADIUS
+    return tuple(
+        Particle(
+            math.cos(i * math.tau / SPARKLE_COUNT) * reach,
+            math.sin(i * math.tau / SPARKLE_COUNT) * reach - 0.3 * p,
+            0.1 * (1.0 - p),
+            SPARKLE_COLOURS[i % len(SPARKLE_COLOURS)],
+        )
+        for i in range(SPARKLE_COUNT)
+    )
+
+
+def capacity_pulse(elapsed: int) -> float:
+    """0..1 swelling of the capacity bar's frame after it grew; 0 at both ends."""
+    return hump(progress(elapsed, CAPACITY_FRAMES))
 
 
 def fade_alpha(elapsed: int) -> float:
@@ -475,6 +504,13 @@ class Motion:
         loads = _load(prev), _load(new)
         if loads[0] != loads[1]:
             self._add("power", None, *loads)
+        if not undo:
+            for energy in new.chamber.cells:
+                if energy.id in new.cells_taken - prev.cells_taken:
+                    self._add("sparkle", energy.id, energy.position)
+        capacities = power.capacity_of(prev), power.capacity_of(new)
+        if capacities[0] != capacities[1]:
+            self._add("capacity", None, *capacities)
         if not undo and new.phase is Phase.RESULT and prev.phase is not Phase.RESULT:
             self._add("burst", None, new.player)
 
@@ -589,6 +625,28 @@ class Motion:
         if found is None:
             return float(load)
         return eased_load(*found[1], found[0])
+
+    def sparkles(self) -> list[tuple[Position, tuple[Particle, ...]]]:
+        """Each energy cell just picked up with its sparks, for tile coordinates."""
+        found = []
+        for kind, key in self._effects:
+            if kind == "sparkle" and (live := self._get(kind, key)) is not None:
+                found.append((live[1][0], sparkle(live[0])))
+        return found
+
+    def capacity(self, capacity: int) -> float:
+        """The capacity the power bar shows: easing to `capacity` after a change."""
+        found = self._get("capacity")
+        if found is None:
+            return float(capacity)
+        return eased_load(*found[1], found[0])
+
+    def capacity_pulse(self) -> float:
+        """0..1 swelling of the capacity bar frame while it grows, else 0."""
+        found = self._get("capacity")
+        if found is None or found[1][1] <= found[1][0]:
+            return 0.0
+        return capacity_pulse(found[0])
 
     def breath(self, offset: int = 0) -> float:
         """Tiles a resting figure is lifted by its breathing; none when reduced."""

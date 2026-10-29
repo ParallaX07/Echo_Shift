@@ -323,3 +323,47 @@ def test_derived_frames_keep_format_palette_and_anchor_of_their_parents():
 def test_stored_sprites_pass_the_asset_validator():
     assert validate_assets.validate() == []
     assert validate_assets.validate_manifest() == []
+
+
+def test_stamp_paints_a_scaled_map_over_the_parent_or_a_cleared_one():
+    parent = Image.new("RGBA", (6, 6), (255, 204, 170, 255))
+    rows, legend = ["A.", ".B"], {"A": 8, "B": 10}
+    over = derive_frames.stamp(parent, rows, legend, scale=2, x=1, y=1)
+    assert over.getpixel((1, 1)) == (255, 0, 77, 255)
+    assert over.getpixel((2, 2)) == (255, 0, 77, 255)
+    assert over.getpixel((3, 1)) == (255, 204, 170, 255)  # '.' keeps the parent
+    assert over.getpixel((3, 3)) == (255, 236, 39, 255)
+    bare = derive_frames.stamp(parent, rows, legend, scale=2, clear=True)
+    assert bare.getpixel((2, 0)) == (0, 0, 0, 0)
+    assert bare.getpixel((0, 0)) == (255, 0, 77, 255)
+    assert parent.getpixel((1, 1)) == (255, 204, 170, 255)
+
+
+@pytest.mark.parametrize(
+    "rows,legend,scale",
+    [
+        (["A", "AA"], {"A": 8}, 1),  # ragged
+        (["AAAA"], {"A": 8}, 2),  # wider than the image
+        (["A"], {"A": 0}, 1),  # index 0 is never drawn
+        (["A"], {"A": 8}, 0),
+    ],
+)
+def test_stamp_rejects_bad_maps(rows, legend, scale):
+    with pytest.raises(ValueError):
+        derive_frames.stamp(Image.new("RGBA", (6, 6)), rows, legend, scale=scale)
+
+
+def test_the_cell_and_conduit_sprites_are_stamped_and_keep_the_floor_look():
+    assets = {
+        asset["id"]: asset
+        for asset in json.loads((ROOT / "assets/manifest.json").read_text())["assets"]
+    }
+    for sprite in ("cell", "conduit_off", "conduit_live"):
+        assert assets[sprite]["source"] == "derived" and assets[sprite]["op"] == "stamp"
+    assert validate_assets.validate() == []
+    cell = Image.open(ROOT / "assets/sprites/cell.png")
+    assert cell.getchannel("A").getbbox()[3] == 87  # stands on the feet baseline
+    floor = Image.open(ROOT / "assets/sprites/floor_lit.png").convert("RGBA")
+    off = Image.open(ROOT / "assets/sprites/conduit_off.png").convert("RGBA")
+    assert off.getpixel((0, 0)) == floor.getpixel((0, 0))  # a floor margin remains
+    assert off.getchannel("A").getextrema() == (255, 255)

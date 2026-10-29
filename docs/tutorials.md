@@ -30,7 +30,7 @@ the real keys.
 
 The bottom bar introduces its buttons chamber by chamber. Chamber 1 shows move,
 wait, undo, the power console and the echo key (its lesson needs both, because
-nothing outside the hub can be walked without a recording and a launch).
+recording and launching start in the hub).
 Chamber 3 adds Retry and Re-record, which only matter once you have an echo, and
 later chambers show everything. Restart, pause, guide, hint, mute and fullscreen
 are always shown. A newly shown button blinks for a few seconds the first time

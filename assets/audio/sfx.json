@@ -20,5 +20,6 @@
   "ui_hover": "T300 @1 V22 Q60 O5 L16 C",
   "ui_select": "T300 @1 V40 Q80 O5 L16 E >C",
   "dialogue": "T300 @1 V28 Q70 O5 L16 G A",
-  "undo": "T300 @0 V50 Q80 O5 L16 E C"
+  "undo": "T300 @0 V50 Q80 O5 L16 E C",
+  "pickup": "T300 @1 V55 Q90 O5 L16 E A >C E"
 }
