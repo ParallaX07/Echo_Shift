@@ -203,6 +203,8 @@ class Chamber:
                 raise ValueError(f"cell {cell.id} must lie on walkable floor")
             if cell.position == self.start:
                 raise ValueError(f"cell {cell.id} cannot lie on the start tile")
+        if len({cell.position for cell in self.cells}) != len(self.cells):
+            raise ValueError("two energy cells cannot share a tile")
         for conduit in self.conduits:
             if conduit.circuit_id not in circuits:
                 raise ValueError(f"conduit {conduit.id} links an unknown circuit")

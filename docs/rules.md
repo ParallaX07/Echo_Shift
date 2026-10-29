@@ -159,6 +159,10 @@ from its tile with a sparkle (only the maximum power grows, not the load), and w
 the cell lands the capacity number counts up, the new part of the track fills and
 the readout hops. Until it lands the readout still shows the old
 capacity (the rules already have the new one, and a refusal quotes the real value).
+The cell starts to swell on the step that takes it. A further plain free step,
+such as a held key walking on, ends the flying cell on the spot, but the "+N MAX",
+the sparks and the readout's count-up to the real capacity carry on; undo and any
+step during a take or a replay end everything.
 Live conduits show a current drifting along their cover, throw a small spark now
 and then and flash once when their circuit comes on; a step that ends on one
 shocks the player with two short flashes and sparks before the failure card

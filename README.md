@@ -147,14 +147,25 @@ The full, as-built rules with worked turn examples are in
 [`docs/rules.md`](docs/rules.md). In summary:
 
 **The chamber.** Each chamber is a grid of floor, walls, a hub, pads, gates and
-an elevator exit. The **hub** is always lit, always safe and holds the power
-console. Ending a turn on an unlit tile outside the hub fails the attempt.
+an elevator exit. The **hub** is small, always lit, always safe and holds the
+power console. Before a take and after one is saved you can walk onto any lit
+tile (the hub, or a zone whose circuit is on) at no turn cost: the world does not
+react, so pads, timers, gates and the lift ignore free steps. Ending a turn on an
+unlit tile or on a live conduit fails the attempt.
 
-**Power.** Each chamber has a fixed capacity (for example 60 units). Circuits
-have a load and power some light zones and devices. Power is a *simultaneous
-limit*, not a battery: any set of circuits whose loads fit the capacity can be
-on at once, and an over-budget configuration is refused rather than reduced.
-Changing power in the hub before launch is free; during replay it costs a turn.
+**Power.** Each chamber starts with a generator capacity (for example 60 units).
+Circuits have a load and power some light zones and devices. Power is a
+*simultaneous limit*, not a battery: any set of circuits whose loads fit the
+capacity can be on at once, and an over-budget configuration is refused rather
+than reduced. Changing power at the hub console before launch is free; during
+replay it costs a turn.
+
+**Energy cells and conduits.** An energy cell raises your maximum power by its
+value. You take one by walking onto it in free roam; a take or a replay never
+picks one up. Cells stay taken through launch, retry and failures until you
+restart the chamber. A conduit is floor that is deadly to you while its circuit
+is powered (it is ordinary floor otherwise). Your echo is immune to live
+conduits, and to darkness.
 
 **Pads and devices.** A pad is *occupied* while a body stands on it and *active*
 while occupied or while its timer is above zero. A timed pad's timer resets
@@ -190,7 +201,8 @@ the echo holds its final tile for one more turn, then disappears.
 **Mistakes are free.** Moving into a wall or closed gate is refused and costs
 nothing. Menus, the guide, hints and hovering never advance turns. Undo (Z) steps
 back one accepted input as often as you like, and retries are unlimited: R restores the launch snapshot with the same recording, and C
-returns to preparation with power and recording cleared. A failure during
+returns to preparation with power and recording cleared and every energy cell
+back in place. A failure during
 replay restores the launch snapshot; a failure while recording discards that
 take.
 

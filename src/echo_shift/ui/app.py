@@ -605,7 +605,7 @@ class Game:
         self.motion.set_reduced(self.progress.settings.reduced_motion)
         self.track_device()
         if self.gameplay_input():
-            self.motion.snap()  # new input ends running animations first
+            self.motion.snap_input()  # new input ends running animations first
         before, seen, mode = self.state, self.ui_marks(), self.mode
         self.heard = self.move_dir = None
         self.played = False

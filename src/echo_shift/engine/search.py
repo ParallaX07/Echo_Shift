@@ -442,11 +442,17 @@ class _Search:
         self.count_cap = count_cap
         self.roam = roam_graph(chamber)
         self._key = _Keys(chamber, cons.state_ok is not None, cons.echo_safe)
+        # Free roam only obeys `config_ok` (an idea check): a heavy setting used just
+        # to fetch a cell is not a load in force during any turn, so `max_load`
+        # limits only the settings of a take, a replay and the launch.
+        self.roam_allowed = frozenset(
+            c for c in self.roam.configs if cons.config_ok is None or cons.config_ok(c)
+        )
         self.choices = tuple(
             c
             for c in self.roam.configs
-            if (cons.max_load is None or load_of(chamber, c) <= cons.max_load)
-            and (cons.config_ok is None or cons.config_ok(c))
+            if c in self.roam_allowed
+            and (cons.max_load is None or load_of(chamber, c) <= cons.max_load)
         )
         self.allowed = frozenset(self.choices)
 
@@ -465,7 +471,7 @@ class _Search:
 
     def _free_roam(self, state: State) -> dict[Node, tuple[Token, ...]]:
         root = self.roam.root(state.powered_circuits, state.cells_taken)
-        return self.roam.reach(root, self.allowed, self.limits)
+        return self.roam.reach(root, self.roam_allowed, self.limits)
 
     def _roots(self, state: State) -> Iterator[tuple]:
         """Start a take on any hub tile free roam reaches, with any power and cells.

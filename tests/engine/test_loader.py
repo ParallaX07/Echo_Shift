@@ -119,6 +119,10 @@ def test_a_cell_can_make_a_heavy_circuit_possible(example_data):
         (lambda d: d.update(cells=[{**CELL, "position": [1, 1]}]), "start tile"),
         (lambda d: d.update(cells=[CELL, dict(CELL)]), "duplicate cell id"),
         (lambda d: d.update(cells=[{**CELL, "id": "lab"}]), "duplicate ids"),
+        (
+            lambda d: d.update(cells=[CELL, {**CELL, "id": "cell-b", "value": 5}]),
+            "share a tile",
+        ),
         (lambda d: d.update(cells=[{"id": "x", "position": [3, 1]}]), "invalid"),
         (lambda d: d.update(conduits=[{**CONDUIT, "circuit": "nope"}]), "circuit"),
         (lambda d: d.update(conduits=[{**CONDUIT, "tiles": [[9, 9]]}]), "outside"),

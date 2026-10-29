@@ -10,7 +10,7 @@ With reduced motion no timeline is ever started: the end frame shows at once.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 from echo_shift.engine import lighting, power
@@ -43,12 +43,13 @@ SPARKLE_FRAMES = 24  # a picked-up energy cell's sparks
 SPARKLE_COUNT = 8
 SPARKLE_RADIUS = 0.7  # tiles
 SPARKLE_COLOURS = (10, 7, 9)
-PICKUP_LEAD = WALK_FRAMES  # the cell waits on its tile while the player arrives
+PICKUP_LEAD = 4  # the cell waits a moment on its tile, as the player steps on it
 CELL_POP_FRAMES = 6  # ... then swells a little
 CELL_POP_GROW = 0.5
 CELL_FLY_FRAMES = 28  # ... and flies in an arc to the power readout
 CELL_FLY_SHRINK = 0.35  # its size on arrival, as a share of its size on the tile
 PICKUP_FRAMES = PICKUP_LEAD + CELL_POP_FRAMES + CELL_FLY_FRAMES
+AFTERGLOW = ("plus", "sparkle", "capacity")  # what a pickup leaves after its flight
 PLUS_FRAMES = 40  # the "+N MAX" rising from the tile
 PLUS_RISE = 0.8  # tiles
 CAPACITY_TICK_FRAMES = 18  # the capacity number counting up once the cell arrives
@@ -555,6 +556,25 @@ class Motion:
         """Jump every timeline to its end: the screen shows the new state."""
         self._effects = {}
 
+    def snap_input(self) -> None:
+        """A new input ends the running timelines, except what a pickup leaves.
+
+        The flying cell ends on the spot, and the readout then starts counting
+        to the real capacity (it would have waited for the cell to land). The
+        floating "+N MAX", the sparks and the readout's count-up, pulse and hop
+        carry on, so a held key walking over a cell still shows them. `start`
+        drops them as well when the step is anything but plain free roam."""
+        kept = {}
+        for key, effect in self._effects.items():
+            if key[0] not in AFTERGLOW:
+                continue
+            if key[0] == "capacity" and (wait := effect.params[2]):
+                landed = wait // effect.pace
+                if self.clock - effect.start < landed:
+                    effect = replace(effect, start=self.clock - landed)
+            kept[key] = effect
+        self._effects = kept
+
     def forget(self) -> None:
         """Drop the echo's ghost trail (a new run, a restore or a new screen)."""
         self._trail = []
@@ -598,10 +618,24 @@ class Motion:
         timeline ends first, so a new input always starts from the right tile.
         `direction` is the move that was asked for; a move that went nowhere nudges.
         An `undo` runs from the state undone to the one restored, at double speed."""
+        kept = self._effects if self._plain_roam(prev, new, result, undo) else {}
         self.snap()
+        self._effects.update({k: e for k, e in kept.items() if k[0] in AFTERGLOW})
         self._pace = UNDO_PACE if undo else 1
         self._build(prev, new, result, direction, undo)
         self._pace = 1
+
+    @staticmethod
+    def _plain_roam(prev: State, new: State, result: object, undo: bool) -> bool:
+        """A free step before a take or after saving one: nothing else changed."""
+        free = {Phase.PREPARE, Phase.COMMITTED}
+        return (
+            not undo
+            and prev.chamber is new.chamber
+            and prev.phase in free
+            and new.phase in free
+            and not isinstance(result, Failed)
+        )
 
     def _build(
         self,

@@ -288,6 +288,77 @@ def test_the_plus_floats_up_from_the_tile_and_fades():
     assert m.floaters() == []
 
 
+def stepped_on(after):
+    """The state after one more plain free step (back towards the hub)."""
+    return recording.act(after, Move(-1, 0)).state
+
+
+def test_a_later_free_step_ends_the_flyer_but_keeps_the_plus_and_the_count_up():
+    before, after = taken_after_roam()
+    again = stepped_on(after)
+    m = Motion()
+    m.start(before, after)
+    run(m, LEAD + motion.CELL_POP_FRAMES + 3)  # the cell is in the air
+    assert m.flights() and m.floaters()
+    m.snap_input()  # the next press arrives
+    m.start(after, again)
+    assert m.flights() == []  # only the flyer snapped
+    assert len(m.floaters()) == 1
+    assert round(m.capacity(5)) == 3  # the count-up starts from the old value now
+    shown = []
+    while m.running:
+        shown.append(m.capacity(5))
+        m.tick()
+    assert shown == sorted(shown) and shown[0] < 5 and shown[-1] > 4.9
+    assert m.capacity(5) == 5.0  # and lands on the real value
+
+
+def test_the_pulse_and_the_hop_survive_a_free_step_after_the_cell_landed():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    run(m, ARRIVE + 3)  # landed: the readout is pulsing
+    assert m.capacity_pulse() > 0.0
+    m.snap_input()
+    m.start(after, stepped_on(after))
+    assert m.capacity_pulse() > 0.0 or m.capacity_bounce() > 0.0
+
+
+def test_an_undo_or_a_step_in_a_take_ends_everything_a_pickup_left():
+    before, after = taken_after_roam()
+    for undo in (True, False):
+        m = Motion()
+        m.start(before, after)
+        run(m, LEAD + 2)
+        m.snap_input()
+        if undo:
+            m.start(after, before, undo=True)
+        else:
+            m.start(recording.enter(after), recording.enter(stepped_on(after)))
+        assert m.floaters() == [] and m.sparkles() == [] and m.flights() == []
+        assert m.capacity_pulse() == 0.0 and m.capacity_bounce() == 0.0
+
+
+def test_walking_over_a_cell_with_the_keys_still_shows_the_plus(player):
+    game = player.game
+    game.open_level(2)
+    player.press("F")
+    for key in ("LEFT", "LEFT", "E", "SPACE", "ESCAPE"):  # the wing lamp on
+        player.press(key)
+    for key in ("LEFT",) * 5 + ("UP",):
+        player.press(key)
+    assert game.state.player == Position(2, 3)
+    player.press("UP")  # onto the cell
+    assert game.state.cells_taken
+    player.press("DOWN")  # the very next step
+    assert game.motion.floaters(), "the +N MAX was cut off by the next step"
+    assert game.motion.flights() == []
+    for _ in range(motion.PLUS_FRAMES + motion.CAPACITY_FRAMES + 20):
+        game.update()
+        game.draw()
+    assert game.motion.capacity(power.capacity_of(game.state)) == 50.0
+
+
 def test_the_capacity_number_keeps_the_old_value_until_the_cell_lands():
     before, after = taken_after_roam()
     m = Motion()

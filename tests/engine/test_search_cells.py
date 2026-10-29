@@ -85,6 +85,126 @@ def wing_cell(**over):
     return from_dict(data)
 
 
+def bridge_hubs(**over):
+    """Two hub tiles joined by a dark corridor that only a heavy circuit lights.
+
+    y1: A (console, start) | route floor | gate | lift
+    y2: X, the bridge floor (the only way from A down to B)
+    y3: B (a second console) | pad (timer 0)
+
+    The bridge circuit (5) fills the generator, so walking to B is free roam done
+    with the bridge on and nothing else; the take then starts at B with the light
+    route circuit (1). Starting it at A would need the bridge and the route lit at
+    once (6 of 5), so the heavy setting is used only to walk, never in a turn.
+    """
+    data = {
+        "grid": [
+            ["wall"] * 6,
+            ["wall", "console", "floor", "gate", "elevator", "wall"],
+            ["wall", "floor", "wall", "wall", "wall", "wall"],
+            ["wall", "console", "pad", "wall", "wall", "wall"],
+            ["wall"] * 6,
+        ],
+        "hub": [[1, 1], [1, 3]],
+        "consoles": [[1, 1], [1, 3]],
+        "start": [1, 1],
+        "exit": [4, 1],
+        "capacity": 5,
+        "max_turns": 4,
+        "zones": [
+            {"id": "bridge-floor", "tiles": [[1, 2]]},
+            {"id": "route-floor", "tiles": [[2, 1], [3, 1], [4, 1], [2, 3]]},
+        ],
+        "circuits": [
+            {"id": "bridge", "load": 5, "zones": ["bridge-floor"]},
+            {
+                "id": "route",
+                "load": 1,
+                "zones": ["route-floor"],
+                "devices": ["gate", "elevator"],
+            },
+        ],
+        "pads": [{"id": "pad", "position": [2, 3], "timer": 0}],
+        "devices": [
+            {
+                "id": "gate",
+                "kind": "gate",
+                "position": [3, 1],
+                "circuit": "route",
+                "pad": "pad",
+            },
+            {
+                "id": "elevator",
+                "kind": "elevator",
+                "position": [4, 1],
+                "circuit": "route",
+                "pad": "pad",
+            },
+        ],
+    }
+    data.update(over)
+    return from_dict(data)
+
+
+def two_routes(**over):
+    """Two takes reach the same pad by different routes of the same length.
+
+    y0 lift | y1 gate | y2, y3 floor | y4 hub (console, start) and floor | y5 floor
+    and the pad. The pad at (2, 5) is two moves from the hub, right-down or
+    down-right, both through open floor, so the echo's path differs but what it does
+    to the world does not. The gate (3 steps) and the lift (4) need the pad held, so
+    the take is two moves and a wait.
+    """
+    data = {
+        "grid": [
+            ["wall", "elevator", "wall", "wall"],
+            ["wall", "gate", "wall", "wall"],
+            ["wall", "floor", "wall", "wall"],
+            ["wall", "floor", "wall", "wall"],
+            ["wall", "console", "floor", "wall"],
+            ["wall", "floor", "pad", "wall"],
+            ["wall"] * 4,
+        ],
+        "hub": [[1, 4]],
+        "consoles": [[1, 4]],
+        "start": [1, 4],
+        "exit": [1, 0],
+        "capacity": 3,
+        "max_turns": 3,
+        "zones": [
+            {"id": "track", "tiles": [[1, 0], [1, 1], [1, 2], [1, 3]]},
+            {"id": "room", "tiles": [[2, 4], [1, 5], [2, 5]]},
+        ],
+        "circuits": [
+            {
+                "id": "power",
+                "load": 3,
+                "zones": ["track", "room"],
+                "devices": ["gate", "elevator"],
+            }
+        ],
+        "pads": [{"id": "pad", "position": [2, 5], "timer": 0}],
+        "devices": [
+            {
+                "id": "gate",
+                "kind": "gate",
+                "position": [1, 1],
+                "circuit": "power",
+                "pad": "pad",
+            },
+            {
+                "id": "elevator",
+                "kind": "elevator",
+                "position": [1, 0],
+                "circuit": "power",
+                "pad": "pad",
+            },
+        ],
+    }
+    data.update(over)
+    return from_dict(data)
+
+
 def run_cell(**over):
     """A cell lies on the route, past a gate that a timed pad holds open.
 
@@ -523,6 +643,48 @@ def test_a_cell_that_only_a_run_can_reach_is_never_taken_by_the_optimum():
     assert all(state.cells_taken == frozenset() for _, state in states)
     assert play(chamber, found.trace)[:2] == (True, 5)
     assert analyze(chamber).peak_load == 4  # lamp and lift on the base generator
+
+
+def test_a_heavy_free_roam_setting_does_not_raise_the_reported_peak():
+    chamber = bridge_hubs()
+    report = analyze(chamber)
+    assert report.verdict is Verdict.SOLVABLE
+    # The bridge (5) is only ever on while walking, never during a turn.
+    assert report.peak_load == 1
+    tokens = list(report.trace)
+    assert {"power": ["bridge"]} in tokens[: tokens.index("enter")]
+    assert not any(
+        token == {"power": ["bridge"]} for token in tokens[tokens.index("launch") :]
+    )
+    # A load cap below the bridge still lets the walk happen: it limits turns only.
+    capped = explore(chamber, Constraints(max_load=1))
+    assert capped.verdict is Verdict.SOLVABLE and capped.turns == report.turns
+    assert explore(chamber, Constraints(max_load=0)).verdict is Verdict.UNSOLVABLE
+    assert brute_force(chamber, report.turns) == report.turns
+
+
+def test_takes_that_reach_the_same_pad_by_different_routes_are_one_state():
+    chamber = two_routes()
+    merged = explore(chamber)
+    assert merged.verdict is Verdict.SOLVABLE
+    # Every play is also tried with merging off: an opaque state constraint makes
+    # the keys exact, so each walk to the pad is its own state.
+    exact = explore(chamber, Constraints(state_ok=lambda state: True))
+    assert exact.verdict is Verdict.SOLVABLE
+    # Two moves to the pad and a wait, then a four-step replay.
+    assert merged.turns == exact.turns == 3 + 4
+    assert brute_force(chamber, merged.turns) == merged.turns
+    assert play(chamber, merged.trace)[:2] == (True, merged.turns)
+    assert play(chamber, exact.trace)[:2] == (True, exact.turns)
+    assert merged.states < exact.states  # the routes really were merged
+
+
+def test_merged_and_exact_searches_agree_when_nothing_can_be_solved():
+    chamber = two_routes(max_turns=2)  # no room to wait: the lift stops too soon
+    assert explore(chamber).verdict is Verdict.UNSOLVABLE
+    exact = explore(chamber, Constraints(state_ok=lambda state: True))
+    assert exact.verdict is Verdict.UNSOLVABLE
+    assert brute_force(chamber, 8) is None
 
 
 # --- A large chamber ----------------------------------------------------------------
