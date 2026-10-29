@@ -2,23 +2,21 @@
   "turns": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
         "lift-power"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "wait",
+    "left",
+    "left",
+    "left",
+    "down",
     "wait",
     "enter",
     "launch",
+    "right",
+    "right",
     "right",
     "right",
     "right",
@@ -27,23 +25,21 @@
   "recorded": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
         "lift-power"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "wait",
+    "left",
+    "left",
+    "left",
+    "down",
     "wait",
     "enter",
     "launch",
+    "right",
+    "right",
     "right",
     "right",
     "right",

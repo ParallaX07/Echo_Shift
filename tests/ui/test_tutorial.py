@@ -137,7 +137,7 @@ def test_concept_card_closes_on_enter_click_or_the_action_itself(player):
     game.update()  # keys are up, so the lesson may take input
     player.press("LEFT")  # the action itself closes it
     assert game.lesson.index == 0 and not game.lesson.card_open
-    for _ in range(3):
+    for _ in range(2):
         player.press("LEFT")
     assert game.lesson.current.action == "open_console"
     player.press("E")
@@ -154,7 +154,7 @@ def test_a_step_without_a_concept_shows_no_card_and_the_next_step_line(player):
     game = player.game
     game.open_level(1)
     player.press("RETURN")
-    for _ in range(4):
+    for _ in range(3):
         player.press("LEFT")
     player.press("E")
     assert game.lesson.current.id == "switch-lift-power"
@@ -190,9 +190,10 @@ def test_guide_hints_pause_hover_and_clear_preserve_or_restart_objective(player)
     # Inspect a dark pad without affecting state or progress.
     player.press("RETURN")
     cell, ox, oy = game.room_view
+    pad = game.state.chamber.pads[0].position
     player.fake.mouse_x, player.fake.mouse_y = (
-        ox + 12 * cell + cell // 2,
-        oy + 6 * cell + cell // 2,
+        ox + pad.x * cell + cell // 2,
+        oy + pad.y * cell + cell // 2,
     )
     before, index = game.state, game.lesson.index
     game.draw()
@@ -214,27 +215,27 @@ def test_held_movement_cannot_cross_a_lesson_step(player):
     player.press("RETURN")
     while game.lesson.current.id != "record":
         do_step(player)
-    # Enter records and Right stays held: the held key must not act this frame.
-    player.pressed.update({player.fake.KEY_RETURN, player.fake.KEY_RIGHT})
-    player.held.update({player.fake.KEY_RETURN, player.fake.KEY_RIGHT})
+    # Enter records and Left stays held: the held key must not act this frame.
+    player.pressed.update({player.fake.KEY_RETURN, player.fake.KEY_LEFT})
+    player.held.update({player.fake.KEY_RETURN, player.fake.KEY_LEFT})
     game.update()
-    assert game.lesson.current.id == "record-right"
+    assert game.lesson.current.id == "record-corridor"
     before, index = game.state, game.lesson.index
     player.pressed.clear()
     player.held.remove(player.fake.KEY_RETURN)
-    # Simulate Pyxel's repeated btnp while Right remains held.
-    player.pressed.add(player.fake.KEY_RIGHT)
+    # Simulate Pyxel's repeated btnp while Left remains held.
+    player.pressed.add(player.fake.KEY_LEFT)
     for _ in range(12):
         game.update()
     assert game.state == before and game.lesson.index == index
     player.pressed.clear()
     player.held.clear()
     game.update()
-    player.press("RIGHT")
-    assert game.lesson.current.id == "wait-one"
-    assert game.state.player == Position(12, 6)
-    player.press("RIGHT")
-    assert game.lesson.current.id == "wait-one" and len(game.state.recording) == 1
+    player.press("LEFT")
+    assert game.lesson.current.id == "record-corridor"
+    assert game.state.player == Position(5, 5) and len(game.state.recording) == 1
+    player.press("LEFT")
+    assert game.state.player == Position(4, 5) and len(game.state.recording) == 2
 
 
 def test_retry_rewinds_to_replay_objective_with_same_take(player):
@@ -245,7 +246,7 @@ def test_retry_rewinds_to_replay_objective_with_same_take(player):
         do_step(player)
     recording, powered = game.state.recording, game.state.powered_circuits
     player.press("R")
-    assert game.lesson.current.id == "replay-pad" and game.modal is None
+    assert game.lesson.current.id == "replay-walk" and game.modal is None
     assert game.state.player == game.state.chamber.start
     assert game.state.echo_index == 0
     assert game.state.recording == recording and game.state.powered_circuits == powered
@@ -327,10 +328,10 @@ def test_contextual_explanations_reflect_live_state_and_keyboard_topics(player):
         key: (title, detail)
         for key, title, detail in topics(game.state, game.pending, game.console)
     }
-    assert "Pending choice: 20/60" in entries["power"][1]
-    assert "Applied: ON. Pending: ON" in entries["circuit:path-lights"][1]
-    assert "takes effect at once" in entries["circuit:path-lights"][1]
-    title, detail = room_info(game.state, Position(12, 6))
+    assert "Pending choice: 10/30" in entries["power"][1]
+    assert "Applied: ON. Pending: ON" in entries["circuit:wing-lamp"][1]
+    assert "takes effect at once" in entries["circuit:wing-lamp"][1]
+    title, detail = room_info(game.state, game.state.chamber.pads[0].position)
     assert "TIMED" in title and "Timer: 0/3" in detail and "Occupied: no" in detail
     assert (
         "circuit:lift-power" in entries

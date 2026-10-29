@@ -713,7 +713,7 @@
       "id": "floor_hub_inner",
       "type": "tile",
       "group": "floor",
-      "description": "Calm interior hub floor, the hub stripes muted to tone-on-tone so large safe rooms stay readable.",
+      "description": "Bright interior hub floor: cream panels with peach stripes and the hub's purple frames, so the always-safe hub reads as lit and stays distinct from the plain lit floor.",
       "status": "ok",
       "attempts": 0,
       "source": "derived",
@@ -721,12 +721,13 @@
       "op": "palette_swap",
       "params": {
         "map": {
-          "10": 5,
-          "9": 5,
-          "4": 5,
+          "1": 7,
+          "10": 15,
+          "9": 15,
+          "4": 15,
           "8": 13,
           "14": 13,
-          "2": 1
+          "2": 13
         }
       }
     },

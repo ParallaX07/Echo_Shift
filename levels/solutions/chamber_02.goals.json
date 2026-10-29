@@ -4,35 +4,77 @@
     "enter",
     "left",
     "left",
+    {
+      "power": [
+        "wing-lamp"
+      ]
+    },
     "left",
     "left",
+    "left",
+    "left",
+    "left",
+    "up",
+    "up",
+    "down",
+    "down",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
     {
       "power": [
         "lift-power",
-        "path-lights"
+        "route-lights"
       ]
     },
     "launch",
     "right",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ],
   "recorded": [
     "enter",
     "enter",
     "left",
     "left",
+    {
+      "power": [
+        "wing-lamp"
+      ]
+    },
     "left",
     "left",
+    "left",
+    "left",
+    "left",
+    "up",
+    "up",
+    "down",
+    "down",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
     {
       "power": [
         "lift-power",
-        "path-lights"
+        "route-lights"
       ]
     },
     "launch",
     "right",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ]
 }

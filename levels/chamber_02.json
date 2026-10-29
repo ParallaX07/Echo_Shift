@@ -38,16 +38,16 @@
     ],
     [
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -56,34 +56,16 @@
     ],
     [
       "wall",
-      "hub",
       "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "hub",
+      "floor",
       "wall",
       "wall",
       "wall",
       "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
       "wall",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -92,70 +74,70 @@
     ],
     [
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "floor",
+      "floor",
+      "floor",
+      "floor",
       "hub",
       "console",
       "hub",
       "hub",
-      "hub",
-      "hub",
-      "pad",
       "floor",
+      "floor",
+      "floor",
+      "floor",
+      "floor",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "hub",
+      "hub",
+      "hub",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "pad",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "elevator",
       "wall"
     ],
     [
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
       "wall",
       "wall",
       "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
       "wall",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -164,34 +146,16 @@
     ],
     [
       "wall",
-      "hub",
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "hub",
       "wall",
       "wall",
       "wall",
       "wall",
-      "wall"
-    ],
-    [
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -219,83 +183,7 @@
   ],
   "hub": [
     [
-      11,
-      6
-    ],
-    [
-      1,
-      2
-    ],
-    [
-      2,
-      2
-    ],
-    [
-      3,
-      2
-    ],
-    [
-      4,
-      2
-    ],
-    [
-      5,
-      2
-    ],
-    [
-      6,
-      2
-    ],
-    [
-      7,
-      2
-    ],
-    [
-      8,
-      2
-    ],
-    [
       9,
-      2
-    ],
-    [
-      10,
-      2
-    ],
-    [
-      1,
-      3
-    ],
-    [
-      4,
-      3
-    ],
-    [
-      5,
-      3
-    ],
-    [
-      6,
-      3
-    ],
-    [
-      7,
-      3
-    ],
-    [
-      10,
-      3
-    ],
-    [
-      1,
-      4
-    ],
-    [
-      4,
-      4
-    ],
-    [
-      5,
       4
     ],
     [
@@ -309,34 +197,6 @@
     [
       8,
       4
-    ],
-    [
-      9,
-      4
-    ],
-    [
-      10,
-      4
-    ],
-    [
-      1,
-      5
-    ],
-    [
-      2,
-      5
-    ],
-    [
-      3,
-      5
-    ],
-    [
-      4,
-      5
-    ],
-    [
-      5,
-      5
     ],
     [
       6,
@@ -353,220 +213,97 @@
     [
       9,
       5
-    ],
-    [
-      10,
-      5
-    ],
-    [
-      1,
-      6
-    ],
-    [
-      2,
-      6
-    ],
-    [
-      3,
-      6
-    ],
-    [
-      4,
-      6
-    ],
-    [
-      5,
-      6
-    ],
-    [
-      6,
-      6
-    ],
-    [
-      7,
-      6
-    ],
-    [
-      8,
-      6
-    ],
-    [
-      9,
-      6
-    ],
-    [
-      10,
-      6
-    ],
-    [
-      1,
-      7
-    ],
-    [
-      2,
-      7
-    ],
-    [
-      3,
-      7
-    ],
-    [
-      4,
-      7
-    ],
-    [
-      5,
-      7
-    ],
-    [
-      6,
-      7
-    ],
-    [
-      7,
-      7
-    ],
-    [
-      8,
-      7
-    ],
-    [
-      9,
-      7
-    ],
-    [
-      10,
-      7
-    ],
-    [
-      1,
-      8
-    ],
-    [
-      4,
-      8
-    ],
-    [
-      5,
-      8
-    ],
-    [
-      6,
-      8
-    ],
-    [
-      7,
-      8
-    ],
-    [
-      8,
-      8
-    ],
-    [
-      9,
-      8
-    ],
-    [
-      10,
-      8
-    ],
-    [
-      1,
-      9
-    ],
-    [
-      4,
-      9
-    ],
-    [
-      5,
-      9
-    ],
-    [
-      6,
-      9
-    ],
-    [
-      7,
-      9
-    ],
-    [
-      10,
-      9
-    ],
-    [
-      1,
-      10
-    ],
-    [
-      2,
-      10
-    ],
-    [
-      3,
-      10
-    ],
-    [
-      4,
-      10
-    ],
-    [
-      5,
-      10
-    ],
-    [
-      6,
-      10
-    ],
-    [
-      7,
-      10
-    ],
-    [
-      8,
-      10
-    ],
-    [
-      9,
-      10
-    ],
-    [
-      10,
-      10
     ]
   ],
   "consoles": [
     [
       7,
-      6
+      4
     ]
   ],
   "start": [
-    11,
-    6
+    9,
+    4
   ],
   "exit": [
     14,
     6
   ],
-  "capacity": 60,
+  "capacity": 30,
   "max_turns": 6,
   "idea": "power",
   "goals": {
-    "turns": 3,
+    "turns": 7,
     "recorded": 0
   },
   "zones": [
     {
-      "id": "path",
+      "id": "wing",
       "tiles": [
         [
-          12,
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          8,
           6
         ],
         [
+          8,
+          7
+        ],
+        [
+          8,
+          8
+        ]
+      ]
+    },
+    {
+      "id": "path",
+      "tiles": [
+        [
+          10,
+          4
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          4
+        ],
+        [
           13,
-          6
+          4
+        ],
+        [
+          14,
+          4
+        ],
+        [
+          14,
+          5
         ]
       ]
     },
@@ -578,21 +315,20 @@
           6
         ]
       ]
-    },
-    {
-      "id": "unused",
-      "tiles": [
-        [
-          2,
-          3
-        ]
-      ]
     }
   ],
   "circuits": [
     {
-      "id": "path-lights",
-      "load": 20,
+      "id": "wing-lamp",
+      "load": 10,
+      "zones": [
+        "wing"
+      ],
+      "devices": []
+    },
+    {
+      "id": "route-lights",
+      "load": 15,
       "zones": [
         "path"
       ],
@@ -607,22 +343,14 @@
       "devices": [
         "lift"
       ]
-    },
-    {
-      "id": "aux-power",
-      "load": 15,
-      "zones": [
-        "unused"
-      ],
-      "devices": []
     }
   ],
   "pads": [
     {
       "id": "pad-a",
       "position": [
-        12,
-        6
+        14,
+        5
       ],
       "timer": 3
     }
@@ -639,15 +367,25 @@
       "pad": "pad-a"
     }
   ],
+  "cells": [
+    {
+      "id": "cell-west",
+      "position": [
+        2,
+        2
+      ],
+      "value": 20
+    }
+  ],
   "hints": [
-    "PATH-LIGHTS costs 20 and LIFT-POWER costs 35: together they use 55 of 60.",
-    "Walk left to the console. Leave AUX-POWER off, walk back to the door, save an empty recording, launch, then walk right three times."
+    "LIFT-POWER costs 35 but the generator only supplies 30. A lit wing holds an energy cell that raises the limit.",
+    "Light the side rooms with WING-LAMP, walk west to the cell, return to the console, then swap: WING-LAMP off, ROUTE-LIGHTS and LIFT-POWER on (50 of 50). Save an empty recording, launch, and follow the corridor east."
   ],
   "terminals": [
     {
       "position": [
-        1,
-        3
+        8,
+        8
       ],
       "lines": [
         "The generator can only feed so much at once.",
@@ -656,8 +394,8 @@
     },
     {
       "position": [
-        6,
-        9
+        4,
+        4
       ],
       "lines": [
         "Day 4. I thank the console when it works.",
@@ -666,8 +404,8 @@
     },
     {
       "position": [
-        10,
-        2
+        12,
+        4
       ],
       "lines": [
         "Found a mug by the wall, cold and stained blue.",
@@ -680,20 +418,20 @@
       "id": "walk-to-console",
       "concept": true,
       "title": "Power has a limit",
-      "explanation": "The generator can supply 60 units at once. It is a limit, not a battery that drains. Let's try a setting that is too big, to see what happens.",
+      "explanation": "The generator can supply 30 units at once. It is a limit, not a battery that drains. The lift needs more than that, so first let's see what happens when a setting is too big.",
       "objective": "Press {key:move_left} to walk along the hub to the power console.",
       "action": "left",
       "expected": {
         "player": [
           7,
-          6
+          4
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
           7,
-          6
+          4
         ]
       }
     },
@@ -708,31 +446,16 @@
         "kind": "tile",
         "position": [
           7,
-          6
+          4
         ]
-      }
-    },
-    {
-      "id": "switch-path-lights",
-      "objective": "Press {key:nav_prev} or {key:nav_next} to select PATH-LIGHTS, then {key:toggle} to switch it on (20 units).",
-      "action": "toggle",
-      "expected": {
-        "pending": [
-          "path-lights"
-        ]
-      },
-      "target": {
-        "kind": "circuit",
-        "id": "path-lights"
       }
     },
     {
       "id": "switch-lift-power",
-      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (35 units). That makes 55 of 60.",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (35 units). That makes 35 of 30.",
       "action": "toggle",
       "expected": {
         "pending": [
-          "path-lights",
           "lift-power"
         ]
       },
@@ -742,38 +465,17 @@
       }
     },
     {
-      "id": "switch-aux-power",
-      "objective": "Press {key:nav_prev} or {key:nav_next} to select AUX-POWER, then {key:toggle} to switch it on (15 units). That makes 70 of 60.",
-      "action": "toggle",
-      "expected": {
-        "pending": [
-          "path-lights",
-          "lift-power",
-          "aux-power"
-        ]
-      },
-      "target": {
-        "kind": "circuit",
-        "id": "aux-power"
-      }
-    },
-    {
       "id": "over-budget",
       "concept": true,
       "title": "Over the limit",
-      "explanation": "70 is more than the 60-unit limit, so the whole setting is refused. Nothing changes and no turn passes. The game never trims a choice for you.",
-      "objective": "Press {key:apply} to try 70 of 60.",
+      "explanation": "35 is more than the 30-unit limit, so the whole setting is refused. Nothing changes and no turn passes. The game never trims a choice for you. An energy cell somewhere in the chamber raises the limit.",
+      "objective": "Press {key:apply} to try 35 of 30.",
       "action": "apply",
       "expected": {
         "outcome": "rejected",
-        "powered": [
-          "path-lights",
-          "lift-power"
-        ],
+        "powered": [],
         "pending": [
-          "path-lights",
-          "lift-power",
-          "aux-power"
+          "lift-power"
         ],
         "console": true
       },
@@ -782,27 +484,183 @@
       }
     },
     {
-      "id": "remove-aux",
-      "objective": "Select AUX-POWER, then press {key:toggle} to switch it off. The route only needs the other two.",
+      "id": "remove-lift",
+      "objective": "Select LIFT-POWER, then press {key:toggle} to switch it off again.",
+      "action": "toggle",
+      "expected": {
+        "pending": []
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "lift-power"
+      }
+    },
+    {
+      "id": "switch-wing-lamp",
+      "objective": "Select WING-LAMP, then press {key:toggle} to switch it on (10 of 30 units). It lights the side rooms.",
       "action": "toggle",
       "expected": {
         "pending": [
-          "path-lights",
+          "wing-lamp"
+        ]
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "wing-lamp"
+      }
+    },
+    {
+      "id": "apply-lamp",
+      "objective": "Press {key:apply} to close the console. The side rooms light up.",
+      "action": "apply",
+      "expected": {
+        "powered": [
+          "wing-lamp"
+        ],
+        "console": false
+      },
+      "target": {
+        "kind": "power"
+      }
+    },
+    {
+      "id": "walk-west",
+      "concept": true,
+      "title": "An energy cell",
+      "explanation": "The glowing battery in the west room is an energy cell. Walking onto it adds its power to the limit for good, until you restart the chamber. Only walking in the open collects cells, never a recording or a replay.",
+      "objective": "Press {key:move_left} to walk west along the lit corridor. Walking lit floor is free.",
+      "action": "left",
+      "expected": {
+        "player": [
+          2,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          2,
+          4
+        ]
+      }
+    },
+    {
+      "id": "take-cell",
+      "objective": "Press {key:move_up} to walk to the energy cell.",
+      "action": "up",
+      "expected": {
+        "player": [
+          2,
+          2
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "id": "leave-wing",
+      "objective": "Press {key:move_down} to walk back down the corridor.",
+      "action": "down",
+      "expected": {
+        "player": [
+          2,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          2,
+          4
+        ]
+      }
+    },
+    {
+      "id": "return",
+      "objective": "Press {key:move_right} to walk back to the power console.",
+      "action": "right",
+      "expected": {
+        "player": [
+          7,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    },
+    {
+      "id": "console-again",
+      "objective": "Press {key:console} to open the power console. The limit is now 50.",
+      "action": "open_console",
+      "expected": {
+        "console": true
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    },
+    {
+      "id": "lamp-off",
+      "objective": "Select WING-LAMP, then press {key:toggle} to switch it off. The lamp and the machines together would be 60 of 50.",
+      "action": "toggle",
+      "expected": {
+        "pending": []
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "wing-lamp"
+      }
+    },
+    {
+      "id": "switch-route-lights",
+      "objective": "Select ROUTE-LIGHTS, then press {key:toggle} to switch it on (15 units).",
+      "action": "toggle",
+      "expected": {
+        "pending": [
+          "route-lights"
+        ]
+      },
+      "target": {
+        "kind": "circuit",
+        "id": "route-lights"
+      }
+    },
+    {
+      "id": "switch-lift-again",
+      "objective": "Select LIFT-POWER, then press {key:toggle} to switch it on (35 units). That makes 50 of 50.",
+      "action": "toggle",
+      "expected": {
+        "pending": [
+          "route-lights",
           "lift-power"
         ]
       },
       "target": {
         "kind": "circuit",
-        "id": "aux-power"
+        "id": "lift-power"
       }
     },
     {
       "id": "apply",
-      "objective": "Press {key:apply} to close the console with 55 of 60 in use.",
+      "objective": "Press {key:apply} to close the console with 50 of 50 in use.",
       "action": "apply",
       "expected": {
         "powered": [
-          "path-lights",
+          "route-lights",
           "lift-power"
         ],
         "console": false
@@ -813,19 +671,19 @@
     },
     {
       "id": "walk-back",
-      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "objective": "Press {key:move_right} to walk back to the start. A recording starts from where you stand, so start it by the corridor.",
       "action": "right",
       "expected": {
         "player": [
-          11,
-          6
+          9,
+          4
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
+          9,
+          4
         ]
       }
     },
@@ -850,8 +708,8 @@
         "phase": "committed",
         "recorded": 0,
         "player": [
-          11,
-          6
+          9,
+          4
         ]
       },
       "target": {
@@ -865,61 +723,60 @@
       "expected": {
         "phase": "replay",
         "player": [
-          11,
-          6
+          9,
+          4
         ],
         "echo_index": 0
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
+          9,
+          4
+        ]
+      }
+    },
+    {
+      "id": "corridor",
+      "objective": "Press {key:move_right} to follow the lit corridor east.",
+      "action": "right",
+      "expected": {
+        "player": [
+          14,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          14,
+          4
         ]
       }
     },
     {
       "id": "pad",
-      "objective": "Press {key:move_right} to step onto pad A. This switches the elevator on.",
-      "action": "right",
+      "objective": "Press {key:move_down} to step onto pad A. This switches the elevator on.",
+      "action": "down",
       "expected": {
         "player": [
-          12,
-          6
+          14,
+          5
         ],
         "active_pad": "pad-a"
       },
       "target": {
         "kind": "tile",
         "position": [
-          12,
-          6
-        ]
-      }
-    },
-    {
-      "id": "floor",
-      "objective": "Press {key:move_right} to step onto the lit floor. Pad A stays on while its countdown runs.",
-      "action": "right",
-      "expected": {
-        "player": [
-          13,
-          6
-        ],
-        "active_pad": "pad-a"
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          13,
-          6
+          14,
+          5
         ]
       }
     },
     {
       "id": "exit",
-      "objective": "Press {key:move_right} to reach the elevator before the countdown ends.",
-      "action": "right",
+      "objective": "Press {key:move_down} to enter the elevator while the countdown runs.",
+      "action": "down",
       "expected": {
         "phase": "result",
         "player": [
@@ -936,5 +793,5 @@
       }
     }
   ],
-  "lesson_summary": "You tested the power limit and chose 55 of 60 units. Power is a limit, not a battery, and a timed pad stays on for a while after you leave it."
+  "lesson_summary": "You hit the power limit, fetched an energy cell to raise it and swapped the lamp for the machines. Power is a limit, not a battery, and cells are kept until you restart."
 }

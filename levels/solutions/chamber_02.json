@@ -2,16 +2,31 @@
   "steps": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
-        "path-lights",
+        "wing-lamp"
+      ]
+    },
+    "left",
+    "left",
+    "left",
+    "left",
+    "left",
+    "up",
+    "up",
+    "down",
+    "down",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    {
+      "power": [
+        "route-lights",
         "lift-power"
       ]
     },
-    "right",
-    "right",
     "right",
     "right",
     "enter",
@@ -19,6 +34,10 @@
     "launch",
     "right",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ]
 }

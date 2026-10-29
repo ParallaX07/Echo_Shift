@@ -258,7 +258,7 @@ def at_console(state):
 
 def test_a_power_change_fades_the_tiles_whose_light_changed():
     before = at_console(initial_state(chamber(2)))
-    after = recording.act(before, InteractAtConsole(frozenset({"lift-power"}))).state
+    after = recording.act(before, InteractAtConsole(frozenset({"wing-lamp"}))).state
     changed = lighting.lit_tiles(before) ^ lighting.lit_tiles(after)
     assert changed
     m = Motion()
@@ -337,8 +337,8 @@ def start(player, number=1, recording=True):
         player.press("E")  # open the console and switch the circuit on
         player.press("SPACE")
         player.press("ESCAPE")
-        for _ in range(4):
-            player.press("RIGHT")  # back to the door
+        for _ in range(3):
+            player.press("RIGHT")  # back to the start
     if recording:
         player.press("RETURN")
 
@@ -364,7 +364,7 @@ def test_new_input_snaps_the_running_animation_before_the_step(player):
     game = player.game
     tap(player, "RIGHT")
     assert game.motion.running
-    tap(player, "UP")  # a wall: the old glide ends, a nudge starts
+    tap(player, "DOWN")  # a wall: the old glide ends, a nudge starts
     assert game.motion.player(game.state.player)[0] == game.state.player.x
     assert not any(k[0] == "slide" for k in game.motion._effects)
 
@@ -372,9 +372,9 @@ def test_new_input_snaps_the_running_animation_before_the_step(player):
 def test_a_refused_move_nudges_in_the_game(player):
     start(player)
     game = player.game
-    tap(player, "UP")
+    tap(player, "DOWN")
     assert game.state.player == game.state.chamber.start
-    assert game.motion.player(game.state.player)[1] < game.state.player.y
+    assert game.motion.player(game.state.player)[1] > game.state.player.y
 
 
 def test_reduced_motion_shows_the_end_frame_in_the_game(player):
@@ -494,7 +494,7 @@ def test_the_playback_slot_pulses_and_returns_each_period():
 
 def test_the_power_bar_eases_from_the_old_load_to_the_new_one():
     before = at_console(initial_state(chamber(2)))
-    after = recording.act(before, InteractAtConsole(frozenset({"lift-power"}))).state
+    after = recording.act(before, InteractAtConsole(frozenset({"wing-lamp"}))).state
     old, new = motion._load(before), motion._load(after)
     assert old != new
     m = Motion()
@@ -600,13 +600,6 @@ def test_the_console_flickers_rarely_and_not_with_reduced_motion():
     assert not Motion(reduced=True).console_lit()
 
 
-def test_conduit_pulse_travels_the_rails_and_wraps():
-    assert motion.conduit(0) == 0
-    assert 0 < motion.conduit(motion.CONDUIT_FRAMES // 2) < 1
-    assert motion.conduit(motion.CONDUIT_FRAMES) == 0
-    assert Motion(reduced=True).conduit() is None
-
-
 def test_the_echo_leaves_a_short_dim_trail_of_where_it_was():
     base = initial_state(chamber(5))
     path = [Position(2 + i, 3) for i in range(6)]
@@ -673,7 +666,7 @@ def test_a_held_key_steps_at_once_then_as_each_glide_lands(player, reduced):
     game = player.game
     game.progress.settings.reduced_motion = reduced
     first = game.state.player
-    tiles = hold(player, "RIGHT", motion.WALK_FRAMES * 2 + 5)
+    tiles = hold(player, "RIGHT", motion.WALK_FRAMES + 5)
     assert changes(tiles, first) == [0, motion.WALK_FRAMES]
     assert tiles[0] == Position(first.x + 1, first.y)
 
@@ -700,7 +693,7 @@ def test_holding_does_not_cut_the_glide_short(player):
 def test_a_held_key_asks_once_and_stops_after_a_refused_step(player):
     start(player)
     game = player.game
-    code = key(player, "UP")
+    code = key(player, "DOWN")
     player.held.add(code)
     player.pressed.add(code)
     left = []

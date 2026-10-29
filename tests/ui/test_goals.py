@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+from echo_shift.engine.loader import load
 from echo_shift.engine.model import Goals
 from echo_shift.engine.turn import InteractAtConsole, Move, Wait
 from echo_shift.ui import goals, progress
@@ -16,6 +17,12 @@ MOVES = {
     "left": Move(-1, 0),
     "wait": Wait(),
 }
+
+
+# Chamber 3's goals, read from its level file so a re-tuned chamber needs no edit.
+CHAMBER_3 = load(LEVELS / "chamber_03.json")
+TURNS, RECORDED = CHAMBER_3.goals.turns, CHAMBER_3.goals.recorded
+LIMIT = CHAMBER_3.max_turns
 
 
 def trace(number, kind="turns"):
@@ -57,25 +64,32 @@ def test_goal_run_meets_both_goals_and_shows_them_on_the_card(player):
     game = start(player, 3)
     perform(game, trace(3))
     assert game.modal == "result"
-    assert game.run == goals.Run(7, 3, Goals(7, 3), 6)
+    assert game.run == goals.Run(TURNS, RECORDED, Goals(TURNS, RECORDED), LIMIT)
     assert game.run.lines() == [
-        "TURNS: 7 / GOAL 7 MET",
-        "RECORDED: 3 / GOAL 3 MET",
+        f"TURNS: {TURNS} / GOAL {TURNS} MET",
+        f"RECORDED: {RECORDED} / GOAL {RECORDED} MET",
     ]
     player.drawn.clear()
     game.draw()
     text = " ".join(player.drawn)
-    assert "TURNS: 7" in text and "GOAL 7" in text and "RECORDED: 3" in text
+    assert f"TURNS: {TURNS}" in text and f"GOAL {TURNS}" in text
+    assert f"RECORDED: {RECORDED}" in text
     assert saved(player).goals["3"] == {"turns": True, "recorded": True}
+
+
+def slower(steps):
+    """The solution with one more wait recorded, a turn and a command too many."""
+    at = steps.index("wait")
+    return [*steps[: at + 1], "wait", *steps[at + 1 :]]
 
 
 def test_a_slower_run_shows_its_misses_and_saves_no_goal(player):
     game = start(player, 3)
-    perform(game, solution(3))  # waits one turn longer than needed
-    assert game.run == goals.Run(8, 4, Goals(7, 3), 6)
+    perform(game, slower(solution(3)))
+    assert game.run == goals.Run(TURNS + 1, RECORDED + 1, Goals(TURNS, RECORDED), LIMIT)
     assert game.run.lines() == [
-        "TURNS: 8 / GOAL 7 NOT MET",
-        "RECORDED: 4 / GOAL 3 NOT MET",
+        f"TURNS: {TURNS + 1} / GOAL {TURNS} NOT MET",
+        f"RECORDED: {RECORDED + 1} / GOAL {RECORDED} NOT MET",
     ]
     assert saved(player).goals["3"] == {"turns": False, "recorded": False}
 
@@ -84,7 +98,7 @@ def test_goals_are_only_ever_upgraded(player):
     game = start(player, 3)
     perform(game, trace(3))
     start(player, 3)
-    perform(game, solution(3))  # a worse clear afterwards
+    perform(game, slower(solution(3)))  # a worse clear afterwards
     assert game.run.turns_met is False
     assert saved(player).goals["3"] == {"turns": True, "recorded": True}
 
@@ -113,7 +127,7 @@ def test_a_retry_does_not_add_turns(player):
     player.press("R")  # retry from launch
     assert game.failure is None and game.state.turns == launched
     perform(game, steps[launch_at:])
-    assert game.run.turns == 7 and game.run.turns_met
+    assert game.run.turns == TURNS and game.run.turns_met
 
 
 def test_a_failed_take_does_not_inflate_the_next_one(player):
@@ -123,13 +137,13 @@ def test_a_failed_take_does_not_inflate_the_next_one(player):
     game.update()
     player.press("RETURN")  # accept the discarded take
     perform(game, trace(3))
-    assert game.run.turns == 7
+    assert game.run.turns == TURNS
 
 
 def test_undo_keeps_the_count_consistent(player):
     game = start(player, 3)
     steps = trace(3)
-    cut = len(steps) - 4  # the four walking moves after the launch
+    cut = len(steps) - 6  # the six walking moves after the launch
     perform(game, steps[:cut])
     before = game.state.turns
     player.press("RIGHT")
@@ -137,7 +151,7 @@ def test_undo_keeps_the_count_consistent(player):
     player.press("Z")
     assert game.state.turns == before
     perform(game, steps[cut:])
-    assert game.run.turns == 7 and game.run.recorded == 3
+    assert game.run.turns == TURNS and game.run.recorded == RECORDED
 
 
 # ---- the level select ---------------------------------------------------------
@@ -180,7 +194,7 @@ def test_a_recording_goal_equal_to_the_limit_leaves_the_result_card_and_save(pla
 def test_targets_come_from_the_level_files():
     found = goals.targets(LEVELS, 8)  # chambers that do not exist are skipped
     assert sorted(found) == [1, 2, 3, 4, 5, 6]
-    assert found[3] == goals.Target(Goals(7, 3), 6)
+    assert found[3] == goals.Target(Goals(TURNS, RECORDED), LIMIT)
     assert found[6].goals == Goals(13, 4)
 
 

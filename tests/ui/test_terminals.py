@@ -1,4 +1,8 @@
-"""Log terminals: validated story props that open a free, undo-neutral card."""
+"""Log terminals: validated story props that open a free, undo-neutral card.
+
+A terminal stands on plain floor that free roam can light: a hub tile or a tile of
+a zone, anywhere in the chamber, so exploring a lit wing can be rewarded.
+"""
 
 import json
 from dataclasses import replace
@@ -7,7 +11,7 @@ import pytest
 
 from echo_shift.engine import loader
 from echo_shift.engine.loader import LevelError, load
-from echo_shift.engine.model import Phase, Position, initial_state
+from echo_shift.engine.model import Phase, Position, TileType, initial_state
 from echo_shift.engine.recording import enter, launch
 from echo_shift.paths import resource_path
 from echo_shift.ui import controls, guide, help, pointer, story
@@ -49,18 +53,20 @@ def test_every_chamber_has_two_or_three_terminals_away_from_console_and_door(num
     room = chamber(number)
     assert 2 <= len(found) <= 3
     (console,) = room.consoles
+    lightable = {tile for zone in room.zones for tile in zone.tiles}
     for terminal in found:
         at = terminal.position
-        assert at in room.hub
+        assert at in room.hub or at in lightable
         assert abs(at.x - console.x) + abs(at.y - console.y) >= 3
         assert abs(at.x - room.start.x) + abs(at.y - room.start.y) >= 3
         assert 2 <= len(terminal.lines) <= 3
 
 
 @pytest.mark.parametrize("number", CHAMBERS)
-def test_terminal_tiles_are_plain_walkable_hub_floor(number):
+def test_terminal_tiles_are_plain_walkable_floor(number):
     room = chamber(number)
-    assert all(room.tile_at(t.position).value == "hub" for t in terminals(number))
+    plain = {TileType.HUB, TileType.FLOOR}
+    assert all(room.tile_at(t.position) in plain for t in terminals(number))
 
 
 @pytest.mark.parametrize("number", CHAMBERS)
@@ -79,24 +85,25 @@ def test_no_terminals_is_fine():
     "data",
     [
         "terminal",
-        [{"position": [2, 3]}],
-        [{"position": [2, 3], "lines": ["Hi."], "extra": 1}],
-        [item(2, 3, ("",))],
-        [item(2, 3, ("   ",))],
-        [item(2, 3, ())],
-        [item(2, 3, ("a", "b", "c", "d"))],
-        [item(2, 3, ("x" * (story.MAX_LINE_CHARS + 1),))],
-        [item(2, 3, (3,))],
-        [{"position": [2, 3], "lines": "one line"}],
+        [{"position": [2, 4]}],
+        [{"position": [2, 4], "lines": ["Hi."], "extra": 1}],
+        [item(2, 4, ("",))],
+        [item(2, 4, ("   ",))],
+        [item(2, 4, ())],
+        [item(2, 4, ("a", "b", "c", "d"))],
+        [item(2, 4, ("x" * (story.MAX_LINE_CHARS + 1),))],
+        [item(2, 4, (3,))],
+        [{"position": [2, 4], "lines": "one line"}],
         [{"position": [2], "lines": ["Hi."]}],
-        [{"position": [2.0, 3], "lines": ["Hi."]}],
+        [{"position": [2.0, 4], "lines": ["Hi."]}],
         [{"position": [True, 3], "lines": ["Hi."]}],
         [item(0, 0)],  # a wall
-        [item(12, 6)],  # a pad outside the hub
-        [item(7, 6)],  # the console
-        [item(11, 6)],  # the door
-        [item(2, 3), item(2, 3)],  # the same tile twice
-        [item(2, 3), item(3, 4)],  # two close together
+        [item(12, 6)],  # a pad
+        [item(12, 7)],  # the elevator
+        [item(5, 5)],  # the console
+        [item(8, 5)],  # the start
+        [item(2, 4), item(2, 4)],  # the same tile twice
+        [item(2, 4), item(3, 4)],  # two close together
     ],
 )
 def test_bad_terminals_are_rejected(data):
@@ -105,8 +112,16 @@ def test_bad_terminals_are_rejected(data):
 
 
 def test_terminals_three_tiles_apart_are_accepted():
-    found = story.load_terminals([item(2, 3), item(2, 6)], chamber(1))
-    assert [t.position for t in found] == [Position(2, 3), Position(2, 6)]
+    found = story.load_terminals([item(1, 4), item(4, 4)], chamber(1))
+    assert [t.position for t in found] == [Position(1, 4), Position(4, 4)]
+
+
+def test_a_terminal_must_stand_where_free_roam_can_light_the_floor():
+    data = raw(1)
+    data["grid"][2][3] = "floor"  # open floor that no zone ever lights
+    room = loader.from_dict(data)
+    with pytest.raises(LevelError):
+        story.load_terminals([item(3, 2)], room)
 
 
 # ---- the action model ------------------------------------------------------------
@@ -123,7 +138,7 @@ def test_read_log_is_offered_on_or_next_to_a_terminal():
     found, state = near()
     for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
         here = replace(state, player=Position(state.player.x + dx, state.player.y + dy))
-        if here.player not in here.chamber.hub:
+        if here.chamber.tile_at(here.player) is TileType.WALL:
             continue
         action = use(here, found)
         assert (action.label, action.enabled, action.reason) == ("Read log", True, "")
@@ -154,9 +169,10 @@ def test_the_console_has_priority_when_standing_on_it():
     assert use(on_console, beside).label == "Power console"
 
 
-def test_reading_is_offered_in_every_phase_while_in_the_hub():
+def test_reading_is_offered_in_every_phase():
     found, ready = near()
-    recording = enter(ready)
+    base = initial_state(chamber())
+    recording = enter(base)
     committed = enter(recording)
     replaying = launch(committed)
     for phase, state in {
@@ -166,17 +182,18 @@ def test_reading_is_offered_in_every_phase_while_in_the_hub():
         Phase.REPLAY: replaying,
     }.items():
         assert state.phase is phase
-        # Recording and launching move the player to the door; stand beside the terminal again.
+        # Recording and launching move the player to the start; stand on the terminal again.
         here = replace(state, player=ready.player)
         assert use(here, found).label == "Read log", phase
 
 
-def test_reading_needs_the_player_to_be_in_the_hub():
-    _, state = near()
-    outside = replace(state, player=Position(12, 6))
-    next_to = (story.Terminal(Position(11, 6), ("A line.",)),)  # beside the pad
-    assert story.in_reach(outside, next_to) is None
-    assert not use(outside, next_to).enabled
+def test_reading_works_on_any_tile_next_to_a_terminal_not_only_in_the_hub():
+    found, state = near(dx=1)  # a corridor tile beside the first terminal
+    assert state.player not in state.chamber.hub
+    assert story.in_reach(state, found) is found[0]
+    assert use(state, found).enabled
+    far = replace(state, player=Position(state.player.x + 2, state.player.y))
+    assert story.in_reach(far, found) is None and not use(far, found).enabled
 
 
 def test_only_the_play_scope_offers_the_log():
@@ -266,6 +283,16 @@ def test_hover_outlines_your_terminal_but_not_a_far_console():
 
 
 # ---- the running game ------------------------------------------------------------
+
+
+def recording(player, number=1):
+    """Free play with a take started at the start tile."""
+    game = player.game
+    game.open_level(number)
+    player.press("F")
+    player.press("RETURN")
+    assert game.state.phase is Phase.RECORDING
+    return game
 
 
 def start(player, number=1, index=0, dx=0, dy=0):
@@ -361,10 +388,8 @@ def test_keys_that_would_act_do_nothing_while_the_card_is_open(player):
 
 
 def test_reading_works_while_recording_and_replaying(player):
-    game = start(player, dx=1)
-    player.press("RETURN")  # record at the hub
-    assert game.state.phase is Phase.RECORDING
-    game.state = replace(game.state, player=Position(game.terminals[0].position.x, 3))
+    game = recording(player)
+    game.state = replace(game.state, player=game.terminals[0].position)
     before, history = game.snapshot(), len(game.history)
     player.press("E")
     assert game.modal == "log"
@@ -390,6 +415,10 @@ def test_the_console_still_opens_on_the_console_and_refuses_elsewhere(player):
 
 def test_clicking_the_terminal_tile_next_to_the_player_moves_onto_it(player):
     game = start(player, dx=1)
+    game.state = replace(
+        initial_state(game.state.chamber, frozenset({"lift-power"})),
+        player=game.state.player,
+    )  # the side room has power, so the floor is lit
     at = game.terminals[0].position
     turns = game.state.turns
     player.click_tile(at.x, at.y)
@@ -412,10 +441,10 @@ def test_clicking_underfoot_reads_instead_of_waiting_and_far_does_nothing(player
 
 
 def test_clicking_underfoot_reads_while_recording_and_the_wait_button_waits(player):
-    game = start(player)
+    game = recording(player)
     at = game.terminals[0].position
-    player.press("RETURN")
-    assert game.state.phase is Phase.RECORDING
+    lit = frozenset({"lift-power"})  # waiting in the dark side room would fail the take
+    game.state = replace(game.state, powered_circuits=lit)
     game.state = replace(game.state, player=at)
     turns = game.state.turns
     player.click_tile(at.x, at.y)

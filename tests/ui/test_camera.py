@@ -3,6 +3,8 @@
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from echo_shift.engine.model import (
     Chamber,
     Circuit,
@@ -397,3 +399,91 @@ def test_a_small_chamber_zooms_to_fit_and_never_scrolls(player):
 def test_the_cap_stops_a_tiny_chamber_from_blowing_up():
     layout = Layout.fit(1280, 720)
     assert layout.tile_size(1, 1) == 2 * layout.cell
+
+
+# ---- the console drawer -------------------------------------------------------------
+
+
+def test_the_drawer_shrinks_tiles_just_enough_and_never_below_the_floor():
+    assert camera.drawer_cell(80, 60, (880, 560), 14, 9) == 62  # 560 // 9
+    assert camera.drawer_cell(80, 60, (880, 560), 15, 12) == 60  # held at the floor
+    assert camera.drawer_cell(40, 30, (880, 560), 10, 6) == 40  # already fits
+
+
+def test_the_tile_size_glides_and_lands_exactly_or_jumps_when_reduced():
+    cell, seen = 80, []
+    while cell != 60:
+        cell = camera.ease_cell(cell, 60)
+        seen.append(cell)
+    assert seen == sorted(seen, reverse=True) and len(seen) > 3
+    assert camera.ease_cell(80, 60, reduced=True) == 60
+
+
+def test_the_interest_box_is_centred_when_it_fits_and_the_player_when_not():
+    player, view = (5.5, 5.5), (11.0, 7.0)
+    assert camera.interest_focus(player, [], view) == player
+    assert camera.interest_focus(player, [(2, 4), (10, 6)], view) == (6.5, 5.5)
+    focus = camera.interest_focus(player, [(0, 0), (14, 6)], view)
+    assert focus == (5.5, 3.5)  # too wide: the player's x; the box fits vertically
+
+
+def test_an_exact_follow_centres_the_focus_instead_of_resting_in_the_dead_zone():
+    cam = Camera()
+    cam.follow((10.0, 5.0), SIZE, WORLD, "k")
+    near = cam.follow((11.5, 5.0), SIZE, WORLD, "k")
+    assert near[0] == cam.x  # inside the dead zone: the view stays
+    exact = [cam.follow((11.5, 5.0), SIZE, WORLD, "k", exact=True) for _ in range(200)]
+    assert abs(exact[-1][0] - (11.5 - SIZE[0] / 2)) < 0.02
+
+
+def drawer_case(number):
+    """(circuits on, cells taken, pending choice) of the key power change."""
+    return {
+        1: (frozenset(), frozenset(), frozenset({"lift-power"})),
+        2: (
+            frozenset({"wing-lamp"}),
+            frozenset({"cell-west"}),
+            frozenset({"route-lights", "lift-power"}),
+        ),
+        3: (frozenset(), frozenset(), frozenset({"lift-power"})),
+    }[number]
+
+
+@pytest.mark.parametrize("number", [1, 2, 3])
+def test_with_the_drawer_open_the_player_and_the_preview_stay_in_view(player, number):
+    game = player.game
+    game.open_level(number)
+    game.modal = game.lesson = None
+    chamber = game.state.chamber
+    powered, cells, pending = drawer_case(number)
+    (console,) = chamber.consoles
+    game.state = replace(initial_state(chamber, powered, cells), player=console)
+    game.pending = pending
+    game.camera.reset()
+    for _ in range(3):
+        game.draw()
+    game.console = True
+    for _ in range(120):  # the tiles glide and the camera settles
+        game.draw()
+    cell, ox, oy = game.room_view
+    port_x, port_y, port_w, port_h = game.layout.room_viewport(True)
+    shown = cues.console_preview(game.state, pending)
+    tiles = {game.state.player} | shown.dark | shown.lit
+    tiles |= {
+        d.position for d in chamber.devices if d.id in shown.losing | shown.gaining
+    }
+    assert shown.lit or shown.dark
+    for tile in tiles:
+        left, top = ox + tile.x * cell, oy + tile.y * cell
+        assert port_x <= left and left + cell <= port_x + port_w, (tile, "x")
+        assert port_y <= top and top + cell <= port_y + port_h, (tile, "y")
+    assert cell >= game.layout.min_tile * 3 // 4
+    game.console = False  # closing the drawer brings the full tile size back
+    for _ in range(120):
+        game.draw()
+    assert game.room_view[0] == game.layout.tile_size(
+        *(
+            framed_bounds(chamber)[2] - framed_bounds(chamber)[0] + 1,
+            framed_bounds(chamber)[3] - framed_bounds(chamber)[1] + 1,
+        )
+    )

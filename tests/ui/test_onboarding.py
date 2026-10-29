@@ -96,7 +96,7 @@ def test_hidden_actions_keep_working_by_key(player):
     game.open_level(1)
     player.press("F")
     player.to_console()
-    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4):
+    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 3):
         player.press(key)
     for key in ("RETURN", "RETURN", "RETURN", "RIGHT"):
         player.press(key)

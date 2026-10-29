@@ -134,8 +134,9 @@ def assert_bars_intact(driver: Driver) -> None:
         assert driver.pixel(x, bottom_y) == 5  # bottom bar's upper edge
         assert driver.pixel(x, bottom_y + bottom_h - 1) == 1
     left, top, right, bottom = room_extent(game)
-    if bottom - top <= layout.room_h and right - left <= width:
+    port_x, _, port_w, _ = layout.room_viewport(game.console)  # left of an open drawer
+    if bottom - top <= layout.room_h and right - left <= port_w:
         # A chamber that fits stays between the bars; a bigger one scrolls and
         # is clipped to the room, which the pixel checks above cover.
         assert layout.room_y <= top and bottom <= bottom_y
-        assert 0 <= left and right <= width
+        assert port_x <= left and right <= port_x + port_w

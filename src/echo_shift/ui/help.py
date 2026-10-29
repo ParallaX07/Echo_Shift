@@ -63,12 +63,12 @@ def room_info(
         if energy.position == position:
             if energy.id in state.cells_taken:
                 parts.append(
-                    f"An empty cell socket: its energy cell is taken (+{energy.value} capacity). Restarting the chamber puts it back."
+                    f"An empty cell socket: its energy cell is taken (+{energy.value} max power). Restarting the chamber puts it back."
                 )
             else:
                 title = "ENERGY CELL"
                 parts.append(
-                    f"Energy cell: +{energy.value} generator capacity. Walk onto it to pick it up, before a take or after saving one. A take or a replay never picks one up. Taken cells stay taken through launch and retry; restarting the chamber puts them back."
+                    f"Energy cell: +{energy.value} max power (generator capacity). Walk onto it to pick it up, before a take or after saving one. A take or a replay never picks one up. Taken cells stay taken through launch and retry; restarting the chamber puts them back."
                 )
     for conduit in state.chamber.conduits:
         if position in conduit.tiles:
@@ -172,7 +172,7 @@ def topics(
     taken = [c for c in cells if c.id in state.cells_taken]
     cell_note = (
         f"Generator: {state.chamber.capacity} base + {capacity - state.chamber.capacity} from "
-        f"{len(taken)}/{len(cells)} energy cells taken. Walk onto a cell to add its capacity. "
+        f"{len(taken)}/{len(cells)} energy cells taken. Walk onto a cell to raise your max power. "
         if cells
         else ""
     )

@@ -3,7 +3,6 @@
     "left",
     "left",
     "left",
-    "left",
     {
       "power": [
         "lift-power"
@@ -12,11 +11,14 @@
     "right",
     "right",
     "right",
-    "right",
     "enter",
     "enter",
     "launch",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ]
 }

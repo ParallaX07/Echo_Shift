@@ -148,7 +148,13 @@ def test_hover_explains_an_energy_cell():
     state = lit_state("lamp")
     title, text = room_info(state, CELL)
     assert title == "ENERGY CELL"
-    for phrase in ("+2", "capacity", "before a take or after saving", "never picks"):
+    for phrase in (
+        "+2",
+        "max power",
+        "capacity",
+        "before a take or after saving",
+        "never picks",
+    ):
         assert phrase in text
     taken = replace(state, cells_taken=frozenset({"c1"}))
     title, text = room_info(taken, CELL)
@@ -671,14 +677,16 @@ def test_the_plus_is_drawn_over_the_tile_while_it_floats(player):
         placed.append((x, value)) or real_text(x, y, value, *a, **k)
     )
     game.draw()
-    assert "+2" in player.drawn
+    assert "+2 MAX" in player.drawn
     cell, origin_x, _ = game.room_view
     # Right of the swelling cell, so the flyer never hides it.
-    assert all(x >= origin_x + (CELL.x + 0.7) * cell for x, v in placed if v == "+2")
+    assert all(
+        x >= origin_x + (CELL.x + 0.7) * cell for x, v in placed if v == "+2 MAX"
+    )
     game.motion.snap()
     player.drawn.clear()
     game.draw()
-    assert "+2" not in player.drawn
+    assert "+2 MAX" not in player.drawn
 
 
 def test_the_failure_cards_unavailable_retry_row_is_dimmed(player):

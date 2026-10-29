@@ -62,6 +62,10 @@ NUMBERS = sorted(
 )
 
 
+# Chambers built as a small hub with wings; the rest keep the large hub room.
+WING_CHAMBERS = [1, 2, 3]
+
+
 def test_all_six_chambers_have_a_solution():
     chambers = sorted(
         int(path.stem[-2:]) for path in LEVELS.glob("chamber_[0-9][0-9].json")

@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from echo_shift.engine.loader import load
-from echo_shift.engine.model import Position, initial_state
+from echo_shift.engine.model import initial_state
 from echo_shift.paths import resource_path
 from echo_shift.ui import app, controls
 from echo_shift.ui.history import History, Snapshot
@@ -59,15 +59,12 @@ def test_history_skips_a_duplicate_of_the_top_entry():
 def test_undo_power_choices_record_save_launch_retry_and_restart(player):
     game = free_play(player, 3)
     undoes(player, "LEFT")  # a free hub move
-    for _ in range(3):
-        player.press("LEFT")  # the console is four tiles from the door
+    player.press("LEFT")  # the console is two tiles from the start
     undoes(player, "E")  # opening the console
     undoes(player, "SPACE")  # staging a circuit
     undoes(player, "RETURN")  # applying power
-    for _ in range(4):
-        player.press("RIGHT")  # back to the door to record
-    undoes(player, "RETURN")  # record
-    undoes(player, "RIGHT")  # recorded move
+    undoes(player, "RETURN")  # record, right here at the console
+    undoes(player, "LEFT")  # recorded move
     undoes(player, "SPACE")  # recorded wait
     undoes(player, "RETURN")  # save recording
     undoes(player, "RETURN")  # launch
@@ -80,19 +77,21 @@ def test_undo_power_choices_record_save_launch_retry_and_restart(player):
 def test_undo_wait_in_replay_and_hidden_launch_alias(player):
     game = free_play(player, 3)
     player.to_console()
-    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RETURN"):
+    for key in ("E", "SPACE", "RETURN", "RETURN", "RETURN"):  # power, record, save
         player.press(key)
     undoes(player, "Q")  # the old launch key still launches, and still undoes
     assert game.state.phase.value == "replay"
 
 
-def test_undo_free_hub_move(player, monkeypatch):
+def test_undo_free_move_onto_lit_floor_outside_the_hub(player):
     game = free_play(player, 3)
-    chamber = game.state.chamber
-    wide = replace(chamber, hub=chamber.hub | {Position(12, 6)})
-    game.state = initial_state(wide)
+    player.to_console()
+    for key in ("E", "SPACE", "RETURN", "RIGHT", "RIGHT"):
+        player.press(key)
+    assert game.state.player in game.state.chamber.hub
     undoes(player, "RIGHT")
-    assert game.state.player == Position(12, 6)
+    assert game.state.player not in game.state.chamber.hub
+    assert game.state.turns == 0
 
 
 def test_rejected_inputs_push_nothing(player):
@@ -129,7 +128,7 @@ def test_undo_with_empty_history_is_a_disabled_action_with_a_reason(player):
 def test_undo_never_calls_the_engine(player, monkeypatch):
     game = free_play(player, 3)
     player.to_console()
-    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RIGHT"):
+    for key in ("E", "SPACE", "RETURN", "RETURN", "LEFT"):  # power, record, move
         player.press(key)
     moves = len(game.history)
 
@@ -156,14 +155,13 @@ def test_backspace_also_undoes(player):
 def test_undo_walks_back_through_the_whole_session(player):
     game = free_play(player, 3)
     states = [snap(game)]
-    walk = ["LEFT"] * 4
+    walk = ["LEFT"] * 2
     for key in (
         *walk,
         "E",
         "SPACE",
         "RETURN",
-        *["RIGHT"] * 4,
-        *("RETURN", "RIGHT", "SPACE", "RETURN", "RETURN"),
+        *("RETURN", "LEFT", "SPACE", "RETURN", "RETURN"),
     ):
         player.press(key)
         states.append(snap(game))

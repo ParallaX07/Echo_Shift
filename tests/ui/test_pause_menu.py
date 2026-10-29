@@ -135,7 +135,7 @@ def test_quit_to_title_from_the_pause_menu(player):
 def test_echo_key_enter_f_and_hidden_q(player):
     game = start(player)
     player.to_console()
-    for key in ("E", "SPACE", "RETURN", *["RIGHT"] * 4, "RETURN", "RETURN"):
+    for key in ("E", "SPACE", "RETURN", "RETURN", "RETURN"):  # power, record, save
         player.press(key)
     assert game.state.phase is Phase.COMMITTED
     action = controls.find(game.actions(), "echo")

@@ -45,8 +45,8 @@ def test_undo_returns_to_the_state_before_a_failure(real):
 
 def test_console_drawer_opens_toggles_applies_and_closes(real):
     game = start(real, 2)
-    for _ in range(4):
-        real.press("LEFT")  # the console is a few tiles from the door
+    for _ in range(2):
+        real.press("LEFT")  # the console is two tiles from the start
     real.frame(60)
     room_before = room_extent(game)
     real.press("E")
@@ -74,7 +74,7 @@ def test_console_apply_costs_a_turn_while_recording(real):
     game = start(real, 2)
     real.press("RETURN")  # record
     assert game.state.phase is Phase.RECORDING
-    for _ in range(4):
+    for _ in range(2):
         real.press("LEFT")  # recorded moves to the console
     real.press("E")
     assert game.console
@@ -91,7 +91,7 @@ def test_console_apply_costs_a_turn_while_recording(real):
 
 def test_mouse_tile_click_moves_like_the_arrow_key(real):
     game = start(real, 1)
-    for key in ("LEFT",) * 4 + ("E", "SPACE", "RETURN") + ("RIGHT",) * 4:
+    for key in ("LEFT",) * 3 + ("E", "SPACE", "RETURN") + ("RIGHT",) * 3:
         real.press(key)
     real.press("RETURN")  # record
     start_tile = game.state.player

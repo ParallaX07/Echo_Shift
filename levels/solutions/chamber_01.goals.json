@@ -5,7 +5,6 @@
     "left",
     "left",
     "left",
-    "left",
     {
       "power": [
         "lift-power"
@@ -13,7 +12,11 @@
     },
     "launch",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ],
   "recorded": [
     "enter",
@@ -21,7 +24,6 @@
     "left",
     "left",
     "left",
-    "left",
     {
       "power": [
         "lift-power"
@@ -29,6 +31,10 @@
     },
     "launch",
     "right",
-    "right"
+    "right",
+    "right",
+    "right",
+    "down",
+    "down"
   ]
 }

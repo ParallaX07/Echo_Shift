@@ -1,9 +1,9 @@
 """Safe and unsafe floor differ by texture, not only by colour or brightness.
 
 A player who cannot tell the colours apart sees the floor in grey. Brightness
-alone is a weak cue (the calm hub floor is about as bright as dark floor), so
-the tiles are compared by their binarised gradient maps: where the grey level
-changes sharply. A uniform brightness shift cannot change that map.
+alone is a weak cue, so the tiles are compared by their binarised gradient maps:
+where the grey level changes sharply. A uniform brightness shift cannot change
+that map.
 """
 
 import json
@@ -76,16 +76,19 @@ def test_every_safe_floor_differs_in_texture_from_the_dark_floor():
         assert difference(safe, unsafe) >= MIN_DIFFERENT, name
 
 
-def test_the_calm_hub_floor_is_not_told_apart_by_brightness_alone():
-    """The pairs that are close in mean grey are the ones texture must carry."""
+def mean(levels):
+    return sum(map(sum, levels)) / (len(levels) * len(levels[0]))
+
+
+def test_the_hub_interior_reads_as_lit_and_has_its_own_texture():
+    """Bright like lit floor in grey, but its pattern still tells the hub apart."""
     unsafe = grey(dark("floor_lit"))
+    lit = grey(indices("floor_lit"))
     inner = grey(indices("floor_hub_inner"))
-
-    def mean(levels):
-        return sum(map(sum, levels)) / (len(levels) * len(levels[0]))
-
-    assert abs(mean(inner) - mean(unsafe)) < 25
+    assert mean(inner) > mean(unsafe) + 60
+    assert mean(inner) > 0.75 * mean(lit)
     assert difference(inner, unsafe) >= MIN_DIFFERENT
+    assert difference(inner, lit) >= MIN_DIFFERENT
 
 
 def test_safe_floor_is_busier_than_dark_floor_in_grey():
@@ -106,9 +109,6 @@ def test_live_conduit_off_conduit_and_floor_differ_in_texture_not_only_hue():
 
 def test_a_live_conduit_is_busier_and_brighter_than_an_idle_one_in_grey():
     live, off = (grey(indices(name)) for name in reversed(CONDUITS))
-
-    def mean(levels):
-        return sum(map(sum, levels)) / (len(levels) * len(levels[0]))
 
     assert len(edge_map(live)) > 1.3 * len(edge_map(off))
     assert mean(live) > mean(off)

@@ -6,7 +6,12 @@ import pytest
 
 from echo_shift.engine.loader import load
 from echo_shift.engine.search import Verdict, analyze, play
-from tests.solutions.test_solutions import LEVELS, NUMBERS, solution_steps
+from tests.solutions.test_solutions import (
+    LEVELS,
+    NUMBERS,
+    WING_CHAMBERS,
+    solution_steps,
+)
 
 WITH_GOALS = [n for n in NUMBERS if load(LEVELS / f"chamber_{n:02}.json").goals]
 
@@ -36,19 +41,21 @@ def test_chamber_ideas_follow_the_teaching_order():
 
 
 def test_difficulty_rises_with_the_chamber_number():
-    turns = [load(LEVELS / f"chamber_{n:02}.json").goals.turns for n in NUMBERS]
-    assert turns == sorted(set(turns)), turns  # strictly rising fewest turns
-
-
-# Chamber 3's lesson records one extra wait so each step is easy to follow.
-SPARE_TURNS = {3: 1}
+    # The wing chambers walk a longer route than the large hub rooms do, so the
+    # fewest turns rise strictly within each group of layouts.
+    for group in (
+        WING_CHAMBERS,
+        [n for n in NUMBERS if n not in WING_CHAMBERS],
+    ):
+        turns = [load(LEVELS / f"chamber_{n:02}.json").goals.turns for n in group]
+        assert turns == sorted(set(turns)), turns  # strictly rising fewest turns
 
 
 @pytest.mark.parametrize("number", NUMBERS)
 def test_the_intended_solution_is_a_shortest_one(number):
     chamber = load(LEVELS / f"chamber_{number:02}.json")
     exited, turns, _, _ = play(chamber, tuple(solution_steps(number)))
-    assert exited and turns - chamber.goals.turns == SPARE_TURNS.get(number, 0)
+    assert exited and turns == chamber.goals.turns
 
 
 def test_every_goal_has_a_trace_and_every_trace_has_goals():

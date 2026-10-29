@@ -41,7 +41,7 @@ from echo_shift.ui.display import Display
 from echo_shift.ui.help import pad_label, room_info, topics
 from echo_shift.ui.history import History, Snapshot
 from echo_shift.ui.hud import Hud, model, next_step
-from echo_shift.ui.layout import Layout, framed_bounds, line_height, route_bounds
+from echo_shift.ui.layout import Layout, framed_bounds, line_height
 from echo_shift.ui.telemetry import Attempt
 from echo_shift.ui.tutorial import (
     Tutorial,
@@ -181,6 +181,7 @@ class Game:
         self.room_bounds = (0, 0, 0, 0)
         self.hub_edge: tuple[object, frozenset[Position]] = (None, frozenset())
         self.camera = camera.Camera()
+        self.zoom: list = [None, 0]  # [key, eased tile size]
         self.text_cache = {}
         self.fonts = {}
         (user_data_dir() / "startup.log").write_text("Echo Shift started\n")
@@ -1455,7 +1456,6 @@ class Game:
         if self.hub_edge[0] is not state.chamber:
             self.hub_edge = (state.chamber, cues.hub_thresholds(state.chamber))
         hub_edge = self.hub_edge[1]
-        left_x, top_y, right_x, bottom_y = route_bounds(state.chamber)
         route = {
             Position(x, y)
             for y, row in enumerate(state.chamber.tiles)
@@ -1464,14 +1464,37 @@ class Game:
         }
         bounds = framed_bounds(state.chamber)
         port = layout.room_viewport(self.console)
-        cell = layout.tile_size(bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1)
+        columns, rows = bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1
+        base = layout.tile_size(columns, rows)
+        reduced = self.progress.settings.reduced_motion
+        # With the drawer open the room is the part left of it: the tiles shrink a
+        # little so the whole chamber fits there, and glide back when it closes.
+        target = base
+        if self.console:
+            target = camera.drawer_cell(
+                base, layout.min_tile * 3 // 4, port[2:], columns, rows
+            )
+        zoom_key = (base, layout.room, state.chamber)
+        if self.zoom[0] != zoom_key:
+            self.zoom = [zoom_key, target]
+        cell = self.zoom[1] = camera.ease_cell(self.zoom[1], target, reduced)
         shown_x, shown_y, _ = self.motion.player(state.player)
+        size = (port[2] / cell, port[3] / cell)
+        focus, exact = (shown_x + 0.5, shown_y + 0.5), False
+        if self.console:  # keep what the pending choice changes in view with the player
+            shown = cues.console_preview(state, self.pending)
+            devices_moved = shown.losing | shown.gaining
+            changed = shown.dark | shown.lit | shown.live
+            changed |= {
+                d.position for d in state.chamber.devices if d.id in devices_moved
+            }
+            if changed:
+                focus = camera.interest_focus(
+                    focus, [(t.x, t.y) for t in changed], size
+                )
+                exact = True
         view_at = self.camera.follow(
-            (shown_x + 0.5, shown_y + 0.5),
-            (port[2] / cell, port[3] / cell),
-            bounds,
-            (cell, layout.room),
-            self.progress.settings.reduced_motion,
+            focus, size, bounds, (base, layout.room), reduced, exact
         )
         origin_x, origin_y = camera.view_origin(port, cell, view_at)
         view = (cell, origin_x, origin_y)
@@ -1601,30 +1624,6 @@ class Game:
                     )
         if live:
             self.draw_dust(lit, (min_x, min_y, max_x, max_y), view)
-        left = origin_x + left_x * cell
-        right = origin_x + (right_x + 1) * cell
-        top = origin_y + top_y * cell
-        bottom = origin_y + (bottom_y + 1) * cell
-        rail = max(2, cell // 32)
-        pyxel.rect(left, top - rail * 3, right - left, rail, 5)
-        pyxel.rect(left, bottom + rail * 2, right - left, rail, 5)
-        if state.powered_circuits and (travelled := self.motion.conduit()) is not None:
-            # The rails are the only drawn conduit, so a powered chamber pulses there.
-            pulse = max(rail * 6, cell // 2)
-            for rail_y, share in (
-                (top - rail * 3, travelled),
-                (bottom + rail * 2, 1.0 - travelled),
-            ):
-                pyxel.rect(
-                    left + round((right - left - pulse) * share),
-                    rail_y,
-                    pulse,
-                    rail,
-                    12,
-                )
-        for edge in (left, right - rail * 2):
-            pyxel.rect(edge, top - rail * 5, rail * 2, rail * 5, 12)
-            pyxel.rect(edge, bottom, rail * 2, rail * 5, 9)
         self.draw_cues(view, frame, timers, occupied, focus, letter, letter_char)
         flicker = motion.blink(getattr(pyxel, "frame_count", 0), 0.4)
         if frame is not None:
@@ -1670,8 +1669,6 @@ class Game:
             cuedraw.burst(view, (sparks[0].x, sparks[0].y), sparks[1])
         for at, sparks in self.motion.sparkles():
             cuedraw.burst(view, (at.x, at.y), sparks)
-        for at, value, rise, ink in self.motion.floaters():
-            self.draw_plus(view, at, value, rise, ink)
         cuedraw.offscreen(
             view,
             port,
@@ -1698,10 +1695,10 @@ class Game:
     def draw_plus(
         self, view: cuedraw.View, at: Position, value: int, rise: float, ink: float
     ) -> None:
-        """The "+N" over a taken cell, rising and fading."""
+        """The "+N MAX" over a taken cell, rising and fading: only the limit grows."""
         cell, origin_x, origin_y = view
         scale = self.layout.text_scale + 1
-        label = f"+{value}"
+        label = f"+{value} MAX"
         # Beside the flying cell, so it stays readable as the cell leaves the tile.
         x = origin_x + round((at.x + 0.72) * cell)
         y = origin_y + round((at.y + 0.2 - rise) * cell)
@@ -1709,6 +1706,13 @@ class Game:
         self.text(x + scale, y + scale, label, 1, scale)
         self.text(x, y, label, 10, scale)
         pyxel.dither(1.0)
+
+    def draw_floaters(self) -> None:
+        """The "+N MAX" labels, over the flying cells so they are never covered."""
+        pyxel.clip(*self.layout.room)
+        for at, value, rise, ink in self.motion.floaters():
+            self.draw_plus(self.shaken, at, value, rise, ink)
+        pyxel.clip()
 
     def draw_flights(self) -> None:
         """Picked-up cells flying from their tile to the POWER readout."""
@@ -2699,6 +2703,7 @@ class Game:
         self.draw_room()
         self.draw_bars()
         self.draw_flights()
+        self.draw_floaters()
         self.draw_lesson_card()
         if self.console or self.motion.drawer_hidden() is not None:
             self.draw_console()

@@ -5,6 +5,7 @@ never feeds anything back into the rules or the input. Positions are in tiles;
 the view is the top-left corner of the visible window in chamber coordinates.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 Bounds = tuple[int, int, int, int]  # min_x, min_y, max_x, max_y (inclusive tiles)
@@ -23,6 +24,43 @@ def centred(focus: float, size: float, low: float, high: float) -> float:
     if high - low <= size:
         return low - (size - (high - low)) / 2
     return min(max(focus - size / 2, low), high - size)
+
+
+def drawer_cell(base: int, floor: int, port: Point, columns: int, rows: int) -> int:
+    """The tile size with the console drawer open.
+
+    The room shrinks to the part left of the drawer, so tiles shrink just enough
+    to show the whole chamber there, never below `floor` and never above `base`.
+    """
+    fit = max(1, min(int(port[0]) // columns, int(port[1]) // rows))
+    return min(base, max(floor, fit))
+
+
+def ease_cell(current: int, target: int, reduced: bool = False) -> int:
+    """One frame of the tile size gliding to `target` (at once when reduced)."""
+    gap = target - current
+    if reduced or abs(gap) <= 1:
+        return target
+    return current + (1 if gap > 0 else -1) * max(1, abs(gap) // 4)
+
+
+def interest_focus(
+    player: Point, tiles: Iterable[tuple[int, int]], size: Point
+) -> Point:
+    """Where to centre the view to show the player and every tile in `tiles`.
+
+    Per axis the box of all of them is centred when it fits the view; when it
+    does not, the player stays centred so they are never lost.
+    """
+    found = list(tiles)
+    if not found:
+        return player
+    focus = []
+    for axis in (0, 1):
+        low = min(player[axis] - 0.5, *(t[axis] for t in found))
+        high = max(player[axis] + 0.5, *(t[axis] + 1 for t in found))
+        focus.append((low + high) / 2 if high - low <= size[axis] else player[axis])
+    return focus[0], focus[1]
 
 
 def follow_axis(
@@ -60,12 +98,14 @@ class Camera:
         world: Bounds,
         key: object = None,
         reduced: bool = False,
+        exact: bool = False,
     ) -> Point:
         """Move towards the player and return the view origin in tiles.
 
         `focus` is the drawn player centre, `size` the view in tiles and `world`
         the tiles that may be shown. A new `key` (window size, chamber), a first
         frame or a player who moved more than a tile at once snaps the view.
+        `exact` centres `focus` instead of letting it roam the dead zone.
         """
         min_x, min_y, max_x, max_y = world
         lows, highs = (min_x, min_y), (max_x + 1, max_y + 1)
@@ -78,13 +118,18 @@ class Camera:
         self.key, self.focus = key, focus
         current = [self.x, self.y]
         for axis in (0, 1):
-            if snap:
-                target = centred(focus[axis], size[axis], lows[axis], highs[axis])
-                current[axis] = target
+            if snap or highs[axis] - lows[axis] <= size[axis]:
+                # A first frame, or a chamber that fits the view, is just centred.
+                current[axis] = centred(
+                    focus[axis], size[axis], lows[axis], highs[axis]
+                )
                 continue
-            target = follow_axis(
-                current[axis], focus[axis], size[axis], lows[axis], highs[axis]
-            )
+            if exact:
+                target = centred(focus[axis], size[axis], lows[axis], highs[axis])
+            else:
+                target = follow_axis(
+                    current[axis], focus[axis], size[axis], lows[axis], highs[axis]
+                )
             if reduced or abs(target - current[axis]) < SETTLED:
                 current[axis] = target
             else:

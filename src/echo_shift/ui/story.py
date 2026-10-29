@@ -1,14 +1,15 @@
-"""Pyxel-free log terminals: optional story props on hub tiles.
+"""Pyxel-free log terminals: optional story props on plain floor.
 
-A chamber file may list `terminals`, each a hub tile and a few short lines.
-The rules never see them: they are floor props that open a reading card.
+A chamber file may list `terminals`, each a hub or floor tile that free roam can
+light (the hub, or a zone) and a few short lines. The rules never see them: they
+are floor props that open a reading card.
 """
 
 from dataclasses import dataclass
 from typing import Any
 
 from echo_shift.engine.loader import LevelError
-from echo_shift.engine.model import Chamber, Position, State
+from echo_shift.engine.model import Chamber, Position, State, TileType
 
 MAX_LINES = 3
 MAX_LINE_CHARS = 64
@@ -51,11 +52,14 @@ def load_terminals(data: Any, chamber: Chamber) -> tuple[Terminal, ...]:
     if not isinstance(data, list):
         raise LevelError("terminals must be a list")
     terminals = tuple(_terminal(item) for item in data)
+    lightable = {tile for zone in chamber.zones for tile in zone.tiles}
     seen: list[Position] = []
     for terminal in terminals:
         at = terminal.position
-        if at not in chamber.hub:
-            raise LevelError(f"terminal {(at.x, at.y)} must be on a hub tile")
+        if chamber.tile_at(at) not in {TileType.HUB, TileType.FLOOR}:
+            raise LevelError(f"terminal {(at.x, at.y)} must be on plain floor")
+        if at not in chamber.hub and at not in lightable:
+            raise LevelError(f"terminal {(at.x, at.y)} must be on a lightable tile")
         if at in chamber.consoles or at == chamber.start:
             raise LevelError(
                 f"terminal {(at.x, at.y)} cannot be on the console or door"
@@ -67,9 +71,9 @@ def load_terminals(data: Any, chamber: Chamber) -> tuple[Terminal, ...]:
 
 
 def in_reach(state: State, terminals: tuple[Terminal, ...]) -> Terminal | None:
-    """The terminal the player can read: on or next to it, in the hub, console not underfoot."""
+    """The terminal the player can read: on or next to it, console not underfoot."""
     player = state.player
-    if player not in state.chamber.hub or player in state.chamber.consoles:
+    if player in state.chamber.consoles:
         return None
     return next(
         (

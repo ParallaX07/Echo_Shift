@@ -39,17 +39,19 @@ left off the bar and the guide's Controls page; their keys always work.
 
 ## Lessons
 
-The console is a short walk from the door, so every lesson begins with a walking
+The console is a short walk from the start, so every lesson begins with a walking
 step (one step, several key presses: it finishes when the technician stands on
-the console, and the card for the idea closes with the first press) and walks
-back to the door before a recording starts, because a recording begins where the
-technician stands. Chamber 1 teaches the technician, hub, lighting, console,
-empty-take launch, movement, timed pads and elevator completion. Chamber 2 deliberately tries
-applying all three circuits (70/60), observes rejection, removes auxiliary
-power, applies 55/60 and uses the timed pad's active window. Chamber 3 records a
-move and three separate waits, introduces Retry and Re-record, then uses the
-echo to hold a passive pad while crossing the gate. The route layouts, power
-costs and recording limits are unchanged.
+the console, and the card for the idea closes with the first press). A recording
+begins where the technician stands, so lessons that need the start tile walk
+back to it first, and chamber 3 records from the console itself. Chamber 1
+teaches the technician, hub, free walking on lit floor, lighting, console,
+empty-take launch, movement, timed pads and elevator completion. Chamber 2
+deliberately tries the lift on its own (35/30) and observes the rejection, lights
+the wings with the lamp, walks west to the energy cell, returns to the console,
+swaps the lamp for the route lights and the lift (50/50) and uses the timed pad's
+active window. Chamber 3 records four moves and a wait, introduces Retry and
+Re-record, then uses the echo to hold a passive pad in the west corridor while
+crossing the gate in the east one.
 
 Chamber 4 lights a side nook to record a walk onto its pad, then swaps the lights
 for the machines (the generator cannot run both) so the echo holds the pad in the

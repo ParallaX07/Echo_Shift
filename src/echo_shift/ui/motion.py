@@ -49,7 +49,7 @@ CELL_POP_GROW = 0.5
 CELL_FLY_FRAMES = 28  # ... and flies in an arc to the power readout
 CELL_FLY_SHRINK = 0.35  # its size on arrival, as a share of its size on the tile
 PICKUP_FRAMES = PICKUP_LEAD + CELL_POP_FRAMES + CELL_FLY_FRAMES
-PLUS_FRAMES = 40  # the "+N" rising from the tile
+PLUS_FRAMES = 40  # the "+N MAX" rising from the tile
 PLUS_RISE = 0.8  # tiles
 CAPACITY_TICK_FRAMES = 18  # the capacity number counting up once the cell arrives
 CAPACITY_FRAMES = 30  # ... while the readout pulses and bounces
@@ -83,7 +83,6 @@ BREATH_SECONDS = 0.8  # the idle bob switches this often
 SPRITE_PX = 96  # sprites are this many pixels tall; the bob is one of them
 FLICKER_PERIOD = 150  # the hub console screen flickers once per period
 FLICKER_FRAMES = 4  # ... for this many frames (well under 3 flashes a second)
-CONDUIT_FRAMES = 180  # a pulse crossing the powered conduit rails
 TRAIL_LENGTH = 3  # echo positions kept for its ghost trail
 TRAIL_ALPHA = (0.5, 0.3, 0.15)  # dither strength of each trail ghost, newest first
 DUST_COUNT = 6
@@ -309,7 +308,7 @@ def pickup_flight(elapsed: int) -> Flight | None:
 
 
 def plus_float(elapsed: int) -> tuple[float, float] | None:
-    """The "+N" over a taken cell: (tiles risen, ink 1..0); None before and after."""
+    """The "+N MAX" over a taken cell: (tiles risen, ink 1..0); None before and after."""
     if elapsed < PICKUP_LEAD or elapsed >= PICKUP_LEAD + PLUS_FRAMES:
         return None
     p = progress(elapsed - PICKUP_LEAD, PLUS_FRAMES)
@@ -431,11 +430,6 @@ def pulse(frame: int) -> float:
 def console_lit(frame: int) -> bool:
     """Whether the hub console shows its flicker frame."""
     return frame % FLICKER_PERIOD < FLICKER_FRAMES
-
-
-def conduit(frame: int) -> float:
-    """How far (0..1) a pulse has travelled along the conduit rails."""
-    return frame % CONDUIT_FRAMES / CONDUIT_FRAMES
 
 
 class Mote(NamedTuple):
@@ -825,7 +819,7 @@ class Motion:
         return [(at, flight) for at, flight in found if flight is not None]
 
     def floaters(self) -> list[tuple[Position, int, float, float]]:
-        """Each "+N" on show: tile, value, tiles risen, ink (1 solid, 0 gone)."""
+        """Each "+N MAX" on show: tile, value, tiles risen, ink (1 solid, 0 gone)."""
         found = [
             (params[0], params[1], plus_float(elapsed))
             for elapsed, params in self._each("plus")
@@ -898,10 +892,6 @@ class Motion:
 
     def console_lit(self) -> bool:
         return not self.reduced and console_lit(self.clock)
-
-    def conduit(self) -> float | None:
-        """Where a pulse is along the conduit rails (0..1), or None when reduced."""
-        return None if self.reduced else conduit(self.clock)
 
     def dust(self) -> tuple[Mote, ...]:
         return () if self.reduced else dust(self.clock)

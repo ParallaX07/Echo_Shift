@@ -14,6 +14,21 @@
       "wall",
       "wall",
       "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "wall",
       "wall"
     ],
@@ -25,8 +40,7 @@
       "wall",
       "wall",
       "wall",
-      "wall",
-      "wall",
+      "floor",
       "wall",
       "wall",
       "wall",
@@ -38,14 +52,29 @@
       "wall",
       "wall",
       "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "floor",
+      "floor",
+      "floor",
+      "floor",
       "hub",
       "hub",
       "hub",
       "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -54,141 +83,52 @@
     [
       "wall",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
       "wall",
       "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "console",
       "hub",
       "hub",
       "hub",
-      "hub",
+      "floor",
+      "floor",
+      "floor",
+      "floor",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "pad",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "elevator",
       "wall"
     ],
     [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
       "wall",
       "wall",
       "wall",
@@ -207,91 +147,15 @@
   ],
   "hub": [
     [
-      11,
-      6
-    ],
-    [
-      3,
-      2
-    ],
-    [
-      4,
-      2
+      8,
+      5
     ],
     [
       5,
-      2
+      4
     ],
     [
       6,
-      2
-    ],
-    [
-      7,
-      2
-    ],
-    [
-      8,
-      2
-    ],
-    [
-      9,
-      2
-    ],
-    [
-      10,
-      2
-    ],
-    [
-      2,
-      3
-    ],
-    [
-      3,
-      3
-    ],
-    [
-      4,
-      3
-    ],
-    [
-      5,
-      3
-    ],
-    [
-      6,
-      3
-    ],
-    [
-      7,
-      3
-    ],
-    [
-      8,
-      3
-    ],
-    [
-      9,
-      3
-    ],
-    [
-      10,
-      3
-    ],
-    [
-      1,
-      4
-    ],
-    [
-      2,
-      4
-    ],
-    [
-      3,
-      4
-    ],
-    [
-      4,
       4
     ],
     [
@@ -301,30 +165,6 @@
     [
       8,
       4
-    ],
-    [
-      9,
-      4
-    ],
-    [
-      10,
-      4
-    ],
-    [
-      1,
-      5
-    ],
-    [
-      2,
-      5
-    ],
-    [
-      3,
-      5
-    ],
-    [
-      4,
-      5
     ],
     [
       5,
@@ -337,232 +177,89 @@
     [
       7,
       5
-    ],
-    [
-      8,
-      5
-    ],
-    [
-      9,
-      5
-    ],
-    [
-      10,
-      5
-    ],
-    [
-      1,
-      6
-    ],
-    [
-      2,
-      6
-    ],
-    [
-      3,
-      6
-    ],
-    [
-      4,
-      6
-    ],
-    [
-      5,
-      6
-    ],
-    [
-      6,
-      6
-    ],
-    [
-      7,
-      6
-    ],
-    [
-      8,
-      6
-    ],
-    [
-      9,
-      6
-    ],
-    [
-      10,
-      6
-    ],
-    [
-      1,
-      7
-    ],
-    [
-      2,
-      7
-    ],
-    [
-      3,
-      7
-    ],
-    [
-      4,
-      7
-    ],
-    [
-      5,
-      7
-    ],
-    [
-      6,
-      7
-    ],
-    [
-      7,
-      7
-    ],
-    [
-      8,
-      7
-    ],
-    [
-      9,
-      7
-    ],
-    [
-      10,
-      7
-    ],
-    [
-      1,
-      8
-    ],
-    [
-      2,
-      8
-    ],
-    [
-      3,
-      8
-    ],
-    [
-      4,
-      8
-    ],
-    [
-      7,
-      8
-    ],
-    [
-      8,
-      8
-    ],
-    [
-      9,
-      8
-    ],
-    [
-      10,
-      8
-    ],
-    [
-      2,
-      9
-    ],
-    [
-      3,
-      9
-    ],
-    [
-      4,
-      9
-    ],
-    [
-      5,
-      9
-    ],
-    [
-      6,
-      9
-    ],
-    [
-      7,
-      9
-    ],
-    [
-      8,
-      9
-    ],
-    [
-      9,
-      9
-    ],
-    [
-      10,
-      9
-    ],
-    [
-      3,
-      10
-    ],
-    [
-      4,
-      10
-    ],
-    [
-      5,
-      10
-    ],
-    [
-      6,
-      10
-    ],
-    [
-      7,
-      10
-    ],
-    [
-      8,
-      10
-    ],
-    [
-      9,
-      10
-    ],
-    [
-      10,
-      10
     ]
   ],
   "consoles": [
     [
-      7,
-      6
+      5,
+      5
     ]
   ],
   "start": [
-    11,
-    6
+    8,
+    5
   ],
   "exit": [
-    13,
-    6
+    12,
+    7
   ],
   "capacity": 60,
   "max_turns": 6,
   "idea": "movement",
   "goals": {
-    "turns": 2,
+    "turns": 6,
     "recorded": 0
   },
   "zones": [
     {
-      "id": "path",
+      "id": "side",
       "tiles": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          7,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "route",
+      "tiles": [
+        [
+          9,
+          5
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          11,
+          5
+        ],
+        [
+          12,
+          5
+        ],
         [
           12,
           6
         ],
         [
-          13,
-          6
+          12,
+          7
         ]
       ]
     }
@@ -572,7 +269,8 @@
       "id": "lift-power",
       "load": 20,
       "zones": [
-        "path"
+        "side",
+        "route"
       ],
       "devices": [
         "lift"
@@ -594,22 +292,22 @@
       "id": "lift",
       "kind": "elevator",
       "position": [
-        13,
-        6
+        12,
+        7
       ],
       "circuit": "lift-power",
       "pad": "pad-a"
     }
   ],
   "hints": [
-    "Leaving the pad starts a countdown. The elevator stops when it reaches zero, unless someone stands on the pad.",
-    "Walk left to the console, switch on LIFT-POWER, walk back to the door, record and save an empty recording ({key:echo} twice), launch with {key:echo}, then walk right twice."
+    "Anything that is lit is free to walk: no turns pass until you record or launch. Power the route at the console first.",
+    "Walk left to the console, switch on LIFT-POWER, walk back to the start, save an empty recording ({key:echo} twice), launch with {key:echo}, then follow the corridor east and down to the lift."
   ],
   "terminals": [
     {
       "position": [
-        2,
-        3
+        1,
+        4
       ],
       "lines": [
         "Day 1. The lights in this room came on by themselves.",
@@ -618,22 +316,12 @@
     },
     {
       "position": [
-        2,
-        9
+        7,
+        1
       ],
       "lines": [
         "The walls hum all day. After a while it sounds like breathing.",
         "I keep the door in sight so I do not get lost."
-      ]
-    },
-    {
-      "position": [
-        9,
-        2
-      ],
-      "lines": [
-        "Note to self: the hub floor is safe. Stay in the light.",
-        "The dark floor past the door is not kind."
       ]
     }
   ],
@@ -642,20 +330,20 @@
       "id": "walk-to-console",
       "concept": true,
       "title": "Your power console",
-      "explanation": "You are the amber technician. Reach the elevator to escape. The hub where you start is always lit and safe, but the route is dark until you power it. The power console is in the hub; {key:console} opens it while you stand on it.",
+      "explanation": "You are the amber technician. Reach the elevator to escape. Anything lit is free to walk and spends no turns. The hub where you start is always lit, but the corridors are dark until you power them. The power console is in the hub; {key:console} opens it while you stand on it.",
       "objective": "Press {key:move_left} to walk along the hub to the power console.",
       "action": "left",
       "expected": {
         "player": [
-          7,
-          6
+          5,
+          5
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          5,
+          5
         ]
       }
     },
@@ -669,14 +357,14 @@
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          5,
+          5
         ]
       }
     },
     {
       "id": "switch-lift-power",
-      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (20 of 60 power).",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LIFT-POWER, then {key:toggle} to switch it on (20 of 60 power). It lights the corridors and runs the elevator.",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -690,7 +378,7 @@
     },
     {
       "id": "apply",
-      "objective": "Press {key:apply} to close the console. The route and the elevator now have power.",
+      "objective": "Press {key:apply} to close the console. The corridors light up: the side rooms hold log terminals if you want to read them.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -704,19 +392,19 @@
     },
     {
       "id": "walk-back",
-      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
+      "objective": "Press {key:move_right} to walk back to the start. A recording starts from where you stand, so start it by the corridor.",
       "action": "right",
       "expected": {
         "player": [
-          11,
-          6
+          8,
+          5
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
+          8,
+          5
         ]
       }
     },
@@ -724,7 +412,7 @@
       "id": "record",
       "concept": true,
       "title": "Recording",
-      "explanation": "{key:echo} at the hub starts a recording, and you can only walk outside the hub while recording or replaying. This lesson saves an empty recording just to get moving. A real one comes in chamber 3.",
+      "explanation": "{key:echo} in the hub starts a recording. Turns only pass while you record or replay, and the elevator only works during a replay. This lesson saves an empty recording just to get moving. A real one comes in chamber 3.",
       "objective": "Press {key:echo} to start recording.",
       "action": "enter",
       "expected": {
@@ -744,8 +432,8 @@
         "phase": "committed",
         "recorded": 0,
         "player": [
-          11,
-          6
+          8,
+          5
         ]
       },
       "target": {
@@ -759,23 +447,41 @@
       "expected": {
         "phase": "replay",
         "player": [
-          11,
-          6
+          8,
+          5
         ],
         "echo_index": 0
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
+          8,
+          5
+        ]
+      }
+    },
+    {
+      "id": "corridor",
+      "objective": "Press {key:move_right} to follow the lit corridor east.",
+      "action": "right",
+      "expected": {
+        "player": [
+          12,
+          5
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          12,
+          5
         ]
       }
     },
     {
       "id": "pad-first",
-      "objective": "Press {key:move_right} to step onto pad A. Pad A switches the elevator on.",
-      "action": "right",
+      "objective": "Press {key:move_down} to step onto pad A. Pad A switches the elevator on.",
+      "action": "down",
       "expected": {
         "player": [
           12,
@@ -793,23 +499,23 @@
     },
     {
       "id": "exit",
-      "objective": "Press {key:move_right} to enter the elevator while it is running. Pad A stays on for a few turns after you leave it.",
-      "action": "right",
+      "objective": "Press {key:move_down} to enter the elevator while it is running. Pad A stays on for a few turns after you leave it.",
+      "action": "down",
       "expected": {
         "phase": "result",
         "player": [
-          13,
-          6
+          12,
+          7
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          13,
-          6
+          12,
+          7
         ]
       }
     }
   ],
-  "lesson_summary": "You powered a safe route, launched a recording, switched on a timed pad and escaped. Moves and waits spend turns; reading and menus never do."
+  "lesson_summary": "You powered a route, walked the lit hub for free, launched a recording, switched on a timed pad and escaped. Moves and waits spend turns; walking the lit floor, reading and menus never do."
 }

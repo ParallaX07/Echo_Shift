@@ -2,24 +2,21 @@
   "steps": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
         "lift-power"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "wait",
-    "wait",
+    "left",
+    "left",
+    "left",
+    "down",
     "wait",
     "enter",
     "launch",
+    "right",
+    "right",
     "right",
     "right",
     "right",

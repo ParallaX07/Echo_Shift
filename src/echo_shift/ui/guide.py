@@ -60,8 +60,8 @@ POWER = (
         "battery: nothing drains while the circuits stay on."
     ),
     (
-        "Some chambers hold energy cells. Walk onto one to add its value to the "
-        "generator capacity, before a take or after saving one. A take or a replay "
+        "Some chambers hold energy cells. Walk onto one to raise your max power "
+        "(the generator capacity) by its value, before a take or after saving one. A take or a replay "
         "never picks one up. A cell you took stays taken through launch and retry; "
         "restarting the chamber puts it back."
     ),
@@ -158,7 +158,7 @@ def objects(state: State, terminals: tuple[Terminal, ...] = ()) -> list[str]:
     chamber = state.chamber
     if chamber.cells:
         notes.append(
-            "ENERGY CELL: walk onto it to add its value to the generator capacity. "
+            "ENERGY CELL: walk onto it to raise your max power (the capacity) by its value. "
             "A take or a replay never picks one up."
         )
     if chamber.conduits:

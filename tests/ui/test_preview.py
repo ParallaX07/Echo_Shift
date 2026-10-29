@@ -155,23 +155,26 @@ def test_expiry_and_projection_need_a_saved_recording():
 
 def test_the_echo_path_and_next_command_follow_the_recording():
     state = committed(3)
-    start, over = Position(11, 6), Position(12, 6)
-    assert preview.echo_path(state) == (start, over, over, over, over)
+    pad = state.chamber.pads[0].position
+    path = tuple(Position(x, 5) for x in (6, 5, 4, 3)) + (pad, pad)
+    assert preview.echo_path(state) == path
     live = launch(state)
-    assert preview.next_command(live) == ("move", (1, 0))
+    assert preview.next_command(live) == ("move", (-1, 0))
     live = act(live, Wait()).state
-    assert preview.next_command(live) == ("wait", (0, 0))
-    assert preview.echo_path(live) == (over, over, over, over)
-    for _ in range(3):
+    assert preview.next_command(live) == ("move", (-1, 0))
+    assert preview.echo_path(live) == path[1:]
+    for _ in range(len(state.recording) - 1):
         live = act(live, Wait()).state
     assert preview.next_command(live) is None
 
 
 def test_timed_pad_countdown_and_the_device_that_stops_next_turn():
     live = replaying(2)
-    live = act(live, Move(1, 0)).state  # onto the timed pad
+    for _ in range(5):
+        live = act(live, Move(1, 0)).state  # along the corridor
+    live = act(live, Move(0, 1)).state  # onto the timed pad
     assert preview.markers(live).countdowns == (("pad-a", 3),)
-    live = act(live, Move(1, 0)).state  # off it: the timer runs down
+    live = act(live, Move(0, -1)).state  # off it: the timer runs down
     assert preview.markers(live).countdowns == (("pad-a", 2),)
     live = act(live, Wait()).state
     markers = preview.markers(live)
@@ -233,7 +236,7 @@ def committed_game(player, number=3):
     game.open_level(number)
     player.press("F")
     player.to_console()
-    keys = ("E", "SPACE", "RETURN", *("RIGHT",) * 4, "RETURN", "RIGHT")
+    keys = ("E", "SPACE", "RETURN", "RETURN", "LEFT")  # power, record here, one move
     for key in (*keys, "SPACE", "SPACE", "SPACE"):
         player.press(key)
     player.press("RETURN")
@@ -335,12 +338,13 @@ def test_an_over_budget_toggle_is_refused_with_its_reason_and_counted_once(playe
     for _ in game.state.chamber.circuits:
         player.press("SPACE")
         player.press("DOWN")
-    assert game.state.powered_circuits == {"path-lights", "lift-power"}
-    assert game.pending == {"path-lights", "lift-power", "aux-power"}
+    assert game.state.powered_circuits == {"wing-lamp", "route-lights"}
+    assert game.pending == {"wing-lamp", "route-lights", "lift-power"}
     assert game.attempt.unsafe_power_choices == 1
     assert "OVER BUDGET" in game.message
     player.press("RETURN")  # trying again changes nothing and is not counted twice
-    assert game.state.powered_circuits == {"path-lights", "lift-power"} and game.console
+    assert game.state.powered_circuits == {"wing-lamp", "route-lights"}
+    assert game.console
     assert game.attempt.unsafe_power_choices == 1
 
 
@@ -358,7 +362,7 @@ def test_replay_changes_are_staged_and_apply_costs_exactly_one_turn(player):
     game = committed_game(player)
     player.press("RETURN")  # launch
     assert game.state.phase is Phase.REPLAY
-    for _ in range(4):
+    for _ in range(2):
         player.press("LEFT")  # in replay the walk to the console costs turns
     player.press("E")
     assert game.console
@@ -375,13 +379,16 @@ def test_replay_changes_are_staged_and_apply_costs_exactly_one_turn(player):
 
 def test_console_preview_lists_what_would_go_dark_and_change_power():
     chamber = load(ROOT / "levels" / "chamber_02.json")
-    on = initial_state(chamber, frozenset({"path-lights", "lift-power"}))
+    cell = frozenset({"cell-west"})  # the energy cell raises the limit to 50
+    on = initial_state(chamber, frozenset({"route-lights", "lift-power"}), cell)
+    path = set(next(zone.tiles for zone in chamber.zones if zone.id == "path"))
     shown = cues.console_preview(on, frozenset({"lift-power"}))
-    assert shown.dark == {Position(12, 6), Position(13, 6)} and not shown.lit
+    assert shown.dark == path and not shown.lit
     assert shown.losing == frozenset() and shown.gaining == frozenset()
     off = cues.console_preview(on, frozenset())
     assert Position(14, 6) in off.dark and off.losing == {"lift"}
-    gain = cues.console_preview(initial_state(chamber), frozenset({"lift-power"}))
+    fresh = initial_state(chamber, frozenset(), cell)
+    gain = cues.console_preview(fresh, frozenset({"lift-power"}))
     assert gain.gaining == {"lift"} and gain.lit == {Position(14, 6)}
     assert not cues.console_preview(on, on.powered_circuits).changed
 
@@ -389,27 +396,29 @@ def test_console_preview_lists_what_would_go_dark_and_change_power():
 def test_unlit_neighbours_are_flagged_but_walls_and_closed_gates_are_not():
     chamber = load(ROOT / "levels" / "chamber_03.json")
     dark = initial_state(chamber)
-    assert cues.unsafe_neighbours(dark) == (Position(12, 6),)
+    ahead = Position(dark.player.x + 1, dark.player.y)
+    assert cues.unsafe_neighbours(dark) == (ahead,)
     assert (
         cues.unsafe_neighbours(initial_state(chamber, frozenset({"lift-power"}))) == ()
     )
-    beside_gate = replace(dark, player=Position(13, 6))
-    assert cues.unsafe_neighbours(beside_gate) == (Position(12, 6),)  # gate is shut
+    beside_gate = replace(dark, player=Position(12, 5))
+    assert cues.unsafe_neighbours(beside_gate) == (Position(11, 5),)  # gate is shut
     assert not cues.warns_unsafe(dark)
     assert cues.warns_unsafe(replace(dark, phase=Phase.REPLAY))
 
 
 def test_links_explain_why_a_powered_device_can_still_be_shut():
     state = launch(committed(3))
-    state = act(state, Move(1, 0)).state
-    state = replace(state, player=Position(13, 6))
+    for _ in range(len(state.recording)):
+        state = act(state, Wait()).state  # the echo reaches pad A and holds it
+    state = replace(state, player=Position(12, 5))
     links = {link.device.id: link for link in cues.focused_links(state, None)}
     assert set(links) == {"gate-a"}
     link = links["gate-a"]
-    assert link.pad_label == "A" and link.pad_position == Position(12, 6)
+    assert link.pad_label == "A" and link.pad_position == Position(3, 6)
     assert link.powered and link.pad_active and link.running
     unpowered = replace(state, powered_circuits=frozenset())
-    shut = cues.focused_links(unpowered, Position(15, 6))
+    shut = cues.focused_links(unpowered, Position(14, 5))
     assert {item.device.id for item in shut} == {"gate-a", "lift"}
     assert not any(item.powered for item in shut)
 
@@ -421,7 +430,10 @@ def pulses(player, still):
     player.press("F")
     player.to_console()
     player.press("E")
-    game.state = act(game.state, InteractAtConsole(frozenset({"lift-power"}))).state
+    chamber = game.state.chamber
+    (console,) = chamber.consoles
+    on = initial_state(chamber, frozenset({"lift-power"}), frozenset({"cell-west"}))
+    game.state = replace(on, player=console)
     game.pending = frozenset()
     game.progress.settings.reduced_motion = still
     drawn = []

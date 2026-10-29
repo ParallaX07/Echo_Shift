@@ -154,9 +154,10 @@ power bar shows `load/capacity` with the capacity from the cells taken so far,
 the share the cells added is the yellow tail of its track. A cell is a small
 battery standing on the floor at about half a tile; while idle its charge bars fill
 in a loop and it glints now and then. On a pickup the cell swells, flies in an arc
-to the POWER readout (about half a second), a "+N" floats up from its tile with a
-sparkle, and when the cell lands the capacity number counts up, the new part of the
-track fills and the readout hops. Until it lands the readout still shows the old
+to the POWER readout (about half a second), a "+N MAX" (the cell's value) floats up
+from its tile with a sparkle (only the maximum power grows, not the load), and when
+the cell lands the capacity number counts up, the new part of the track fills and
+the readout hops. Until it lands the readout still shows the old
 capacity (the rules already have the new one, and a refusal quotes the real value).
 Live conduits show a current drifting along their cover, throw a small spark now
 and then and flash once when their circuit comes on; a step that ends on one
@@ -185,7 +186,7 @@ again while the key is held), when the attempt fails, or on release; pressing
 again steps at once. Mouse clicks are single steps. Undo plays the undone step
 backwards at double speed (instantly with reduced motion), and a new input still
 ends it first. Small idle touches (a breathing bob, the echo's fading trail, a
-console flicker, a pulse along the powered conduit rails, a few dust motes over
+console flicker, a few dust motes over
 lit floor, timeline slots that pop when filled (the sprite is scaled about its centre, no
 extra frame), a pulsing playback slot, an
 eased power bar, and a console drawer and bar buttons that slide) are all
@@ -234,7 +235,10 @@ console. While recording and during replay the toggles are only staged: nothing
 changes and no turn passes until Apply, which commits the whole choice and
 costs one turn. The room shows the pending choice while the console is open:
 tiles that would go dark are dimmed and hatched, and devices that would gain or
-lose power pulse (a static outline when reduced motion is on).
+lose power pulse (a static outline when reduced motion is on). With the console open the room is
+the part left of the drawer: the tiles shrink by up to a quarter so the whole
+chamber fits there, and the view centres the technician together with every tile
+the choice would light, darken or make live. Closing the console glides back.
 
 The game can show what the next turns will do because the rules are
 deterministic. Once a take is saved, hovering a timeline slot or pressing `[` and
@@ -268,31 +272,53 @@ solved without an echo (the tests exhaust every no-echo play to prove it).
 | Chamber | Idea | What the echo is for |
 |---|---|---|
 | 1 | movement | nothing: switch on the route and reach the lift |
-| 2 | power | nothing: pick circuits that fit the generator |
-| 3 | echo | standing on a passive pad while you cross its gate |
+| 2 | power | nothing: light a wing, fetch its energy cell and swap the power from the lamp to the machines |
+| 3 | echo | standing on a passive pad in one wing while you cross the gate on the route to the other |
 | 4 | darkness | standing on a pad in an unlit nook; the generator cannot light the nook and run the machines at once, so the take is made lit and the power is swapped before launch |
 | 5 | timed pads | crossing a gate on a pad's countdown, then waiting on a passive pad while you ride the lift |
 | 6 | combined | all of the above: a dark pad opens the first gate, then a countdown holds the second gate and the lift |
 
-Every chamber is built around a hub room of 80 to 100 tiles with the start tile
-as its only door, so there is space to walk about before a take. The power
-console stands deeper in the room, four tiles from the door along its row, so
-reaching it is a short walk that fits on screen with the door. The console is
-used only while the technician stands on its tile: the E key and a click on the
-tile are refused with a reason anywhere else, and a power change is free before
-a take and after it is saved but, during a replay, costs one turn on top of the
-walk there and back. The room is always lit and walking in it is free, and the
-route begins at the door, so a take that starts anywhere else in the room is
-never faster than one that starts at the door. The chambers are 15 to 19 tiles wide and 12 or 13 tall, so the camera
-scrolls them on a 1280x720 window.
+Chambers 1 to 3 are built around a small hub: 8 or 9 lit tiles near the middle of
+the chamber that hold the start tile and the power console, with two or three
+dark wings leaving it and the elevator at least six steps from the hub. The map
+is the puzzle: wings light only while their circuit is on, each holds something
+worth the walk (an energy cell, a log terminal, the pad of a gate), and no tile
+is wasted. The chambers measure about 14x9 to 16x10 tiles, so the camera scrolls
+them a little on a 1280x720 window. Free roam over the lit hub and wings costs no
+turn, a take starts on any hub tile, and the console is used only while the
+technician stands on its tile: the E key and a click on the tile are refused
+with a reason anywhere else, and a power change is free before a take and after
+it is saved but, during a replay, costs one turn on top of the walk there and
+back.
 
-Each hub room also holds two or three log terminals, small story props on hub tiles
-away from the console and the door. They are listed in the chamber file as
-`terminals` (a hub tile and one to three short lines each); the rules, the
-solver and the engine never read them, and the tile stays ordinary walkable hub
-floor. The use key (E) reads a terminal when the technician stands on it or
-next to it in the hub and is not standing on the console; the console keeps the
-key on its own tile. Clicking the terminal tile the technician stands on, or
+- Chamber 1 has one circuit that lights the corridor to the lift and two side
+  rooms with a log terminal each, and no cell.
+- Chamber 2's generator supplies 30, the lift needs 35, and a lamp circuit of 10
+  lights the west and south wings. The west wing holds an energy cell worth 20,
+  so the limit becomes 50: the route lights (15) and the lift (35) then fit
+  exactly, but not together with the lamp (60), which is why the lamp goes off
+  before the replay. Trying the lift alone at 30 is refused.
+- Chamber 3 has one circuit (40) that lights both corridors and powers the gate
+  and the lift, which share pad A in the west wing. Recording from the console,
+  four moves and a wait put the echo on pad A and keep it there while the
+  technician walks the east corridor through the gate to the lift; fewer waits
+  would let the echo leave before the lift is reached.
+
+Chambers 4 to 6 are built around a larger hub room of 80 to 100 tiles with the
+start tile as its only door, so there is space to walk about before a take. The
+power console stands deeper in the room, four tiles from the door along its row.
+The room is always lit and walking in it is free, and the route begins at the
+door, so a take that starts anywhere else in the room is never faster than one
+that starts at the door. These chambers are 15 to 19 tiles wide and 12 or 13
+tall, so the camera scrolls them on a 1280x720 window.
+
+Each chamber also holds two or three log terminals, small story props on floor
+away from the console and the start. They are listed in the chamber file as
+`terminals` (a hub or floor tile that some power setting lights, and one to
+three short lines each); the rules, the solver and the engine never read them,
+and the tile stays ordinary walkable floor. The use key (E) reads a terminal
+when the technician stands on it or next to it, in the hub or a lit wing, and is
+not standing on the console; the console keeps the key on its own tile. Clicking the terminal tile the technician stands on, or
 pressing the bar button that then reads *Read log*, does the same. On a terminal
 tile a click on your own tile reads instead of waiting, so use the bar's Wait
 button to wait there; clicking an adjacent terminal tile moves onto it, like the
@@ -305,8 +331,9 @@ near, the key keeps its power-console reason.
 Each of chambers 4 to 6 is a short route in three beats: the idea on its own (the
 first gate or pad), an easy use of it (the recorded walk), and a twist that
 combines it with earlier chambers (the power swap, the shared countdown). Difficulty
-is measured by the fewest turns of the shortest play, which rises 2, 3, 7, 9, 11, 13
-over the six chambers; `tools/solve.py --all` prints that table with the fewest
+is measured by the fewest turns of the shortest play, which is 6, 7 and 11 for
+the three small-hub chambers (their routes start at the hub's edge and the echo
+needs a long hold) and rises 9, 11, 13 over the large-hub rooms; `tools/solve.py --all` prints that table with the fewest
 recorded commands, the lowest peak load and the idea check for each chamber.
 
 The title screen
