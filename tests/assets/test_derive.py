@@ -367,3 +367,59 @@ def test_the_cell_and_conduit_sprites_are_stamped_and_keep_the_floor_look():
     off = Image.open(ROOT / "assets/sprites/conduit_off.png").convert("RGBA")
     assert off.getpixel((0, 0)) == floor.getpixel((0, 0))  # a floor margin remains
     assert off.getchannel("A").getextrema() == (255, 255)
+
+
+def sprite(name):
+    return Image.open(ROOT / "assets/sprites" / f"{name}.png").convert("RGBA")
+
+
+def test_the_cell_is_about_half_a_tile_and_stands_on_the_floor():
+    left, top, right, bottom = sprite("cell").getchannel("A").getbbox()
+    assert bottom == 87  # the shared baseline
+    assert 36 <= right - left <= 52 and 36 <= bottom - top <= 52  # ~half of 96
+    assert abs((left + right) / 2 - 48) <= 1  # centred across the tile
+
+
+def test_the_cell_frames_only_repaint_the_charge_window_or_the_glint():
+    cell = sprite("cell")
+    for name in ("cell_charge_0", "cell_charge_1", "cell_charge_2", "cell_glint"):
+        frame = sprite(name)
+        assert frame.getchannel("A").getbbox() == cell.getchannel("A").getbbox()
+        different = [
+            (x, y)
+            for y in range(96)
+            for x in range(96)
+            if frame.getpixel((x, y)) != cell.getpixel((x, y))
+        ]
+        assert different, name  # each frame is a visible change
+        if name == "cell_glint":
+            assert max(x for x, _ in different) - min(x for x, _ in different) < 12
+        else:  # the bars live inside the casing's window
+            assert all(36 <= x <= 60 and 49 <= y <= 77 for x, y in different)
+    counts = []
+    for n in range(3):
+        frame = sprite(f"cell_charge_{n}")
+        counts.append(
+            sum(
+                1
+                for pixel in frame.get_flattened_data()
+                if pixel[:3] in {(0, 228, 54), (255, 236, 39), (255, 163, 0)}
+            )
+        )
+    assert counts == sorted(counts) and len(set(counts)) == 3  # the bars fill up
+
+
+def test_live_conduit_frames_move_the_current_without_changing_the_look():
+    frames = [
+        sprite(n) for n in ("conduit_live", *(f"conduit_live_{k}" for k in (1, 2, 3)))
+    ]
+    assert len({frame.tobytes() for frame in frames}) == 4
+    histograms = [frame.getcolors() for frame in frames]
+    for frame, colours in zip(frames, histograms, strict=True):
+        assert frame.getchannel("A").getextrema() == (255, 255)
+        total = {rgb: n for n, rgb in colours}
+        base = {rgb: n for n, rgb in histograms[0]}
+        assert set(total) == set(base)
+        for rgb, n in total.items():  # same brightness: shifting is not a flash
+            assert abs(n - base[rgb]) <= 0.02 * 96 * 96
+    assert frames[0].getpixel((0, 0)) == sprite("floor_lit").getpixel((0, 0))

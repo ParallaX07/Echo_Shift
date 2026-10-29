@@ -1,7 +1,9 @@
 """Energy cells and live conduits in the interface: capacity, previews, text, motion."""
 
+import copy
 import json
 from dataclasses import replace
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,7 @@ from echo_shift.engine.model import (
     Zone,
     initial_state,
 )
-from echo_shift.engine.turn import Move
+from echo_shift.engine.turn import Failed, Move
 from echo_shift.ui import app, controls, cues, guide, motion
 from echo_shift.ui.help import room_info, topics
 from echo_shift.ui.hud import model
@@ -196,10 +198,16 @@ def run(m, frames):
         m.tick()
 
 
-def test_a_pickup_sparkles_at_the_cell_then_ends_exactly():
+LEAD = motion.PICKUP_LEAD
+ARRIVE = motion.PICKUP_FRAMES
+
+
+def test_a_pickup_sparkles_at_the_cell_once_the_player_has_arrived():
     before, after = taken_after_roam()
     m = Motion()
     m.start(before, after)
+    assert m.sparkles() == []
+    run(m, LEAD)
     ((at, sparks),) = m.sparkles()
     assert at == CELL and len(sparks) == motion.SPARKLE_COUNT
     assert all(1 <= spark.colour <= 15 for spark in sparks)
@@ -208,53 +216,339 @@ def test_a_pickup_sparkles_at_the_cell_then_ends_exactly():
     m.tick()
     assert m.sparkles() == []
     assert motion.sparkle(motion.SPARKLE_FRAMES) == ()
+    assert motion.sparkle(-1) == ()
 
 
-def test_a_plain_step_or_an_undo_does_not_sparkle():
+def test_a_plain_step_or_an_undo_does_not_sparkle_or_fly():
     state = lit_state()
     after = recording.act(state, Move(1, 0)).state
     assert after.cells_taken == frozenset()
     m = Motion()
     m.start(state, after)
-    assert m.sparkles() == []
+    assert m.sparkles() == [] and m.flights() == [] and m.floaters() == []
     before, taken = taken_after_roam()
     m.start(taken, before, undo=True)
-    assert m.sparkles() == []
+    run(m, LEAD)
+    assert m.sparkles() == [] and m.flights() == [] and m.resting() == frozenset()
 
 
-def test_the_capacity_bar_eases_and_pulses_when_it_grows():
+def test_a_taken_cell_rests_on_its_tile_while_the_player_arrives():
     before, after = taken_after_roam()
     m = Motion()
     m.start(before, after)
-    assert m.capacity(5) == 3
-    assert m.capacity_pulse() == 0.0
-    run(m, motion.CAPACITY_FRAMES // 2)
+    assert m.resting() == {CELL} and m.flights() == []
+    run(m, LEAD - 1)
+    assert m.resting() == {CELL}
+    m.tick()
+    assert m.resting() == frozenset() and len(m.flights()) == 1
+
+
+def test_a_taken_cell_pops_then_flies_to_the_readout_and_ends_exactly():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    run(m, LEAD)
+    ((at, first),) = m.flights()
+    assert at == CELL and first.p == 0.0 and first.grow == pytest.approx(1.0)
+    run(m, motion.CELL_POP_FRAMES)
+    ((_, aloft),) = m.flights()
+    assert aloft.p == 0.0 and aloft.grow == pytest.approx(1 + motion.CELL_POP_GROW)
+    progress, sizes = [], []
+    while m.flights():
+        progress.append(m.flights()[0][1].p)
+        sizes.append(m.flights()[0][1].grow)
+        m.tick()
+    assert progress == sorted(progress) and progress[-1] > 0.95
+    assert sizes[-1] < 0.6 and sizes == sorted(sizes, reverse=True)
+    flight = motion.CELL_POP_FRAMES + motion.CELL_FLY_FRAMES
+    assert 25 <= flight <= 35 and ARRIVE == LEAD + flight
+    assert (
+        motion.pickup_flight(ARRIVE) is None and motion.pickup_flight(LEAD - 1) is None
+    )
+
+
+def test_the_plus_floats_up_from_the_tile_and_fades():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    assert m.floaters() == []
+    run(m, LEAD)
+    ((at, value, rise, ink),) = m.floaters()
+    assert (at, value, rise, ink) == (CELL, 2, 0.0, 1.0)
+    run(m, motion.PLUS_FRAMES - 1)
+    ((_, _, high, faint),) = m.floaters()
+    assert high > 0.6 and faint < 0.1
+    m.tick()
+    assert m.floaters() == []
+
+
+def test_the_capacity_number_keeps_the_old_value_until_the_cell_lands():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    assert power.capacity_of(after) == 5  # the engine already has the new capacity
+    shown = []
+    while m.running:
+        shown.append(round(m.capacity(5)))
+        m.tick()
+    assert shown[:ARRIVE] == [3] * ARRIVE
+    ticks = shown[ARRIVE:]
+    assert ticks == sorted(ticks) and set(shown) == {3, 4, 5}
     assert m.capacity(5) == 5
-    assert m.capacity_pulse() == pytest.approx(1.0, abs=0.1)
+    assert (
+        motion.capacity_value(3, 5, ARRIVE + motion.CAPACITY_TICK_FRAMES, ARRIVE) == 5
+    )
+
+
+def test_the_readout_pulses_and_bounces_only_after_the_cell_lands():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    run(m, ARRIVE - 1)
+    assert m.capacity_pulse() == 0.0 and m.capacity_bounce() == 0.0
+    run(m, motion.CAPACITY_FRAMES // 4 + 1)
+    assert m.capacity_bounce() > 0.3
+    run(m, motion.CAPACITY_FRAMES // 4)
+    assert m.capacity_pulse() > 0.5
     run(m, motion.CAPACITY_FRAMES)
-    assert m.capacity_pulse() == 0.0 and not m.running
+    assert m.capacity_pulse() == 0.0 and m.capacity_bounce() == 0.0 and not m.running
+    assert motion.capacity_bounce(0) == 0.0
+    assert motion.capacity_bounce(motion.CAPACITY_FRAMES) == pytest.approx(
+        0.0, abs=1e-9
+    )
 
 
-def test_the_capacity_bar_does_not_pulse_when_it_shrinks():
+def test_new_input_snaps_the_pickup_to_its_end_state():
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    run(m, LEAD + 5)
+    m.snap()
+    assert not m.running
+    assert m.flights() == [] and m.floaters() == [] and m.sparkles() == []
+    assert m.resting() == frozenset() and m.capacity(5) == 5
+    assert m.capacity_pulse() == 0.0 and m.capacity_bounce() == 0.0
+
+
+def test_the_capacity_bar_does_not_pulse_when_it_shrinks_and_does_not_wait():
     before, after = taken_after_roam()
     m = Motion()
     m.start(after, before, undo=True)
-    assert m.capacity_pulse() == 0.0
+    assert m.capacity_pulse() == 0.0 and m.capacity_bounce() == 0.0
+    assert m.capacity(3) == 5  # eases down from the larger value at once
+    run(m, motion.CAPACITY_TICK_FRAMES // motion.UNDO_PACE)
+    assert m.capacity(3) == 3
 
 
-def test_reduced_motion_skips_the_sparkle_and_the_pulse():
+def test_reduced_motion_shows_the_end_frames_at_once():
     before, after = taken_after_roam()
     m = Motion(reduced=True)
     m.start(before, after)
-    assert m.sparkles() == [] and m.capacity_pulse() == 0.0
+    assert m.sparkles() == [] and m.flights() == [] and m.floaters() == []
+    assert m.resting() == frozenset() and m.capacity_pulse() == 0.0
     assert m.capacity(5) == 5 and not m.running
+    assert m.cell_sprite() == "cell" and m.current_sprite() == "conduit_live"
+    assert m.conduit_spark(LINE) is None and m.surge(LINE) == 0.0
+    run(m, 500)
+    assert m.cell_sprite(13) == "cell" and m.current_sprite() == "conduit_live"
 
 
-def test_sparkle_and_pulse_stay_inside_the_documented_lengths():
+def test_pickup_timelines_never_touch_the_engine_state():
+    before, after = taken_after_roam()
+    copies = copy.deepcopy((before, after))
+    m = Motion()
+    m.start(before, after)
+    for _ in range(ARRIVE + motion.CAPACITY_FRAMES):
+        m.sparkles(), m.flights(), m.floaters(), m.capacity(5), m.resting()
+        m.tick()
+    m.snap()
+    assert (before, after) == copies
+
+
+def test_pickup_and_capacity_stay_inside_the_documented_lengths():
     assert motion.LENGTHS["sparkle"] == motion.SPARKLE_FRAMES
+    assert motion.LENGTHS["pickup"] == ARRIVE
+    assert motion.LENGTHS["plus"] == motion.PLUS_FRAMES
     assert motion.LENGTHS["capacity"] == motion.CAPACITY_FRAMES
     assert motion.capacity_pulse(0) == 0.0
     assert motion.capacity_pulse(motion.CAPACITY_FRAMES) == 0.0
+    before, after = taken_after_roam()
+    m = Motion()
+    m.start(before, after)
+    frames = 0
+    while m.running:
+        m.tick()
+        frames += 1
+    assert frames == ARRIVE + motion.CAPACITY_FRAMES  # the longest part: capacity
+
+
+def test_a_cell_idles_filling_its_bars_then_glints_and_never_flickers_fast():
+    seen = [motion.cell_sprite(f) for f in range(motion.CELL_CYCLE)]
+    assert seen[0] == "cell_charge_0" and seen[15] == "cell_charge_1"
+    assert seen[30] == "cell_charge_2" and seen[45] == "cell"
+    assert "cell_glint" in seen
+    assert motion.cell_sprite(motion.CELL_CYCLE) == seen[0]  # loops
+    changes = sum(a != b for a, b in pairwise([*seen, seen[0]]))
+    flashes_per_second = changes / 2 * motion.FPS / motion.CELL_CYCLE
+    assert flashes_per_second < 3
+    assert Motion().cell_sprite(0) == "cell_charge_0"
+    assert Motion().cell_sprite(50) == "cell"
+
+
+def test_live_conduit_current_cycles_its_frames_at_the_documented_pace():
+    steps = motion.CURRENT_STEP
+    seen = [motion.current_sprite(f) for f in range(steps * 4)]
+    assert seen[0] == "conduit_live"
+    assert [seen[i * steps] for i in range(4)] == list(motion.CURRENT_SPRITES)
+    assert all(len(set(seen[i * steps : (i + 1) * steps])) == 1 for i in range(4))
+    assert motion.current_sprite(steps * 4) == seen[0]
+    m = Motion()
+    run(m, steps)
+    assert m.current_sprite() == "conduit_live_1"
+
+
+def test_conduit_sparks_are_seeded_short_and_rate_limited():
+    tiles = [(x, y) for x in range(6) for y in range(3)]
+    phases = set()
+    for x, y in tiles:
+        lit = [f for f in range(1200) if motion.conduit_spark(f, x, y)]
+        assert lit == [f for f in range(1200) if motion.conduit_spark(f, x, y)]
+        runs = [f for f in lit if f - 1 not in lit]
+        assert all(b - a >= motion.SPARK_PERIOD for a, b in pairwise(runs))
+        assert all(
+            sum(1 for f in lit if r <= f < r + 99) <= motion.SPARK_FRAMES for r in runs
+        )
+        phases.add(lit[0] % motion.SPARK_PERIOD if lit else None)
+        assert lit  # each tile sparks now and then
+    assert len(phases) > 3  # not in step
+    spark = next(
+        motion.conduit_spark(f, 3, 1)
+        for f in range(600)
+        if motion.conduit_spark(f, 3, 1)
+    )
+    assert 0 < spark[0] < 1 and 0 < spark[1] < 1 and 1 <= spark[2] <= 15
+
+
+def power_pair():
+    """The wing with the lamp on, and the same wing with the arc conduit live too."""
+    off = lit_state("lamp")
+    return off, replace(off, powered_circuits=frozenset({"lamp", "arc"}))
+
+
+def test_a_conduit_flashes_once_when_it_goes_live_and_only_there():
+    off, live = power_pair()
+    m = Motion()
+    m.start(off, live)
+    assert m.surge(LINE) == 1.0 and m.surge(CELL) == 0.0
+    run(m, motion.SURGE_FRAMES // 2)
+    assert 0 < m.surge(LINE) < 1
+    run(m, motion.SURGE_FRAMES)
+    assert m.surge(LINE) == 0.0 and not m.running
+    assert motion.surge_level(motion.SURGE_FRAMES) == 0.0
+    m.start(live, off)  # going off, or staying live, does not flash
+    assert m.surge(LINE) == 0.0
+    m.start(live, replace(live, turns=live.turns))
+    assert m.surge(LINE) == 0.0
+
+
+def test_an_undo_does_not_flash_a_conduit():
+    off, live = power_pair()
+    m = Motion()
+    m.start(off, live, undo=True)
+    assert m.surge(LINE) == 0.0
+
+
+def zapped():
+    state = recording.enter(replace(lit_state("lamp", "arc"), player=HUB))
+    state = replace(state, phase=Phase.RECORDING, player=CELL)
+    return state, recording.act(state, Move(1, 0))
+
+
+def test_a_live_conduit_death_zaps_the_player_with_two_flashes_then_sparks():
+    state, result = zapped()
+    assert isinstance(result, Failed) and result.reason == lighting.LIVE
+    m = Motion()
+    m.start(state, state, result, (1, 0))
+    seen = []
+    while m.zap() is not None:
+        at, bright, sparks = m.zap()
+        assert at == LINE and sparks  # on the conduit it stepped onto
+        seen.append(bright)
+        m.tick()
+    assert len(seen) == motion.ZAP_FRAMES
+    flashes = sum(1 for a, b in pairwise([False, *seen]) if b and not a)
+    assert flashes == 2 and seen[0] and not seen[motion.ZAP_BRIGHT[0][1]]
+    assert motion.zap_sparks(motion.ZAP_FRAMES) == ()
+    assert {spark.colour for spark in motion.zap_sparks(5)} <= {
+        10,
+        7,
+    }  # like the conduit
+    assert motion.zap_sparks(5) == motion.zap_sparks(5)  # seeded, no randomness
+
+
+def test_the_shocked_player_stands_on_the_conduit_until_the_card_shows():
+    state, result = zapped()
+    m = Motion()
+    assert m.player(CELL) == (CELL.x, CELL.y, None)
+    m.start(state, state, result, (1, 0))
+    assert m.player(CELL) == (LINE.x, LINE.y, None)
+    run(m, motion.ZAP_CARD_WAIT - 1)
+    assert m.player(CELL) == (LINE.x, LINE.y, None)
+    m.tick()
+    assert m.zap() is not None  # sparks go on, the room is back to how it was
+    assert m.player(CELL) == (CELL.x, CELL.y, None)
+    m.start(state, state, result, (1, 0))
+    m.snap()
+    assert m.player(CELL) == (CELL.x, CELL.y, None)
+    reduced = Motion(reduced=True)
+    reduced.start(state, state, result, (1, 0))
+    assert reduced.player(CELL) == (CELL.x, CELL.y, None)
+
+
+def test_the_failure_card_waits_only_for_the_zap_flashes():
+    state, result = zapped()
+    m = Motion()
+    m.start(state, state, result, (1, 0))
+    assert m.card_waits()
+    run(m, motion.ZAP_CARD_WAIT - 1)
+    assert m.card_waits()
+    m.tick()
+    assert not m.card_waits()
+    m.start(state, state, result, (1, 0))
+    m.snap()
+    assert not m.card_waits() and m.zap() is None
+
+
+def test_other_failures_and_reduced_motion_do_not_zap():
+    state, result = zapped()
+    m = Motion()
+    m.start(state, state, Failed(state, lighting.UNLIT), (1, 0))
+    assert m.zap() is None and not m.card_waits()
+    reduced = Motion(reduced=True)
+    reduced.start(state, state, result, (1, 0))
+    assert reduced.zap() is None and not reduced.card_waits()
+
+
+def test_flashes_never_reach_three_in_a_second():
+    state, result = zapped()
+    off, live = power_pair()
+    m = Motion()
+    starts = []
+    for frame in range(600):
+        if frame % 7 == 0:  # far faster than a hand can toggle
+            before = m.surge(LINE)
+            m.start(off if frame % 14 else live, live if frame % 14 else off)
+            if m.surge(LINE) and not before > 0.95:
+                starts.append((frame, 1))
+        if frame % 5 == 3:
+            m.start(state, state, result, (1, 0))
+            zap = m.zap()
+            if zap is not None and zap[1]:
+                starts.append((frame, 2))
+        m.tick()
+    for frame in range(600 - motion.FPS):
+        in_second = sum(n for f, n in starts if frame <= f < frame + motion.FPS)
+        assert in_second < 3
 
 
 # ---- drawing, through the real game loop with a fake canvas ---------------------------
@@ -282,16 +576,147 @@ def show(player, state):
 def test_untaken_cells_and_conduits_are_drawn_by_sprite_id(player):
     game = show(player, lit_state("lamp"))
     names = drawn_sprites(game)
-    assert "cell" in names and "conduit_off" in names and "conduit_live" not in names
+    assert any(name.startswith("cell") for name in names)
+    assert "conduit_off" in names
+    assert not any(name.startswith("conduit_live") for name in names)
     game = show(player, lit_state("lamp", "arc"))
     names = drawn_sprites(game)
-    assert "conduit_live" in names and "conduit_off" not in names
+    assert any(name.startswith("conduit_live") for name in names)
+    assert "conduit_off" not in names
 
 
 def test_a_taken_cell_is_not_drawn_any_more(player):
     _, taken = taken_after_roam()
     names = drawn_sprites(show(player, taken))
-    assert "cell" not in names
+    assert not any(name.startswith("cell") for name in names)
+
+
+def test_the_idle_cell_and_live_current_follow_the_clock_and_reduced_motion(player):
+    game = show(player, lit_state("lamp", "arc"))
+    phase = CELL.x * 37 + CELL.y * 91  # each cell idles out of step with the rest
+    game.motion.clock = 50
+    names = drawn_sprites(game)
+    assert motion.cell_sprite(50 + phase) in names and "conduit_live_2" in names
+    game.motion.clock = 8
+    names = drawn_sprites(game)
+    assert motion.cell_sprite(8 + phase) in names and "conduit_live_1" in names
+    game.motion.reduced = True
+    game.motion.clock = 7
+    names = drawn_sprites(game)
+    assert "cell" in names and "conduit_live" in names
+
+
+def test_a_flying_cell_ends_on_the_readout_and_the_number_counts_up(player):
+    before, after = taken_after_roam()
+    game = show(player, before)
+    game.draw()  # places the readout
+    game.state = after
+    game.motion.start(before, after)
+    run(game.motion, LEAD + motion.CELL_POP_FRAMES + motion.CELL_FLY_FRAMES - 1)
+    calls = []
+    game.atlas = type(
+        "Atlas", (), {"draw": lambda s, name, *a, **k: calls.append((name, a))}
+    )()
+    player.drawn.clear()
+    game.draw()
+    assert "POWER 2/3" in player.drawn  # still the old capacity: it has not landed
+    flyers = [
+        a for name, a in calls if name == "cell"
+    ]  # the taken cell is the only one
+    assert len(flyers) == 1
+    x, y, size = flyers[0]
+    tx, ty = game.power_at
+    assert abs(x + size / 2 - tx) < 3 and abs(y + size / 2 - ty) < 3
+    assert size >= app.FLYER_MIN  # still a readable battery on arrival
+    run(game.motion, motion.CAPACITY_TICK_FRAMES + 1)
+    player.drawn.clear()
+    game.draw()
+    assert "POWER 2/5" in player.drawn
+    game.motion.snap()
+    player.drawn.clear()
+    game.draw()
+    assert "POWER 2/5" in player.drawn  # a snap shows the real capacity
+
+
+def test_the_flying_cell_never_gets_smaller_than_a_readable_battery(player):
+    before, after = taken_after_roam()
+    game = show(player, before)
+    game.draw()
+    game.state = after
+    game.motion.start(before, after)
+    game.shaken = (20, 100, 100)  # a scrolled camera with small tiles
+    sizes = []
+    game.atlas = type(
+        "Atlas",
+        (),
+        {"draw": lambda s, name, x, y, size, *a: sizes.append((name, size))},
+    )()
+    for _ in range(ARRIVE):
+        game.draw_flights()
+        game.motion.tick()
+    flying = [size for name, size in sizes if name == "cell"]
+    assert flying and min(flying) >= app.FLYER_MIN
+
+
+def test_the_plus_is_drawn_over_the_tile_while_it_floats(player):
+    before, after = taken_after_roam()
+    game = show(player, before)
+    game.state = after
+    game.motion.start(before, after)
+    run(game.motion, LEAD + 5)
+    player.drawn.clear()
+    placed = []
+    real_text = game.text
+    game.text = lambda x, y, value, *a, **k: (
+        placed.append((x, value)) or real_text(x, y, value, *a, **k)
+    )
+    game.draw()
+    assert "+2" in player.drawn
+    cell, origin_x, _ = game.room_view
+    # Right of the swelling cell, so the flyer never hides it.
+    assert all(x >= origin_x + (CELL.x + 0.7) * cell for x, v in placed if v == "+2")
+    game.motion.snap()
+    player.drawn.clear()
+    game.draw()
+    assert "+2" not in player.drawn
+
+
+def test_the_failure_cards_unavailable_retry_row_is_dimmed(player):
+    state = recording.enter(replace(lit_state("lamp", "arc"), player=HUB))
+    state = replace(state, phase=Phase.RECORDING, player=CELL)
+    game = show(player, state)
+    game.act(Move(1, 0))  # a take: there is no launch to retry from
+    game.motion.snap()
+    assert not controls.find(game.actions(), "retry").enabled
+    inks = {}
+    game.wrapped = lambda x, y, value, width, color=7, scale=None: (
+        inks.__setitem__(value, color) or y
+    )
+    game.draw()
+    assert inks[next(k for k in inks if "Retry from launch" in k)] == 13
+    assert inks[next(k for k in inks if "Undo last move" in k)] == 7
+    assert inks[next(k for k in inks if "Restart chamber" in k)] == 7
+
+
+def test_the_failure_card_follows_the_zap_and_keys_still_work(player):
+    state = recording.enter(replace(lit_state("lamp", "arc"), player=HUB))
+    state = replace(state, phase=Phase.RECORDING, player=CELL)
+    game = show(player, state)
+    game.act(Move(1, 0))
+    assert game.failure is not None and game.failure.reason == lighting.LIVE
+    game.animate(state, game.mode)
+    player.drawn.clear()
+    game.draw()
+    assert "ATTEMPT FAILED" not in player.drawn  # the zap shows first
+    run(game.motion, motion.ZAP_CARD_WAIT)
+    player.drawn.clear()
+    game.draw()
+    assert "ATTEMPT FAILED" in player.drawn
+    game.motion.reduced = True
+    game.motion.snap()
+    player.drawn.clear()
+    game.draw()
+    assert "ATTEMPT FAILED" in player.drawn
 
 
 def test_a_live_conduit_in_the_dark_is_not_dimmed(player):
@@ -306,7 +731,9 @@ def test_a_live_conduit_in_the_dark_is_not_dimmed(player):
         {"draw": lambda s, name, *a, **k: order.append((name, remapped[0]))},
     )()
     game.draw()
-    assert ("conduit_live", False) in order
+    assert ("conduit_live", False) in order or any(
+        name.startswith("conduit_live") and not dimmed for name, dimmed in order
+    )
     assert ("floor_lit", True) in order  # the unlit cell tile beside it is dimmed
 
 
@@ -351,7 +778,17 @@ def test_the_new_sprites_are_in_the_atlas_and_manifest():
         a["id"]: a
         for a in json.loads((ROOT / "assets/manifest.json").read_text())["assets"]
     }
-    for sprite in ("cell", "conduit_off", "conduit_live"):
+    frames = (
+        *("cell_charge_0", "cell_charge_1", "cell_charge_2", "cell_glint"),
+        *(f"conduit_live_{k}" for k in (1, 2, 3)),
+    )
+    assert set(frames) == (set(motion.CURRENT_SPRITES) - {"conduit_live"}) | {
+        "cell_charge_0",
+        "cell_charge_1",
+        "cell_charge_2",
+        "cell_glint",
+    }
+    for sprite in ("cell", "conduit_off", "conduit_live", *frames):
         assert sprite in atlas
         assert manifest[sprite]["source"] == "derived"
         assert manifest[sprite]["status"] == "ok"

@@ -31,6 +31,7 @@ REQUIRED_SFX = (
     "dialogue",
     "undo",
     "pickup",
+    "zap",
 )
 MUSIC_IDS = {"title", "play_calm", "play_replay", "clear_sting", "final"}
 SOURCE_KEYS = {"preset", "transp", "instr", "seed", "pyxel_version"}

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from echo_shift.engine import recording
+from echo_shift.engine import lighting, recording
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Phase, Position, initial_state
 from echo_shift.engine.turn import Accepted, Failed, Move, Rejected, Wait
@@ -97,6 +97,12 @@ def test_taking_an_energy_cell_chimes_above_the_move_sound(base):
     assert sfx_for(moved, Accepted(base), base) == "move"
     # The refused move onto a dark tile still sounds as a refusal.
     assert sfx_for(base, Rejected(base, "too dark to walk there"), base) == "reject"
+
+
+def test_a_live_conduit_death_zaps_and_other_failures_still_fail(base):
+    assert sfx_for(base, Failed(base, lighting.LIVE), base) == "zap"
+    assert sfx_for(base, Failed(base, lighting.UNLIT), base) == "fail"
+    assert sfx_for(base, Failed(base, "echo collided"), base) == "fail"
 
 
 def test_echo_expiry_only_during_replay(base):

@@ -43,7 +43,33 @@ SPARKLE_FRAMES = 24  # a picked-up energy cell's sparks
 SPARKLE_COUNT = 8
 SPARKLE_RADIUS = 0.7  # tiles
 SPARKLE_COLOURS = (10, 7, 9)
-CAPACITY_FRAMES = 30  # the power bar easing to a new capacity, and pulsing
+PICKUP_LEAD = WALK_FRAMES  # the cell waits on its tile while the player arrives
+CELL_POP_FRAMES = 6  # ... then swells a little
+CELL_POP_GROW = 0.5
+CELL_FLY_FRAMES = 28  # ... and flies in an arc to the power readout
+CELL_FLY_SHRINK = 0.35  # its size on arrival, as a share of its size on the tile
+PICKUP_FRAMES = PICKUP_LEAD + CELL_POP_FRAMES + CELL_FLY_FRAMES
+PLUS_FRAMES = 40  # the "+N" rising from the tile
+PLUS_RISE = 0.8  # tiles
+CAPACITY_TICK_FRAMES = 18  # the capacity number counting up once the cell arrives
+CAPACITY_FRAMES = 30  # ... while the readout pulses and bounces
+BOUNCE_LIFT = 2  # readout bounce, in text-scale pixels
+CELL_CYCLE = 90  # an idle cell's charge bars fill, hold, glint
+CELL_GLINT = (75, 83)  # frames of the cycle that show the glint
+CURRENT_STEP = 8  # frames per live-conduit current frame
+CURRENT_SPRITES = ("conduit_live", "conduit_live_1", "conduit_live_2", "conduit_live_3")
+SPARK_PERIOD = 120  # a live tile may spark once per period
+SPARK_FRAMES = 6
+SPARK_COLOURS = (10, 7)
+SURGE_FRAMES = 14  # a conduit flashing as it goes live
+ZAP_FRAMES = 24  # the player shocked by a live conduit
+ZAP_BRIGHT = ((0, 4), (7, 11))  # two short flashes, then only sparks
+ZAP_CARD_WAIT = ZAP_BRIGHT[-1][1]  # the failure card is drawn once the flashes end
+ZAP_COUNT = 8
+ZAP_RADIUS = 0.55  # tiles
+ZAP_COLOURS = (10, 7)  # yellow and white, like the conduit
+FLASH_WINDOW = 60  # frames in which at most FLASH_LIMIT flashes may start
+FLASH_LIMIT = 2  # fewer than 3 a second
 FADE_FRAMES = 18  # a new screen fading in from the background colour
 UNDO_PACE = 2  # an undo replays the step it undoes backwards, this much faster
 POP_FRAMES = 8  # a timeline slot growing and settling as it is filled
@@ -80,7 +106,11 @@ LENGTHS = {
     "burst": BURST_FRAMES,
     "fade": FADE_FRAMES,
     "sparkle": SPARKLE_FRAMES,
+    "pickup": PICKUP_FRAMES,
+    "plus": PLUS_FRAMES,
     "capacity": CAPACITY_FRAMES,
+    "surge": SURGE_FRAMES,
+    "zap": ZAP_FRAMES,
     "pop": POP_FRAMES,
     "power": POWER_FRAMES,
     "drawer": DRAWER_FRAMES,
@@ -235,8 +265,9 @@ def burst(elapsed: int) -> tuple[Particle, ...]:
 
 
 def sparkle(elapsed: int) -> tuple[Particle, ...]:
-    """Small sparks rising off a cell that was just picked up; empty when over."""
-    if elapsed >= SPARKLE_FRAMES:
+    """Small sparks rising off a cell that was just picked up; empty before and
+    after."""
+    if elapsed < 0 or elapsed >= SPARKLE_FRAMES:
         return ()
     p = progress(elapsed, SPARKLE_FRAMES)
     reach = ease_out(p) * SPARKLE_RADIUS
@@ -254,6 +285,110 @@ def sparkle(elapsed: int) -> tuple[Particle, ...]:
 def capacity_pulse(elapsed: int) -> float:
     """0..1 swelling of the capacity bar's frame after it grew; 0 at both ends."""
     return hump(progress(elapsed, CAPACITY_FRAMES))
+
+
+class Flight(NamedTuple):
+    """A picked-up cell on its way to the power readout."""
+
+    p: float  # 0 on the tile, 1 on the readout
+    grow: float  # size factor against the cell resting on its tile
+
+
+def pickup_flight(elapsed: int) -> Flight | None:
+    """The cell after pickup: None while it still rests (before `PICKUP_LEAD`) and
+    once it has arrived (from `PICKUP_FRAMES`); in between it swells, then flies."""
+    if elapsed < PICKUP_LEAD or elapsed >= PICKUP_FRAMES:
+        return None
+    popped = elapsed - PICKUP_LEAD
+    if popped < CELL_POP_FRAMES:
+        return Flight(
+            0.0, 1.0 + CELL_POP_GROW * ease_out(progress(popped, CELL_POP_FRAMES))
+        )
+    p = ease_in_out(progress(popped - CELL_POP_FRAMES, CELL_FLY_FRAMES))
+    return Flight(p, 1.0 + CELL_POP_GROW - (1.0 + CELL_POP_GROW - CELL_FLY_SHRINK) * p)
+
+
+def plus_float(elapsed: int) -> tuple[float, float] | None:
+    """The "+N" over a taken cell: (tiles risen, ink 1..0); None before and after."""
+    if elapsed < PICKUP_LEAD or elapsed >= PICKUP_LEAD + PLUS_FRAMES:
+        return None
+    p = progress(elapsed - PICKUP_LEAD, PLUS_FRAMES)
+    return PLUS_RISE * ease_out(p), 1.0 if p < 0.6 else (1.0 - p) / 0.4
+
+
+def capacity_value(was: int, now: int, elapsed: int, delay: int = 0) -> float:
+    """The capacity shown: `was` until `delay`, then counting to exactly `now`."""
+    p = progress(elapsed - delay, CAPACITY_TICK_FRAMES)
+    return was + (now - was) * ease_out(p)
+
+
+def capacity_bounce(elapsed: int) -> float:
+    """0..1 two diminishing hops of the readout; exactly 0 at both ends."""
+    p = progress(elapsed, CAPACITY_FRAMES)
+    return abs(math.sin(2 * math.pi * p)) * (1.0 - p)
+
+
+def cell_sprite(frame: int) -> str:
+    """The idle cell: its charge bars fill, hold full, glint once, hold full."""
+    at = frame % CELL_CYCLE
+    if at < 45:
+        return f"cell_charge_{at // 15}"
+    return "cell_glint" if CELL_GLINT[0] <= at < CELL_GLINT[1] else "cell"
+
+
+def current_sprite(frame: int) -> str:
+    """The live conduit: its stripes and spark line drift one step at a time."""
+    return CURRENT_SPRITES[frame // CURRENT_STEP % len(CURRENT_SPRITES)]
+
+
+def surge_level(elapsed: int) -> float:
+    """Brightness 1..0 of a conduit just switched live; 0 from `SURGE_FRAMES` on."""
+    return (1.0 - progress(elapsed, SURGE_FRAMES)) ** 2
+
+
+def zap_bright(elapsed: int) -> bool:
+    """Whether the shocked player is drawn white (two short flashes)."""
+    return any(start <= elapsed < end for start, end in ZAP_BRIGHT)
+
+
+def zap_sparks(elapsed: int) -> tuple[Particle, ...]:
+    """Sparks jumping around the shocked player; empty once over."""
+    if elapsed < 0 or elapsed >= ZAP_FRAMES:
+        return ()
+    p = progress(elapsed, ZAP_FRAMES)
+    reach = ZAP_RADIUS * (0.4 + 0.6 * ease_out(p))
+    sparks = []
+    for i in range(ZAP_COUNT):
+        r = _scatter(i * 977 + elapsed // 3)
+        angle = (i + (r >> 5 & 7) / 8) * math.tau / ZAP_COUNT
+        away = reach * (0.6 + 0.4 * (r >> 9 & 15) / 15)
+        sparks.append(
+            Particle(
+                math.cos(angle) * away,
+                math.sin(angle) * away - 0.1,
+                0.09 * (1.0 - p),
+                ZAP_COLOURS[(r >> 13) % len(ZAP_COLOURS)],
+            )
+        )
+    return tuple(sparks)
+
+
+def conduit_spark(frame: int, x: int, y: int) -> tuple[float, float, int] | None:
+    """A small spark on a live conduit tile: (share across, share down, colour) or
+    None. Each tile may spark for `SPARK_FRAMES` once per `SPARK_PERIOD`, on about
+    half the periods, with a fixed phase per tile, so it never flashes in step."""
+    r = _scatter(_scatter(x * 7919 + y * 104729))
+    cycle, age = divmod(frame + r % SPARK_PERIOD, SPARK_PERIOD)
+    if age >= SPARK_FRAMES:
+        return None
+    r = _scatter(_scatter(r + cycle * 31))
+    if r & 1:
+        return None
+    return (
+        0.2 + 0.6 * (r >> 3 & 255) / 255,
+        0.2 + 0.6 * (r >> 11 & 255) / 255,
+        SPARK_COLOURS[r >> 19 & 1],
+    )
 
 
 def fade_alpha(elapsed: int) -> float:
@@ -384,6 +519,9 @@ class Effect:
     start: int
     params: tuple = ()
     pace: int = 1  # elapsed frames counted per real frame (an undo runs at double)
+    delay: int = (
+        0  # frames the timeline waits (inside its elapsed count) before it plays
+    )
 
 
 class Motion:
@@ -396,6 +534,7 @@ class Motion:
         self._effects: dict[tuple[str, object], Effect] = {}
         self._pace = 1
         self._trail: list[Position] = []
+        self._flashes: list[int] = []  # clock of each recent flash, to limit the rate
         self._drawer_open = False
         self._buttons: dict[str, object] | None = None
 
@@ -414,7 +553,8 @@ class Motion:
         self._effects = {
             key: effect
             for key, effect in self._effects.items()
-            if (self.clock - effect.start) * effect.pace < LENGTHS[key[0]]
+            if (self.clock - effect.start) * effect.pace
+            < LENGTHS[key[0]] + effect.delay
         }
 
     def snap(self) -> None:
@@ -425,8 +565,18 @@ class Motion:
         """Drop the echo's ghost trail (a new run, a restore or a new screen)."""
         self._trail = []
 
-    def _add(self, kind: str, key: object = None, *params: object) -> None:
-        self._effects[kind, key] = Effect(self.clock, params, self._pace)
+    def _add(
+        self, kind: str, key: object = None, *params: object, delay: int = 0
+    ) -> None:
+        self._effects[kind, key] = Effect(self.clock, params, self._pace, delay)
+
+    def _flash(self, count: int) -> bool:
+        """Book `count` flashes unless that would make three within a second."""
+        self._flashes = [t for t in self._flashes if self.clock - t < FLASH_WINDOW]
+        if len(self._flashes) + count > FLASH_LIMIT:
+            return False
+        self._flashes += [self.clock] * count
+        return True
 
     def _get(self, kind: str, key: object = None) -> tuple[int, tuple] | None:
         effect = None if self.reduced else self._effects.get((kind, key))
@@ -474,6 +624,12 @@ class Motion:
         if isinstance(result, Failed):
             self._add("shake")
             self._add("vignette")
+            if result.reason == lighting.LIVE:
+                # The step is refused, but the shock shows on the conduit it entered.
+                at = new.player
+                if direction is not None:
+                    at = Position(at.x + direction[0], at.y + direction[1])
+                self._add("zap", None, at, self._flash(len(ZAP_BRIGHT)))
             return
         stepped = undo or (
             new.turns >= prev.turns and new.echo_index >= prev.echo_index
@@ -504,13 +660,21 @@ class Motion:
         loads = _load(prev), _load(new)
         if loads[0] != loads[1]:
             self._add("power", None, *loads)
-        if not undo:
-            for energy in new.chamber.cells:
-                if energy.id in new.cells_taken - prev.cells_taken:
-                    self._add("sparkle", energy.id, energy.position)
+        taken = frozenset() if undo else new.cells_taken - prev.cells_taken
+        for energy in new.chamber.cells:
+            if energy.id in taken:
+                self._add("pickup", energy.id, energy.position)
+                self._add("sparkle", energy.id, energy.position, delay=PICKUP_LEAD)
+                self._add(
+                    "plus", energy.id, energy.position, energy.value, delay=PICKUP_LEAD
+                )
         capacities = power.capacity_of(prev), power.capacity_of(new)
         if capacities[0] != capacities[1]:
-            self._add("capacity", None, *capacities)
+            wait = PICKUP_FRAMES if taken else 0  # a cell has to land first
+            self._add("capacity", None, *capacities, wait, delay=wait)
+        gained = lighting.live_conduit_tiles(new) - lighting.live_conduit_tiles(prev)
+        if gained and not undo and self._flash(1):
+            self._add("surge", None, gained)
         if not undo and new.phase is Phase.RESULT and prev.phase is not Phase.RESULT:
             self._add("burst", None, new.player)
 
@@ -544,7 +708,11 @@ class Motion:
             self._trail = [*self._trail, before][-TRAIL_LENGTH:]
 
     def player(self, rest: Position) -> tuple[float, float, str | None]:
-        """Where to draw the player in tiles, and a sprite id (None: the idle one)."""
+        """Where to draw the player in tiles, and a sprite id (None: the idle one).
+        While shocked (until the failure card shows) it stands on the live conduit
+        it stepped onto."""
+        if (shocked := self._get("zap")) is not None and shocked[0] < ZAP_CARD_WAIT:
+            return float(shocked[1][0].x), float(shocked[1][0].y), None
         if (slid := self._get("slide", "player")) is not None:
             a, b = slid[1]
             x, y = slide(a, b, slid[0])
@@ -626,27 +794,99 @@ class Motion:
             return float(load)
         return eased_load(*found[1], found[0])
 
+    def _each(self, kind: str):
+        """The (elapsed, params) of every running timeline of one kind."""
+        for name, key in self._effects:
+            if name == kind and (live := self._get(name, key)) is not None:
+                yield live
+
     def sparkles(self) -> list[tuple[Position, tuple[Particle, ...]]]:
         """Each energy cell just picked up with its sparks, for tile coordinates."""
-        found = []
-        for kind, key in self._effects:
-            if kind == "sparkle" and (live := self._get(kind, key)) is not None:
-                found.append((live[1][0], sparkle(live[0])))
-        return found
+        found = [
+            (params[0], sparkle(elapsed - PICKUP_LEAD))
+            for elapsed, params in self._each("sparkle")
+        ]
+        return [(at, sparks) for at, sparks in found if sparks]
+
+    def resting(self) -> frozenset[Position]:
+        """Cells just taken that still sit on their tile while the player arrives."""
+        return frozenset(
+            params[0]
+            for elapsed, params in self._each("pickup")
+            if elapsed < PICKUP_LEAD
+        )
+
+    def flights(self) -> list[tuple[Position, Flight]]:
+        """Each taken cell in the air: its tile and where it is on the way."""
+        found = [
+            (params[0], pickup_flight(elapsed))
+            for elapsed, params in self._each("pickup")
+        ]
+        return [(at, flight) for at, flight in found if flight is not None]
+
+    def floaters(self) -> list[tuple[Position, int, float, float]]:
+        """Each "+N" on show: tile, value, tiles risen, ink (1 solid, 0 gone)."""
+        found = [
+            (params[0], params[1], plus_float(elapsed))
+            for elapsed, params in self._each("plus")
+        ]
+        return [(at, value, *shown) for at, value, shown in found if shown is not None]
 
     def capacity(self, capacity: int) -> float:
-        """The capacity the power bar shows: easing to `capacity` after a change."""
+        """The capacity the power bar shows. After a pickup it keeps the old value
+        until the cell lands, then counts up; any other change eases at once."""
         found = self._get("capacity")
         if found is None:
             return float(capacity)
-        return eased_load(*found[1], found[0])
+        return capacity_value(*found[1][:2], found[0], found[1][2])
 
     def capacity_pulse(self) -> float:
         """0..1 swelling of the capacity bar frame while it grows, else 0."""
         found = self._get("capacity")
         if found is None or found[1][1] <= found[1][0]:
             return 0.0
-        return capacity_pulse(found[0])
+        return capacity_pulse(found[0] - found[1][2])
+
+    def capacity_bounce(self) -> float:
+        """0..1 hop of the power readout as the cell lands, else 0."""
+        found = self._get("capacity")
+        if found is None or found[1][1] <= found[1][0]:
+            return 0.0
+        return (
+            capacity_bounce(found[0] - found[1][2]) if found[0] >= found[1][2] else 0.0
+        )
+
+    def surge(self, pos: Position) -> float:
+        """Flash level 1..0 of a conduit tile that has just gone live, else 0."""
+        found = self._get("surge")
+        if found is None or pos not in found[1][0]:
+            return 0.0
+        return surge_level(found[0])
+
+    def zap(self) -> tuple[Position, bool, tuple[Particle, ...]] | None:
+        """The shocked player: its tile, whether it is flashing white, the sparks."""
+        found = self._get("zap")
+        if found is None:
+            return None
+        at, allowed = found[1]
+        return at, allowed and zap_bright(found[0]), zap_sparks(found[0])
+
+    def card_waits(self) -> bool:
+        """Whether the failure card still waits for the zap flashes to end (it is
+        only drawn later; the keys already work)."""
+        found = self._get("zap")
+        return found is not None and found[0] < ZAP_CARD_WAIT
+
+    def cell_sprite(self, offset: int = 0) -> str:
+        """The idle energy cell frame; the finished one when reduced."""
+        return "cell" if self.reduced else cell_sprite(self.clock + offset)
+
+    def current_sprite(self) -> str:
+        """The live conduit frame; a still one when reduced."""
+        return "conduit_live" if self.reduced else current_sprite(self.clock)
+
+    def conduit_spark(self, pos: Position) -> tuple[float, float, int] | None:
+        return None if self.reduced else conduit_spark(self.clock, pos.x, pos.y)
 
     def breath(self, offset: int = 0) -> float:
         """Tiles a resting figure is lifted by its breathing; none when reduced."""

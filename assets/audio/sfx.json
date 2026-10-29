@@ -15,6 +15,7 @@
   "gate_open": "T240 @2 V50 Q85 O2 L16 C G >C E",
   "gate_close": "T240 @2 V50 Q85 O3 L16 E C <G C",
   "elevator_start": "T220 @0 V85 Q90 O2 L16 C D E G >C E",
+  "zap": "T240 @3 V80 Q85 O3 L32 C R32 C R32 C @2 V55 Q90 O2 L16 C <G",
   "fail": "T150 @2 V60 Q90 O4 L8 G E- C L4 <G",
   "clear": "T150 @0 V90 Q90 O4 L8 C E G L4 >C",
   "ui_hover": "T300 @1 V22 Q60 O5 L16 C",

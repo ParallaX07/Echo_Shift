@@ -151,9 +151,19 @@ stripes) and plain floor differ in texture, not only in hue.
 Energy cells and conduits are drawn as their own sprites. An untaken cell glows
 in the dark so it can be found; a live conduit is never dimmed, lit or not. The
 power bar shows `load/capacity` with the capacity from the cells taken so far,
-the share the cells added is the yellow tail of its track, and the bar eases to
-a new capacity and pulses once when a cell is picked up (a sparkle rises from the
-cell; a chime plays). Reduced motion shows only the end state. The console drawer
+the share the cells added is the yellow tail of its track. A cell is a small
+battery standing on the floor at about half a tile; while idle its charge bars fill
+in a loop and it glints now and then. On a pickup the cell swells, flies in an arc
+to the POWER readout (about half a second), a "+N" floats up from its tile with a
+sparkle, and when the cell lands the capacity number counts up, the new part of the
+track fills and the readout hops. Until it lands the readout still shows the old
+capacity (the rules already have the new one, and a refusal quotes the real value).
+Live conduits show a current drifting along their cover, throw a small spark now
+and then and flash once when their circuit comes on; a step that ends on one
+shocks the player with two short flashes and sparks before the failure card
+appears (the keys work meanwhile), with a sharper zap sound. No flash repeats more
+than twice in a second. Reduced motion shows only the end state: a still cell
+and conduit, no flight, flash or zap. The console drawer
 lists "WILL GO LIVE" for conduits a pending choice would energise and frames those
 tiles in red with a zigzag, and a live or unlit tile next to you is outlined in
 red. Refusals read "too dark to walk there" and "that conduit is live".

@@ -332,6 +332,15 @@ def burst(view: View, at: tuple[float, float], sparks) -> None:
         pyxel.rect(cx - size / 2, cy - size / 2, size, size, spark.colour)
 
 
+def spark(view: View, tile, across: float, down: float, colour: int) -> None:
+    """A small plus-shaped spark `across` and `down` (0..1) a tile."""
+    cell, ox, oy = view
+    arm = max(2, cell // 30)
+    cx, cy = round(ox + (tile.x + across) * cell), round(oy + (tile.y + down) * cell)
+    pyxel.rect(cx - arm, cy, arm * 3, arm, colour)
+    pyxel.rect(cx, cy - arm, arm, arm * 3, colour)
+
+
 def fade(width: int, height: int, cover: float) -> None:
     """Cover the screen with the background colour; `cover` is 0 (none) to 1."""
     pyxel.dither(cover)

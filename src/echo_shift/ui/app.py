@@ -123,6 +123,8 @@ ICON_SCALE = 2
 SCREEN_CRISP, SCREEN_RETRO = 0, 2  # pyxel.screen_mode values
 FPS = motion.FPS
 PULSE_GROW = motion.PULSE_GROW
+BOUNCE_LIFT = motion.BOUNCE_LIFT
+FLYER_MIN = 52  # px of the flying cell's frame; the battery in it is about 24 px
 INTRO_FRAMES = 5 * FPS  # highlight for a newly shown button
 MESSAGE_FRAMES = 4 * FPS  # how long a feedback line stays up
 FLASH_FRAMES = FPS * 2 // 5  # the red room outline after a refusal
@@ -175,6 +177,7 @@ class Game:
         self.layout = Layout.fit(*self.windowed_size)
         self.room_view = (self.layout.cell, self.layout.room_x, self.layout.room_y)
         self.shaken = self.room_view  # the room view with any failure shake applied
+        self.power_at: tuple[int, int] | None = None  # the POWER readout's centre
         self.room_bounds = (0, 0, 0, 0)
         self.hub_edge: tuple[object, frozenset[Position]] = (None, frozenset())
         self.camera = camera.Camera()
@@ -1501,7 +1504,7 @@ class Game:
         hot_tiles = lighting.live_conduit_tiles(state)
         cell_tiles = {
             c.position for c in state.chamber.cells if c.id not in state.cells_taken
-        }
+        } | self.motion.resting()
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
                 tile = state.chamber.tiles[y][x]
@@ -1526,7 +1529,7 @@ class Game:
                     if tile is TileType.WALL
                     else ("floor_hub" if pos in hub_edge else "floor_hub_inner")
                     if pos in state.chamber.hub
-                    else ("conduit_live" if hot else "conduit_off")
+                    else (self.motion.current_sprite() if hot else "conduit_off")
                     if pos in conduit_tiles
                     else "floor_lit"
                 ]
@@ -1579,8 +1582,10 @@ class Game:
                     pyxel.dither(1.0)
                     if look_dark:
                         pyxel.pal()
+                if hot:
+                    self.draw_current(view, pos)
                 if pos in cell_tiles:  # cells glow in the dark too
-                    self.sprite("cell", (x, y - self.motion.breath(x * 7 + y * 3)))
+                    self.sprite(self.motion.cell_sprite(x * 37 + y * 91), pos)
                 if pos in pads or pos in devices:
                     pad_id = pads[pos].id if pos in pads else devices[pos].pad_id
                     link = focus.get(devices[pos].id) if pos in devices else None
@@ -1638,7 +1643,14 @@ class Game:
             self.sprite(shown[2] or f"echo_idle_{flicker}", (shown[0], shown[1] - lift))
         x, y, name = self.motion.player(state.player)
         lift = 0.0 if name else self.motion.breath()
+        zapped = self.motion.zap()
+        if zapped is not None and zapped[1]:
+            for colour in range(1, 16):
+                pyxel.pal(colour, 7)
         self.sprite(name or f"player_idle_{flicker}", (x, y - lift))
+        pyxel.pal()
+        if zapped is not None:
+            cuedraw.burst(view, (zapped[0].x, zapped[0].y), zapped[2])
         if frame is None and (command := preview.next_command(state)):
             cuedraw.arrow(view, state.echo_position, command)
         covered = self.paused or self.failure or self.modal or self.console
@@ -1658,6 +1670,8 @@ class Game:
             cuedraw.burst(view, (sparks[0].x, sparks[0].y), sparks[1])
         for at, sparks in self.motion.sparkles():
             cuedraw.burst(view, (at.x, at.y), sparks)
+        for at, value, rise, ink in self.motion.floaters():
+            self.draw_plus(view, at, value, rise, ink)
         cuedraw.offscreen(
             view,
             port,
@@ -1670,6 +1684,44 @@ class Game:
         if self.flash and not self.progress.settings.reduced_motion:
             pyxel.rectb(layout.room_x, layout.room_y, layout.room_w, layout.room_h, 8)
         pyxel.clip()
+
+    def draw_current(self, view: cuedraw.View, pos: Position) -> None:
+        """A live conduit tile's flash when it just went live, and its odd spark."""
+        cell, origin_x, origin_y = view
+        if flash := self.motion.surge(pos):
+            pyxel.dither(flash)
+            pyxel.rect(origin_x + pos.x * cell, origin_y + pos.y * cell, cell, cell, 7)
+            pyxel.dither(1.0)
+        if (spark := self.motion.conduit_spark(pos)) is not None:
+            cuedraw.spark(view, pos, *spark)
+
+    def draw_plus(
+        self, view: cuedraw.View, at: Position, value: int, rise: float, ink: float
+    ) -> None:
+        """The "+N" over a taken cell, rising and fading."""
+        cell, origin_x, origin_y = view
+        scale = self.layout.text_scale + 1
+        label = f"+{value}"
+        # Beside the flying cell, so it stays readable as the cell leaves the tile.
+        x = origin_x + round((at.x + 0.72) * cell)
+        y = origin_y + round((at.y + 0.2 - rise) * cell)
+        pyxel.dither(min(1.0, ink))
+        self.text(x + scale, y + scale, label, 1, scale)
+        self.text(x, y, label, 10, scale)
+        pyxel.dither(1.0)
+
+    def draw_flights(self) -> None:
+        """Picked-up cells flying from their tile to the POWER readout."""
+        cell, origin_x, origin_y = self.shaken
+        target = self.power_at or (self.layout.width // 2, self.layout.room_y)
+        for at, flight in self.motion.flights():
+            sx, sy = origin_x + (at.x + 0.5) * cell, origin_y + (at.y + 0.5) * cell
+            x = sx + (target[0] - sx) * flight.p
+            y = sy + (target[1] - sy) * flight.p
+            y -= math.sin(math.pi * flight.p) * min(cell, abs(target[1] - sy)) * 0.6
+            # Never smaller than a readable battery, whatever the tile size.
+            size = max(round(cell * flight.grow), FLYER_MIN)
+            self.atlas.draw("cell", round(x - size / 2), round(y - size / 2), size)
 
     def draw_dust(self, lit: frozenset[Position], bounds, view) -> None:
         """A few motes drifting over the lit floor."""
@@ -1859,6 +1911,7 @@ class Game:
         char = self.char_width(scale)
         text_y = y + (height - line_height(scale)) // 2
         text_x = x + layout.pad + item.lead
+        label = item.text
         if item.kind == "slot":
             index = int(item.key.removeprefix("timeline:"))
             self.atlas.draw(item.text, x, y, width, self.motion.pop(index))
@@ -1911,16 +1964,24 @@ class Game:
             )
             color = 7 if item.on else 13
         elif item.kind == "power":
+            self.power_at = (x + width // 2, y + height // 2)
             shown = self.motion.power_load(hud.load)
             span = width - 2 * layout.pad
             total = max(1.0, self.motion.capacity(hud.capacity))
+            # The number counts up once a taken cell lands, and the readout hops.
+            label = f"POWER {hud.load}/{round(total)}"
+            text_y -= round(self.motion.capacity_bounce() * BOUNCE_LIFT * scale)
             fill = round(span * min(shown, total) / total)
             # The track's tail is the capacity the energy cells added.
             own = round(span * min(hud.base, total) / total)
             pyxel.rect(text_x, y + height - 3, own, 1, 5)
-            pyxel.rect(text_x + own, y + height - 3, span - own, 1, 10)
+            swell = self.motion.capacity_pulse()
+            pyxel.rect(
+                text_x + own, y + height - 3, span - own, 1, 7 if swell > 0.5 else 10
+            )
             pyxel.rect(text_x, y + height - 3, fill, 1, 11)
-            if (swell := self.motion.capacity_pulse()) > 0:
+            if swell > 0:
+                color = 10
                 grow = round(swell * 2)
                 pyxel.rectb(x - grow, y - grow, width + 2 * grow, height + 2 * grow, 10)
         elif item.kind == "safety":
@@ -1934,8 +1995,8 @@ class Game:
         if item.cap:
             self.text(text_x, text_y, item.cap, cap_color)
             text_x += (len(item.cap) + 1) * char
-        if item.text:
-            self.text(text_x, text_y, item.text, color)
+        if label:
+            self.text(text_x, text_y, label, color)
 
     def draw_panel(
         self,
@@ -1946,6 +2007,7 @@ class Game:
         rows: dict[int, str] | None = None,
         gap_units: int = 12,
         measure: list[str] | None = None,
+        dim: frozenset[int] = frozenset(),
     ) -> None:
         """Draw a card centred in the room, or fill `drawer` when one is given.
 
@@ -1994,6 +2056,8 @@ class Game:
             accent = (
                 8
                 if line.startswith("OVER BUDGET")
+                else 13
+                if index in dim
                 else 10
                 if title == "POWER CONSOLE" and "*" in line
                 else 7
@@ -2598,10 +2662,11 @@ class Game:
     def draw_failure(self) -> None:
         keys = self.actions()
         retry = controls.find(keys, "retry")
+        choices = ("undo", "retry", "restart")
         self.draw_panel(
             "ATTEMPT FAILED",
             [self.failure.reason.capitalize()]
-            + self.menu_lines(("undo", "retry", "restart"), 1 if retry.enabled else -1),
+            + self.menu_lines(choices, 1 if retry.enabled else -1),
             "ANY OTHER KEY: "
             + (retry.label if retry.enabled else "START AGAIN").upper(),
             rows={
@@ -2609,6 +2674,11 @@ class Game:
                 2: "failure:retry",
                 3: "failure:restart",
             },
+            dim=frozenset(
+                1 + index
+                for index, action_id in enumerate(choices)
+                if not controls.find(keys, action_id).enabled
+            ),
         )
 
     def draw(self) -> None:
@@ -2628,10 +2698,11 @@ class Game:
         self.ui_hits = []
         self.draw_room()
         self.draw_bars()
+        self.draw_flights()
         self.draw_lesson_card()
         if self.console or self.motion.drawer_hidden() is not None:
             self.draw_console()
-        if self.failure is not None:
+        if self.failure is not None and not self.motion.card_waits():
             self.draw_failure()
         if self.paused:
             self.draw_pause()

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pyxel
 
+from echo_shift.engine import lighting
 from echo_shift.engine.model import Phase, State
 from echo_shift.engine.turn import Failed, Rejected
 from echo_shift.paths import resource_path
@@ -69,13 +70,13 @@ def sfx_for(prev: State, result: object, new: State) -> str | None:
     """The one effect that best describes this step, or None for silence.
 
     `result` is an engine result, a `Refusal`, a `Cue`, a UI cue (an effect id as
-    text) or None. Priority: fail, a `Cue` (it replaces the state difference),
+    text) or None. Priority: fail (a zap when a live conduit did it), a `Cue` (it replaces the state difference),
     clear, reject, an energy cell pickup, record/commit/launch, echo expiry,
     gate, elevator, pad, power, then move/wait (a recorded step ticks instead).
     A UI cue only sounds when the state itself changed in no audible way.
     """
     if isinstance(result, Failed):
-        return "fail"
+        return "zap" if result.reason == lighting.LIVE else "fail"
     if isinstance(result, Cue):
         return result.sfx_id
     if new.phase is Phase.RESULT and prev.phase is not Phase.RESULT:

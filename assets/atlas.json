@@ -334,5 +334,54 @@
     "v": 576,
     "width": 96,
     "height": 96
+  },
+  "cell_charge_0": {
+    "bank": 0,
+    "u": 384,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "cell_charge_1": {
+    "bank": 0,
+    "u": 480,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "cell_charge_2": {
+    "bank": 0,
+    "u": 576,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "cell_glint": {
+    "bank": 0,
+    "u": 672,
+    "v": 576,
+    "width": 96,
+    "height": 96
+  },
+  "conduit_live_1": {
+    "bank": 0,
+    "u": 0,
+    "v": 672,
+    "width": 96,
+    "height": 96
+  },
+  "conduit_live_2": {
+    "bank": 0,
+    "u": 96,
+    "v": 672,
+    "width": 96,
+    "height": 96
+  },
+  "conduit_live_3": {
+    "bank": 0,
+    "u": 192,
+    "v": 672,
+    "width": 96,
+    "height": 96
   }
 }
