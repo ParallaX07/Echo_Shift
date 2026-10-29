@@ -274,16 +274,16 @@ solved without an echo (the tests exhaust every no-echo play to prove it).
 | 1 | movement | nothing: switch on the route and reach the lift |
 | 2 | power | nothing: light a wing, fetch its energy cell and swap the power from the lamp to the machines |
 | 3 | echo | standing on a passive pad in one wing while you cross the gate on the route to the other |
-| 4 | darkness | standing on a pad in an unlit nook; the generator cannot light the nook and run the machines at once, so the take is made lit and the power is swapped before launch |
-| 5 | timed pads | crossing a gate on a pad's countdown, then waiting on a passive pad while you ride the lift |
-| 6 | combined | all of the above: a dark pad opens the first gate, then a countdown holds the second gate and the lift |
+| 4 | darkness | standing on a pad at the end of a dark corridor with a live conduit in it; the generator cannot light the corridor and run the machines at once, so the take is made lit and the power is swapped before launch |
+| 5 | timed pads | stepping on a pad with a countdown and walking on to a second pad: the countdown keeps the first gate open while the echo holds the second pad for the second gate and the lift |
+| 6 | combined | all of the above: the energy cell makes the machines affordable, the echo crosses the live cable to a timed pad in the dark and walks on to a second timed pad in the dark, and the power is swapped between the take and the launch |
 
-Chambers 1 to 3 are built around a small hub: 8 or 9 lit tiles near the middle of
+Every chamber is built around a small hub: 8 or 9 lit tiles near the middle of
 the chamber that hold the start tile and the power console, with two or three
 dark wings leaving it and the elevator at least six steps from the hub. The map
 is the puzzle: wings light only while their circuit is on, each holds something
 worth the walk (an energy cell, a log terminal, the pad of a gate), and no tile
-is wasted. The chambers measure about 14x9 to 16x10 tiles, so the camera scrolls
+is wasted. The chambers measure about 14x9 to 16x11 tiles, so the camera scrolls
 them a little on a 1280x720 window. Free roam over the lit hub and wings costs no
 turn, a take starts on any hub tile, and the console is used only while the
 technician stands on its tile: the E key and a click on the tile are refused
@@ -303,14 +303,29 @@ back.
   four moves and a wait put the echo on pad A and keep it there while the
   technician walks the east corridor through the gate to the lift; fewer waits
   would let the echo leave before the lift is reached.
-
-Chambers 4 to 6 are built around a larger hub room of 80 to 100 tiles with the
-start tile as its only door, so there is space to walk about before a take. The
-power console stands deeper in the room, four tiles from the door along its row.
-The room is always lit and walking in it is free, and the route begins at the
-door, so a take that starts anywhere else in the room is never faster than one
-that starts at the door. These chambers are 15 to 19 tiles wide and 12 or 13
-tall, so the camera scrolls them on a 1280x720 window.
+- Chamber 4 has LAB-LIGHTS (40), which lights the west corridor with the pad at
+  its end and a side room, and LIFT-POWER (50), which powers the gate and the
+  lift and turns a two-tile cable strip in the west corridor into a live
+  conduit. The generator supplies 60, so the two never run together. The take is
+  recorded with the corridor lit and the strip dead; the power is swapped before
+  the launch, and the echo walks the dark corridor and the live strip to the pad,
+  where it waits while the technician crosses the gate and rides the lift. The
+  console marks the tiles that go dark and the tiles that go live before the
+  swap is applied.
+- Chamber 5 has one circuit (40) that lights both wings and the route and
+  powers two gates and the lift. Pad A (north corridor) has a three-turn
+  countdown and holds the first gate; pad B (west doorway) works only while
+  stood on and holds the second gate and the lift. The echo steps on pad A,
+  walks on to pad B and waits there; the countdown keeps the first gate open
+  while the technician walks through it. With the countdown removed the take
+  would need more commands than the chamber allows.
+- Chamber 6 combines them. The generator supplies 40 and ROUTE-POWER needs 45,
+  so the energy cell at the end of the west corridor (+20) is needed, and
+  LAB-LIGHTS (30) and ROUTE-POWER together are more than 60, so the power is
+  swapped after the take. The echo crosses the cable in the north corridor,
+  which is live in the replay, to a timed pad (pad A, three turns) in the dark,
+  then walks on to a timed pad (pad B, two turns) in the west doorway, which
+  holds the second gate and the lift.
 
 Each chamber also holds two or three log terminals, small story props on floor
 away from the console and the start. They are listed in the chamber file as
@@ -328,13 +343,14 @@ right-click closes it at once. Reading is free at every stage of a take, passes 
 changes no chamber state and leaves nothing for undo. Where no terminal is
 near, the key keeps its power-console reason.
 
-Each of chambers 4 to 6 is a short route in three beats: the idea on its own (the
-first gate or pad), an easy use of it (the recorded walk), and a twist that
-combines it with earlier chambers (the power swap, the shared countdown). Difficulty
-is measured by the fewest turns of the shortest play, which is 6, 7 and 11 for
-the three small-hub chambers (their routes start at the hub's edge and the echo
-needs a long hold) and rises 9, 11, 13 over the large-hub rooms; `tools/solve.py --all` prints that table with the fewest
-recorded commands, the lowest peak load and the idea check for each chamber.
+Each chamber teaches one idea, then twists it, then combines it with what came
+before: a chamber never needs an idea that an earlier one has not taught. A
+chamber is also built to be read: every conduit, dark tile and pad link is
+visible before it matters, and the console preview shows what a choice will
+light, darken or make live. Difficulty is measured by the fewest turns of the
+shortest play, which rises 6, 7, 11, 13, 15, 16 over the six chambers;
+`tools/solve.py --all` prints that table with the fewest recorded commands, the
+lowest peak load and the idea check for each chamber.
 
 The title screen
 leads to level select by Enter, Space or clicking Start. Chamber selection uses

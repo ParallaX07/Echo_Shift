@@ -1,9 +1,8 @@
-"""Chambers are small hubs with wings, or (the older ones) a large hub room.
+"""Every chamber is a small hub with wings, and the map is the puzzle.
 
-`WING_CHAMBERS` lists the chambers built as a small lit hub near the middle with
-the console and the start inside it, a few dark wings around it and an exit well
-away from the hub. The map is the puzzle there, so these checks hold every wing
-chamber to the same design rules:
+Each chamber has a small lit hub near the middle with the console and the start
+inside it, a few dark wings around it and an exit well away from the hub. These
+checks hold every chamber to the same design rules:
 
 - the hub has 6 to 12 tiles, is one connected room near the middle and holds the
   start and the console;
@@ -13,9 +12,6 @@ chamber to the same design rules:
 - no dead space: every walkable tile is either reachable by free roam under some
   power setting (with every cell taken) or on the intended solution's path;
 - the chamber measures about 14x9 to 18x11 tiles.
-
-The remaining chambers keep the large hub room: the start is the hub's only door
-and the console stands a few tiles inside it.
 """
 
 import json
@@ -28,18 +24,15 @@ from echo_shift.engine.model import Position, TileType, initial_state
 from echo_shift.engine.recording import act, enter, launch
 from echo_shift.engine.search import roam_graph
 from echo_shift.engine.turn import InteractAtConsole
-from echo_shift.ui.layout import Layout, framed_bounds
+from echo_shift.ui.layout import framed_bounds
 from tests.solutions.test_solutions import (
     LEVELS,
     MOVES,
     NUMBERS,
-    WING_CHAMBERS,
     solution_steps,
 )
 
-OPEN = (TileType.WALL, TileType.HUB, TileType.CONSOLE)
 STEPS = ((0, -1), (1, 0), (0, 1), (-1, 0))
-HUB_ROOMS = [n for n in NUMBERS if n not in WING_CHAMBERS]
 
 
 def ids(n):
@@ -122,7 +115,7 @@ def roamable(chamber):
 # ---- wing chambers -----------------------------------------------------------------
 
 
-@pytest.fixture(params=WING_CHAMBERS, ids=ids)
+@pytest.fixture(params=NUMBERS, ids=ids)
 def wing(request):
     return request.param, load(LEVELS / f"chamber_{request.param:02}.json")
 
@@ -189,49 +182,3 @@ def test_the_console_and_start_are_a_short_walk_apart(wing):
     assert chamber.tile_at(console) is TileType.CONSOLE
     assert chamber.tile_at(chamber.start) is TileType.HUB
     assert 2 <= abs(console.x - chamber.start.x) + abs(console.y - chamber.start.y) <= 4
-
-
-# ---- chambers with a large hub room --------------------------------------------------
-
-
-@pytest.fixture(params=HUB_ROOMS, ids=ids)
-def chamber(request):
-    return load(LEVELS / f"chamber_{request.param:02}.json")
-
-
-def test_the_start_is_the_hubs_only_door(chamber):
-    doors = {
-        tile
-        for tile in chamber.hub
-        for dx, dy in STEPS
-        if chamber.tile_at(Position(tile.x + dx, tile.y + dy)) not in OPEN
-    }
-    assert doors == {chamber.start}
-
-
-def test_the_console_is_deeper_in_the_room_than_the_door(chamber):
-    (console,) = chamber.consoles
-    assert chamber.tile_at(console) is TileType.CONSOLE
-    assert chamber.tile_at(chamber.start) is TileType.HUB
-    trip = abs(console.x - chamber.start.x) + abs(console.y - chamber.start.y)
-    assert 3 <= trip <= 6  # a noticeable but short walk
-    layout = Layout.fit(1280, 720)
-    assert trip < layout.room_w // layout.min_tile  # on screen with the door
-
-
-def test_the_hub_is_one_connected_room(chamber):
-    seen, queue = {chamber.start}, deque([chamber.start])
-    while queue:
-        for there in neighbours(queue.popleft()):
-            if there in chamber.hub and there not in seen:
-                seen.add(there)
-                queue.append(there)
-    assert seen == chamber.hub
-    assert len(chamber.hub) >= 50  # room to walk about, not a single tile
-
-
-def test_enlarged_chambers_are_bigger_than_one_screen(chamber):
-    min_x, min_y, max_x, max_y = framed_bounds(chamber)
-    assert max_x - min_x + 1 >= 15 and max_y - min_y + 1 >= 11
-    layout = Layout.fit(1280, 720)
-    assert max_y - min_y + 1 > layout.room_h // layout.min_tile  # it scrolls

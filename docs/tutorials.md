@@ -53,12 +53,14 @@ active window. Chamber 3 records four moves and a wait, introduces Retry and
 Re-record, then uses the echo to hold a passive pad in the west corridor while
 crossing the gate in the east one.
 
-Chamber 4 lights a side nook to record a walk onto its pad, then swaps the lights
-for the machines (the generator cannot run both) so the echo holds the pad in the
-dark. Chamber 5 walks through a gate on a timed pad's countdown and parks the echo
-on a second pad. Chamber 6 combines the dark pad, the power swap and a countdown
-that holds the second gate and the lift. Each lesson has one or two concept cards
-and ends with the same replay steps as the chamber's recorded solution.
+Chamber 4 lights the west corridor to record a walk onto its pad, then swaps the
+lights for the lift (the generator cannot run both), which turns a cable strip in
+that corridor live; the echo walks the dark, live corridor and holds the pad.
+Chamber 5 records a walk over a pad with a countdown and on to a second pad, so
+the countdown holds the first gate while the echo holds the second. Chamber 6
+fetches the energy cell, then combines the dark and live corridor, two countdown
+pads and the power swap. Each lesson has two to four concept cards and ends with
+the same replay steps as the chamber's recorded solution.
 
 ## The guide
 

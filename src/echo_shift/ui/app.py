@@ -181,6 +181,8 @@ class Game:
         self.room_bounds = (0, 0, 0, 0)
         self.hub_edge: tuple[object, frozenset[Position]] = (None, frozenset())
         self.camera = camera.Camera()
+        self.panel_tops: list[int] = []  # line tops of the last card drawn
+        self.panel_scale = 1
         self.zoom: list = [None, 0]  # [key, eased tile size]
         self.text_cache = {}
         self.fonts = {}
@@ -1493,6 +1495,10 @@ class Game:
                     focus, [(t.x, t.y) for t in changed], size
                 )
                 exact = True
+        elif (echo := state.echo_position) is not None:
+            # While the echo runs, keep it in view with the player when both fit.
+            focus = camera.interest_focus(focus, [(echo.x, echo.y)], size)
+            exact = True
         view_at = self.camera.follow(
             focus, size, bounds, (base, layout.room), reduced, exact
         )
@@ -1528,6 +1534,7 @@ class Game:
         cell_tiles = {
             c.position for c in state.chamber.cells if c.id not in state.cells_taken
         } | self.motion.resting()
+        badges = []  # pad letters, drawn over the link lines once the tiles are down
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
                 tile = state.chamber.tiles[y][x]
@@ -1612,19 +1619,19 @@ class Game:
                 if pos in pads or pos in devices:
                     pad_id = pads[pos].id if pos in pads else devices[pos].pad_id
                     link = focus.get(devices[pos].id) if pos in devices else None
-                    cuedraw.badge(
-                        view,
-                        pos,
-                        self.text,
-                        pad_label(state, pad_id),
-                        letter,
-                        letter_char,
-                        pad_id in active,
-                        link.powered if link else None,
+                    badges.append(
+                        (
+                            pos,
+                            pad_label(state, pad_id),
+                            pad_id in active,
+                            link.powered if link else None,
+                        )
                     )
         if live:
             self.draw_dust(lit, (min_x, min_y, max_x, max_y), view)
-        self.draw_cues(view, frame, timers, occupied, focus, letter, letter_char)
+        self.draw_cues(
+            view, frame, timers, occupied, focus, letter, letter_char, badges
+        )
         flicker = motion.blink(getattr(pyxel, "frame_count", 0), 0.4)
         if frame is not None:
             self.draw_ghosts(view, frame, flicker)
@@ -1746,10 +1753,28 @@ class Game:
                 mote.colour,
             )
 
+    def draw_badges(self, view, badges, letter: int, letter_char: int) -> None:
+        """The pad letters (and power bolts), on top of every link line."""
+        for pos, label, lit, bolt_lit in badges:
+            cuedraw.badge(
+                view, pos, self.text, label, letter, letter_char, lit, bolt_lit
+            )
+
     def draw_cues(
-        self, view, frame, timers, occupied, focus, letter: int, letter_char: int
+        self,
+        view,
+        frame,
+        timers,
+        occupied,
+        focus,
+        letter: int,
+        letter_char: int,
+        badges=(),
     ) -> None:
-        """Safety, timing and link cues drawn over the tiles, under the sprites."""
+        """Safety, timing and link cues drawn over the tiles, under the sprites.
+
+        The link lines come first; the letter badges and the countdown numbers
+        are drawn after them so a line never crosses a letter."""
         state = self.state
         devices = {device.id: device.position for device in state.chamber.devices}
         if state.phase in preview.PREVIEW_PHASES and not self.console:
@@ -1760,17 +1785,19 @@ class Game:
                 cuedraw.unsafe_outline(view, tile, warn)
             for link in focus.values():
                 cuedraw.links(view, (link,), self.layout.room)
+            self.draw_badges(view, badges, letter, letter_char)
             marks = preview.markers(state)
             numbers = preview.countdowns(state.chamber, timers, occupied)
             positions = {pad.id: pad.position for pad in state.chamber.pads}
+            big = letter + 2  # the countdown is the only cue, so it is much larger
             for pad_id, value in numbers:
                 cuedraw.countdown(
                     view,
                     positions[pad_id],
                     self.text,
                     value,
-                    letter,
-                    letter_char,
+                    big,
+                    self.char_width(big),
                     self.motion.tick_lift(pad_id) if frame is None else 0.0,
                 )
             if frame is None:
@@ -1792,6 +1819,7 @@ class Game:
                 self.progress.settings.reduced_motion,
                 self.layout.room,
             )
+            self.draw_badges(view, badges, letter, letter_char)
 
     def draw_ghosts(self, view, frame: preview.Frame, flicker: int) -> None:
         """The predicted echo, and the player's assumed spot when they differ."""
@@ -2055,8 +2083,10 @@ class Game:
         cursor += 14
         if self.modal == "lesson_choice":
             self.choice_hits = []
+        self.panel_tops, self.panel_scale = [], scale
         for index, line in enumerate(lines):
             line_top = cursor
+            self.panel_tops.append(line_top)
             accent = (
                 8
                 if line.startswith("OVER BUDGET")
@@ -2111,6 +2141,20 @@ class Game:
         )
         self.wrapped(x + pad, footer_y, footer, width - 2 * pad, 12, footer_scale)
 
+    def draw_legend(self, legend, index: int, left: int) -> None:
+        """Colour swatches in the columns the legend line leaves blank."""
+        if index >= len(self.panel_tops):
+            return
+        scale = self.panel_scale
+        char = self.char_width(scale)
+        top = self.panel_tops[index]
+        side = max(8, self.line_height(scale) - 6)
+        column = 0
+        for kind, label in legend:
+            x = left + column * char + 1
+            cuedraw.legend_swatch(kind, x, top + 3, side)
+            column += cuedraw.LEGEND_GAP + len(label) + cuedraw.LEGEND_SEP
+
     def wrapped_height(self, value: str, width: int, scale: int) -> int:
         return len(
             textwrap.wrap(
@@ -2156,6 +2200,7 @@ class Game:
         if not configured.ok:
             lines.append("OVER BUDGET - CANNOT APPLY")
         lines.append("WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"))
+        legend_index = len(lines)
         if live := sorted(
             conduit.id
             for conduit in self.state.chamber.conduits
@@ -2163,6 +2208,10 @@ class Game:
             and conduit.circuit_id not in self.state.powered_circuits
         ):
             lines.append("WILL GO LIVE: " + ", ".join(live).upper())
+        legend = cuedraw.legend_items(cues.console_preview(self.state, self.pending))
+        if legend:  # a line of blanks keeps the room for the swatches drawn below
+            legend_index = len(lines)
+            lines.append(cuedraw.legend_text(legend))
         rows[len(lines)] = "apply"
         lines.append(f"  {controls.cap('apply')} {controls.apply_label(self.state)}")
         x, y, width, height = self.layout.console_drawer()
@@ -2177,6 +2226,10 @@ class Game:
             (x + slid, y, width, height),
             rows,
         )
+        if legend:
+            self.draw_legend(
+                legend, legend_index, x + slid + max(18, self.layout.cell // 4)
+            )
         pyxel.clip()
         # Rows stay clickable where the drawer rests; a closing drawer has none.
         self.ui_hits[marked:] = (

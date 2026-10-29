@@ -17,20 +17,11 @@
       "wall",
       "wall",
       "wall",
-      "wall",
       "wall"
     ],
     [
       "wall",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
       "wall",
       "wall",
@@ -38,20 +29,7 @@
       "wall",
       "wall",
       "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
+      "floor",
       "wall",
       "wall",
       "wall",
@@ -62,116 +40,129 @@
     ],
     [
       "wall",
-      "hub",
-      "hub",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "hub",
-      "hub",
       "wall",
       "wall",
       "wall",
       "wall",
       "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
       "wall",
       "wall",
       "pad",
       "wall",
       "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "wall"
     ],
     [
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
       "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "floor",
+      "floor",
+      "floor",
+      "floor",
+      "pad",
+      "hub",
       "console",
       "hub",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "hub",
       "hub",
       "hub",
       "floor",
       "floor",
       "floor",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "hub",
+      "hub",
+      "hub",
+      "wall",
+      "wall",
+      "floor",
+      "wall",
+      "wall",
+      "wall"
+    ],
+    [
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "gate",
-      "pad",
-      "wall"
-    ],
-    [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
+      "floor",
       "floor",
       "wall"
     ],
     [
       "wall",
-      "hub",
-      "hub",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
-      "hub",
-      "hub",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -182,16 +173,15 @@
     ],
     [
       "wall",
-      "hub",
-      "hub",
       "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
       "wall",
-      "hub",
-      "hub",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
+      "wall",
       "wall",
       "wall",
       "wall",
@@ -201,47 +191,6 @@
       "wall"
     ],
     [
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
-      "wall",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "hub",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall",
-      "wall"
-    ],
-    [
-      "wall",
       "wall",
       "wall",
       "wall",
@@ -263,135 +212,11 @@
   ],
   "hub": [
     [
-      11,
-      6
-    ],
-    [
-      2,
-      1
-    ],
-    [
-      3,
-      1
-    ],
-    [
-      4,
-      1
-    ],
-    [
-      5,
-      1
-    ],
-    [
-      6,
-      1
-    ],
-    [
-      7,
-      1
+      10,
+      5
     ],
     [
       8,
-      1
-    ],
-    [
-      9,
-      1
-    ],
-    [
-      1,
-      2
-    ],
-    [
-      2,
-      2
-    ],
-    [
-      3,
-      2
-    ],
-    [
-      4,
-      2
-    ],
-    [
-      5,
-      2
-    ],
-    [
-      6,
-      2
-    ],
-    [
-      7,
-      2
-    ],
-    [
-      8,
-      2
-    ],
-    [
-      9,
-      2
-    ],
-    [
-      10,
-      2
-    ],
-    [
-      1,
-      3
-    ],
-    [
-      2,
-      3
-    ],
-    [
-      4,
-      3
-    ],
-    [
-      5,
-      3
-    ],
-    [
-      6,
-      3
-    ],
-    [
-      7,
-      3
-    ],
-    [
-      9,
-      3
-    ],
-    [
-      10,
-      3
-    ],
-    [
-      1,
-      4
-    ],
-    [
-      2,
-      4
-    ],
-    [
-      4,
-      4
-    ],
-    [
-      5,
-      4
-    ],
-    [
-      6,
-      4
-    ],
-    [
-      7,
       4
     ],
     [
@@ -401,34 +226,6 @@
     [
       10,
       4
-    ],
-    [
-      1,
-      5
-    ],
-    [
-      2,
-      5
-    ],
-    [
-      3,
-      5
-    ],
-    [
-      4,
-      5
-    ],
-    [
-      5,
-      5
-    ],
-    [
-      6,
-      5
-    ],
-    [
-      7,
-      5
     ],
     [
       8,
@@ -437,30 +234,6 @@
     [
       9,
       5
-    ],
-    [
-      10,
-      5
-    ],
-    [
-      1,
-      6
-    ],
-    [
-      2,
-      6
-    ],
-    [
-      3,
-      6
-    ],
-    [
-      4,
-      6
-    ],
-    [
-      7,
-      6
     ],
     [
       8,
@@ -473,224 +246,64 @@
     [
       10,
       6
-    ],
-    [
-      1,
-      7
-    ],
-    [
-      2,
-      7
-    ],
-    [
-      3,
-      7
-    ],
-    [
-      4,
-      7
-    ],
-    [
-      5,
-      7
-    ],
-    [
-      6,
-      7
-    ],
-    [
-      7,
-      7
-    ],
-    [
-      8,
-      7
-    ],
-    [
-      9,
-      7
-    ],
-    [
-      10,
-      7
-    ],
-    [
-      1,
-      8
-    ],
-    [
-      2,
-      8
-    ],
-    [
-      4,
-      8
-    ],
-    [
-      5,
-      8
-    ],
-    [
-      6,
-      8
-    ],
-    [
-      7,
-      8
-    ],
-    [
-      9,
-      8
-    ],
-    [
-      10,
-      8
-    ],
-    [
-      1,
-      9
-    ],
-    [
-      2,
-      9
-    ],
-    [
-      4,
-      9
-    ],
-    [
-      5,
-      9
-    ],
-    [
-      6,
-      9
-    ],
-    [
-      7,
-      9
-    ],
-    [
-      9,
-      9
-    ],
-    [
-      10,
-      9
-    ],
-    [
-      1,
-      10
-    ],
-    [
-      2,
-      10
-    ],
-    [
-      3,
-      10
-    ],
-    [
-      4,
-      10
-    ],
-    [
-      5,
-      10
-    ],
-    [
-      6,
-      10
-    ],
-    [
-      7,
-      10
-    ],
-    [
-      8,
-      10
-    ],
-    [
-      9,
-      10
-    ],
-    [
-      10,
-      10
-    ],
-    [
-      2,
-      11
-    ],
-    [
-      3,
-      11
-    ],
-    [
-      4,
-      11
-    ],
-    [
-      5,
-      11
-    ],
-    [
-      6,
-      11
-    ],
-    [
-      7,
-      11
-    ],
-    [
-      8,
-      11
-    ],
-    [
-      9,
-      11
     ]
   ],
   "consoles": [
     [
-      7,
-      6
+      9,
+      4
     ]
   ],
   "start": [
-    11,
-    6
+    10,
+    5
   ],
   "exit": [
-    16,
+    15,
     9
   ],
-  "capacity": 60,
-  "max_turns": 4,
+  "capacity": 40,
+  "max_turns": 7,
   "idea": "combined",
   "goals": {
-    "turns": 13,
-    "recorded": 4
+    "turns": 16,
+    "recorded": 7
   },
   "zones": [
     {
       "id": "lab",
       "tiles": [
         [
-          12,
-          6
+          9,
+          3
         ],
         [
-          13,
-          6
+          9,
+          2
         ],
         [
-          14,
-          6
+          9,
+          1
         ],
         [
-          14,
-          5
+          7,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          4
         ]
       ]
     },
@@ -698,35 +311,39 @@
       "id": "route",
       "tiles": [
         [
+          11,
+          5
+        ],
+        [
           12,
-          6
+          5
+        ],
+        [
+          13,
+          5
         ],
         [
           13,
           6
         ],
         [
-          14,
-          6
-        ],
-        [
-          15,
-          6
-        ],
-        [
-          16,
-          6
-        ],
-        [
-          16,
+          13,
           7
         ],
         [
-          16,
+          14,
+          7
+        ],
+        [
+          15,
+          7
+        ],
+        [
+          15,
           8
         ],
         [
-          16,
+          15,
           9
         ]
       ]
@@ -735,7 +352,7 @@
   "circuits": [
     {
       "id": "lab-lights",
-      "load": 40,
+      "load": 30,
       "zones": [
         "lab"
       ],
@@ -743,7 +360,7 @@
     },
     {
       "id": "route-power",
-      "load": 50,
+      "load": 45,
       "zones": [
         "route"
       ],
@@ -758,18 +375,18 @@
     {
       "id": "pad-a",
       "position": [
-        14,
-        5
+        9,
+        2
       ],
-      "timer": 0
+      "timer": 3
     },
     {
       "id": "pad-b",
       "position": [
-        16,
-        6
+        7,
+        4
       ],
-      "timer": 4
+      "timer": 2
     }
   ],
   "devices": [
@@ -777,8 +394,8 @@
       "id": "gate-a",
       "kind": "gate",
       "position": [
-        15,
-        6
+        13,
+        7
       ],
       "circuit": "route-power",
       "pad": "pad-a"
@@ -787,7 +404,7 @@
       "id": "gate-b",
       "kind": "gate",
       "position": [
-        16,
+        15,
         8
       ],
       "circuit": "route-power",
@@ -797,22 +414,44 @@
       "id": "lift",
       "kind": "elevator",
       "position": [
-        16,
+        15,
         9
       ],
       "circuit": "route-power",
       "pad": "pad-b"
     }
   ],
+  "cells": [
+    {
+      "id": "cell-west",
+      "position": [
+        3,
+        4
+      ],
+      "value": 20
+    }
+  ],
+  "conduits": [
+    {
+      "id": "strip",
+      "circuit": "route-power",
+      "tiles": [
+        [
+          9,
+          3
+        ]
+      ]
+    }
+  ],
   "hints": [
-    "The first gate needs the dark pad held. The second gate and the lift run on the countdown of the pad beside them.",
-    "LAB-LIGHTS and ROUTE-POWER cannot run together (40 and 50 is more than 60). Light the nook to record, then swap before you launch.",
-    "Record right three times, then up. Walk back to the console and swap the power. After launch go right three times, wait, go right two more times, then down three times."
+    "ROUTE-POWER costs 45 and the generator supplies 40, so you need the energy cell at the end of the west corridor. Light the corridors with LAB-LIGHTS to fetch it.",
+    "LAB-LIGHTS and ROUTE-POWER (30 and 45) are more than the 60 you will have, so swap them after recording. Your echo can stand in the dark and on the live cable in the north corridor.",
+    "Take the cell, then record from the console: up, up onto pad A, down, down, left, left onto pad B, wait once and save. Swap to ROUTE-POWER, launch, then cross the first gate while pad A's countdown still holds it."
   ],
   "terminals": [
     {
       "position": [
-        2,
+        9,
         1
       ],
       "lines": [
@@ -822,8 +461,8 @@
     },
     {
       "position": [
-        1,
-        10
+        5,
+        4
       ],
       "lines": [
         "The elevator is the last thing to wake up.",
@@ -832,8 +471,8 @@
     },
     {
       "position": [
-        10,
-        3
+        13,
+        5
       ],
       "lines": [
         "If you are reading this, the lights are on.",
@@ -843,23 +482,41 @@
   ],
   "tutorial_steps": [
     {
-      "id": "walk-to-console",
+      "id": "walk-left",
       "concept": true,
       "title": "The whole escape",
-      "explanation": "Your echo holds a pad in the dark, the generator cannot light the nook and run the machines together, and the pad beside the lift runs on a countdown. Light the nook first, to record the walk.",
-      "objective": "Press {key:move_left} to walk along the hub to the power console.",
+      "explanation": "Everything you have learned is needed here. The generator is too small for the machines until you fetch the energy cell in the west corridor. The pads sit in dark corridors that your echo can walk, one with a live cable on it. Light the corridors to record, then swap the power for the machines.",
+      "objective": "Press {key:move_left} to walk along the hub.",
       "action": "left",
       "expected": {
         "player": [
-          7,
-          6
+          9,
+          5
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          9,
+          5
+        ]
+      }
+    },
+    {
+      "id": "walk-up",
+      "objective": "Press {key:move_up} to reach the power console.",
+      "action": "up",
+      "expected": {
+        "player": [
+          9,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          9,
+          4
         ]
       }
     },
@@ -873,14 +530,14 @@
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          9,
+          4
         ]
       }
     },
     {
       "id": "switch-lab-lights",
-      "objective": "Press {key:nav_prev} or {key:nav_next} to select LAB-LIGHTS, then {key:toggle} to switch it on (40 units).",
+      "objective": "Press {key:nav_prev} or {key:nav_next} to select LAB-LIGHTS, then {key:toggle} to switch it on (30 of 40 units).",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -894,7 +551,7 @@
     },
     {
       "id": "apply-lights",
-      "objective": "Press {key:apply} to close the console. The nook is lit.",
+      "objective": "Press {key:apply} to close the console. The north and west corridors are lit.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -907,26 +564,50 @@
       }
     },
     {
-      "id": "walk-back",
-      "objective": "Press {key:move_right} to walk back to the entrance. A recording starts from where you stand, so start it at the door.",
-      "action": "right",
+      "id": "walk-west",
+      "concept": true,
+      "title": "Fetch the cell",
+      "explanation": "The energy cell raises the limit from 40 to 60, enough for ROUTE-POWER (45) later. You can only take it on foot, before you record.",
+      "objective": "Press {key:move_left} to walk west along the lit corridor. Walking lit floor is free.",
+      "action": "left",
       "expected": {
         "player": [
-          11,
-          6
+          3,
+          4
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "walk-back",
+      "objective": "Press {key:move_right} to walk back to the power console.",
+      "action": "right",
+      "expected": {
+        "player": [
+          9,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          9,
+          4
         ]
       }
     },
     {
       "id": "record",
-      "objective": "Press {key:echo} to start recording.",
+      "concept": true,
+      "title": "Record into the dark",
+      "explanation": "Your echo will walk up over the cable to pad A, then back through the hub to pad B in the west doorway. Pad A's countdown will keep the first gate open while it walks, and pad B has a short countdown too.",
+      "objective": "Press {key:echo} to start recording from here.",
       "action": "enter",
       "expected": {
         "phase": "recording",
@@ -938,92 +619,90 @@
       }
     },
     {
-      "id": "record-first",
-      "objective": "Press {key:move_right} to walk along the lit floor.",
-      "action": "right",
-      "expected": {
-        "player": [
-          12,
-          6
-        ],
-        "recorded": 1
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          12,
-          6
-        ]
-      }
-    },
-    {
-      "id": "record-second",
-      "objective": "Press {key:move_right} again.",
-      "action": "right",
-      "expected": {
-        "player": [
-          13,
-          6
-        ],
-        "recorded": 2
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          13,
-          6
-        ]
-      }
-    },
-    {
-      "id": "record-third",
-      "objective": "Press {key:move_right} to reach the tile below the nook.",
-      "action": "right",
-      "expected": {
-        "player": [
-          14,
-          6
-        ],
-        "recorded": 3
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          14,
-          6
-        ]
-      }
-    },
-    {
-      "id": "record-nook",
-      "objective": "Press {key:move_up} to step onto the pad in the nook.",
+      "id": "record-up",
+      "objective": "Press {key:move_up} to walk up to pad A.",
       "action": "up",
       "expected": {
         "player": [
-          14,
-          5
+          9,
+          2
         ],
-        "recorded": 4,
+        "recorded": 2,
         "active_pad": "pad-a"
       },
       "target": {
         "kind": "tile",
         "position": [
-          14,
-          5
+          9,
+          2
         ]
       }
     },
     {
+      "id": "record-down",
+      "objective": "Press {key:move_down} to walk back down to the console.",
+      "action": "down",
+      "expected": {
+        "player": [
+          9,
+          4
+        ],
+        "recorded": 4
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          9,
+          4
+        ]
+      }
+    },
+    {
+      "id": "record-west",
+      "objective": "Press {key:move_left} to step onto pad B in the west doorway.",
+      "action": "left",
+      "expected": {
+        "player": [
+          7,
+          4
+        ],
+        "recorded": 6,
+        "active_pad": "pad-b"
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          7,
+          4
+        ]
+      }
+    },
+    {
+      "id": "wait-one",
+      "objective": "Press {key:wait} to save a wait on pad B. Its short countdown covers the rest of the walk to the lift.",
+      "action": "wait",
+      "expected": {
+        "recorded": 7,
+        "player": [
+          7,
+          4
+        ]
+      },
+      "target": {
+        "kind": "timeline",
+        "index": 6
+      }
+    },
+    {
       "id": "commit",
-      "objective": "Press {key:echo} to save the recording. You return to the entrance.",
+      "objective": "Press {key:echo} to save the recording. You return to the start.",
       "action": "enter",
       "expected": {
         "phase": "committed",
-        "recorded": 4,
+        "recorded": 7,
         "player": [
-          11,
-          6
+          10,
+          5
         ]
       },
       "target": {
@@ -1031,23 +710,41 @@
       }
     },
     {
-      "id": "swap",
+      "id": "swap-left",
       "concept": true,
       "title": "Swap the lights for the machines",
-      "explanation": "The nook will go dark, and your echo does not mind. ROUTE-POWER (50 units) runs both gates and the lift, but not beside LAB-LIGHTS. The far pad keeps the second gate and the lift on for a few turns after you leave it.",
-      "objective": "Press {key:move_left} to walk back to the power console.",
+      "explanation": "LAB-LIGHTS and ROUTE-POWER together are more than the 60 you now have, so the corridors go dark when the route comes on. The cable in the north corridor goes live. Your echo does not mind either.",
+      "objective": "Press {key:move_left} to walk back towards the console.",
       "action": "left",
       "expected": {
         "player": [
-          7,
-          6
+          9,
+          5
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          9,
+          5
+        ]
+      }
+    },
+    {
+      "id": "swap-up",
+      "objective": "Press {key:move_up} to reach the power console.",
+      "action": "up",
+      "expected": {
+        "player": [
+          9,
+          4
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          9,
+          4
         ]
       }
     },
@@ -1061,8 +758,8 @@
       "target": {
         "kind": "tile",
         "position": [
-          7,
-          6
+          9,
+          4
         ]
       }
     },
@@ -1080,7 +777,7 @@
     },
     {
       "id": "route-on",
-      "objective": "Select ROUTE-POWER, then press {key:toggle} to switch it on (50 units).",
+      "objective": "Select ROUTE-POWER, then press {key:toggle} to switch it on (45 of 60 units).",
       "action": "toggle",
       "expected": {
         "pending": [
@@ -1094,7 +791,7 @@
     },
     {
       "id": "apply-route",
-      "objective": "Press {key:apply} to close the console.",
+      "objective": "Press {key:apply} to close the console. The route, the gates and the lift have power.",
       "action": "apply",
       "expected": {
         "powered": [
@@ -1113,191 +810,129 @@
       "expected": {
         "phase": "replay",
         "player": [
-          11,
-          6
+          10,
+          5
         ],
         "echo_index": 0
       },
       "target": {
         "kind": "tile",
         "position": [
-          11,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-first",
-      "objective": "Press {key:move_right}. Your echo makes the same move.",
-      "action": "right",
-      "expected": {
-        "player": [
-          12,
-          6
-        ],
-        "echo_index": 1
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          12,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-second",
-      "objective": "Press {key:move_right} again.",
-      "action": "right",
-      "expected": {
-        "player": [
-          13,
-          6
-        ],
-        "echo_index": 2
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          13,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-third",
-      "objective": "Press {key:move_right} to reach the tile below the nook.",
-      "action": "right",
-      "expected": {
-        "player": [
-          14,
-          6
-        ],
-        "echo_index": 3
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          14,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-wait",
-      "objective": "Press {key:wait}. Your echo steps into the dark nook and stands on the pad, which opens the first gate.",
-      "action": "wait",
-      "expected": {
-        "player": [
-          14,
-          6
-        ],
-        "echo_index": 4,
-        "active_pad": "pad-a"
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          14,
+          10,
           5
         ]
       }
     },
     {
+      "id": "replay-east",
+      "objective": "Press {key:move_right} to walk east along the route.",
+      "action": "right",
+      "expected": {
+        "player": [
+          13,
+          5
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          13,
+          5
+        ]
+      }
+    },
+    {
+      "id": "replay-down",
+      "objective": "Press {key:move_down} to follow the route down. Your echo has left pad A and its countdown is running.",
+      "action": "down",
+      "expected": {
+        "player": [
+          13,
+          6
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          13,
+          6
+        ]
+      }
+    },
+    {
       "id": "replay-gate",
-      "objective": "Press {key:move_right} to cross the first gate.",
-      "action": "right",
-      "expected": {
-        "player": [
-          15,
-          6
-        ],
-        "echo_index": 4,
-        "open_gate": "gate-a"
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          15,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-pad",
-      "objective": "Press {key:move_right} to step onto the far pad. Its countdown starts when you leave it.",
-      "action": "right",
-      "expected": {
-        "player": [
-          16,
-          6
-        ],
-        "active_pad": "pad-b"
-      },
-      "target": {
-        "kind": "tile",
-        "position": [
-          16,
-          6
-        ]
-      }
-    },
-    {
-      "id": "replay-down-first",
-      "objective": "Press {key:move_down} to start down the passage. The countdown is running.",
+      "objective": "Press {key:move_down} to cross the first gate before the countdown ends.",
       "action": "down",
       "expected": {
         "player": [
-          16,
+          13,
           7
-        ],
-        "active_pad": "pad-b"
+        ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          16,
+          13,
           7
         ]
       }
     },
     {
-      "id": "replay-down-gate",
-      "objective": "Press {key:move_down} to cross the second gate.",
+      "id": "replay-across",
+      "objective": "Press {key:move_right} to walk on to the passage.",
+      "action": "right",
+      "expected": {
+        "player": [
+          15,
+          7
+        ]
+      },
+      "target": {
+        "kind": "tile",
+        "position": [
+          15,
+          7
+        ]
+      }
+    },
+    {
+      "id": "replay-second",
+      "objective": "Press {key:move_down} to cross the second gate. Your echo stands on pad B in the dark.",
       "action": "down",
       "expected": {
         "player": [
-          16,
+          15,
           8
-        ]
+        ],
+        "open_gate": "gate-b"
       },
       "target": {
         "kind": "tile",
         "position": [
-          16,
+          15,
           8
         ]
       }
     },
     {
       "id": "replay-exit",
-      "objective": "Press {key:move_down} to enter the lift before the countdown ends.",
+      "objective": "Press {key:move_down} to enter the running elevator.",
       "action": "down",
       "expected": {
         "phase": "result",
         "player": [
-          16,
+          15,
           9
         ]
       },
       "target": {
         "kind": "tile",
         "position": [
-          16,
+          15,
           9
         ]
       }
     }
   ],
-  "lesson_summary": "You lit the nook to record the walk, swapped the lights for the machines, let your echo hold the first pad in the dark and rode the lift on the far pad's countdown."
+  "lesson_summary": "You fetched the energy cell, lit the corridors to record, then swapped to the machines. Your echo crossed the live cable and held pad A, walked on to pad B in the dark while pad A's countdown held the first gate, and you rode the lift."
 }

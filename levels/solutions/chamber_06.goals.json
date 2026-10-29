@@ -1,28 +1,35 @@
 {
   "turns": [
-    "left",
-    "left",
-    "left",
+    "up",
     "left",
     {
       "power": [
         "lab-lights"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "right",
-    "right",
     "up",
+    "up",
+    "down",
+    "down",
+    "left",
+    "left",
+    "wait",
     "enter",
+    "up",
     "left",
     "left",
     "left",
     "left",
+    "left",
+    "left",
+    "left",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
     {
       "power": [
         "route-power"
@@ -32,37 +39,44 @@
     "right",
     "right",
     "right",
-    "wait",
-    "right",
-    "right",
     "down",
+    "down",
+    "right",
+    "right",
     "down",
     "down"
   ],
   "recorded": [
-    "left",
-    "left",
-    "left",
+    "up",
     "left",
     {
       "power": [
         "lab-lights"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "right",
-    "right",
     "up",
+    "up",
+    "down",
+    "down",
+    "left",
+    "left",
+    "wait",
     "enter",
+    "up",
     "left",
     "left",
     "left",
     "left",
+    "left",
+    "left",
+    "left",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
+    "right",
     {
       "power": [
         "route-power"
@@ -72,10 +86,10 @@
     "right",
     "right",
     "right",
-    "wait",
-    "right",
-    "right",
     "down",
+    "down",
+    "right",
+    "right",
     "down",
     "down"
   ]

@@ -306,6 +306,48 @@ def console_preview(
                 )
 
 
+LEGEND_GAP = 3  # columns of the legend line left blank for a swatch
+LEGEND_SEP = 2  # columns between two legend entries
+
+
+def legend_items(found: ConsolePreview) -> list[tuple[str, str]]:
+    """The (kind, label) of every frame style the current preview uses."""
+    shown = (
+        ("power", "POWER", bool(found.lit or found.gaining)),
+        ("live", "LIVE", bool(found.live)),
+        ("dark", "DARK", bool(found.dark)),
+        ("off", "OFF", bool(found.losing)),
+    )
+    return [(kind, label) for kind, label, present in shown if present]
+
+
+def legend_text(items: list[tuple[str, str]]) -> str:
+    """The legend as text: blanks for each swatch, then its label."""
+    gap, sep = " " * LEGEND_GAP, " " * LEGEND_SEP
+    return sep.join(gap + label for _, label in items)
+
+
+def legend_swatch(kind: str, x: int, y: int, size: int) -> None:
+    """A small sample of one console-preview frame style."""
+    if kind == "dark":
+        pyxel.rect(x, y, size, size, NAVY)
+        pyxel.rectb(x, y, size, size, GREY)
+        for offset in range(3, 2 * size, 4):
+            x1, y1 = x + min(offset, size - 1), y + max(0, offset - size + 1)
+            x2, y2 = x + max(0, offset - size + 1), y + min(offset, size - 1)
+            pyxel.line(x1, y1, x2, y2, GREY)
+        return
+    colour = GREEN if kind == "power" else RED
+    pyxel.rectb(x, y, size, size, colour)
+    pyxel.rectb(x + 1, y + 1, size - 2, size - 2, colour)
+    if kind == "live":
+        mid = y + size // 2
+        step = size // 4
+        points = [(x + 2 + i * step, mid + (step // 2) * (-1) ** i) for i in range(4)]
+        for (x1, y1), (x2, y2) in pairwise(points):
+            pyxel.line(x1, y1, x2, y2, YELLOW)
+
+
 def vignette(rect: tuple[int, int, int, int], level: float) -> None:
     """A red edge that fades towards the middle of `rect`; `level` is 0 to 1."""
     x, y, width, height = rect

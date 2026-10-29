@@ -505,6 +505,8 @@ def key_step(player, token):
 
 def mouse_step(player, token):
     game = player.game
+    for _ in range(40):  # real clicks come frames apart: let the camera catch up
+        game.draw()
     here = game.state.player
     if isinstance(token, dict):
         player.click_tile(here.x, here.y)

@@ -456,3 +456,134 @@ def test_reduced_motion_shows_a_static_outline_instead(player):
     a, b = pulses(player, still=True)
     assert a == b
     assert any(call[-1] == 8 for call in a)  # the outline is still drawn
+
+
+# ---- badges over link lines, the countdown number, the preview legend ----------
+
+
+def recording_draw(player, monkeypatch):
+    """Log the order in which the cue drawers run."""
+    from echo_shift.ui import cuedraw
+
+    order = []
+    for name in ("links", "badge", "countdown"):
+        original = getattr(cuedraw, name)
+
+        def wrapper(*args, _name=name, _original=original, **kwargs):
+            order.append((_name, args))
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(cuedraw, name, wrapper)
+    return order
+
+
+def beside_the_gate(player, monkeypatch):
+    game = player.game
+    game.open_level(3)
+    game.modal = game.lesson = None
+    live = launch(committed(3))
+    for _ in range(len(live.recording)):
+        live = act(live, Wait()).state  # the echo holds pad A
+    game.state = replace(live, player=Position(12, 5))
+    return game, recording_draw(player, monkeypatch)
+
+
+def test_badges_are_drawn_after_every_link_line(player, monkeypatch):
+    game, order = beside_the_gate(player, monkeypatch)
+    game.draw()
+    names = [name for name, _ in order]
+    assert "links" in names and "badge" in names
+    assert max(i for i, n in enumerate(names) if n == "links") < min(
+        i for i, n in enumerate(names) if n == "badge"
+    )
+
+
+def test_badges_stay_above_the_link_lines_with_the_console_open_too(
+    player, monkeypatch
+):
+    game, order = beside_the_gate(player, monkeypatch)
+    (console,) = game.state.chamber.consoles
+    game.state = replace(game.state, player=console)
+    game.console, game.pending = True, frozenset()
+    game.draw()
+    assert [name for name, _ in order].count("badge") == 3  # pad A and its two devices
+
+
+def test_the_countdown_number_is_larger_than_the_pad_letter(player, monkeypatch):
+    game = player.game
+    game.open_level(5)
+    game.modal = game.lesson = None
+    live = launch(committed(5))
+    for _ in range(3):
+        live = act(live, Wait()).state
+    game.state = live
+    order = recording_draw(player, monkeypatch)
+    game.draw()
+    countdown = next(args for name, args in order if name == "countdown")
+    badge = next(args for name, args in order if name == "badge")
+    _, _, _, value, scale, char, *_ = countdown
+    assert value > 0
+    assert scale > badge[4] and char > badge[5]  # bigger text than the letter badge
+
+
+def legend_lines(player):
+    """The drawn text lines made only of legend words."""
+    words = {"POWER", "LIVE", "DARK", "OFF"}
+    return [
+        t.split()
+        for t in player.drawn
+        if t.split() and set(t.split()) <= words and t.startswith(" ")
+    ]
+
+
+def test_the_console_legend_names_only_the_frame_styles_in_the_preview(player):
+    game = player.game
+    game.open_level(4)
+    game.modal = game.lesson = None
+    chamber = game.state.chamber
+    (console,) = chamber.consoles
+    game.state = replace(
+        initial_state(chamber, frozenset({"lab-lights"})), player=console
+    )
+    game.console, game.pending = True, frozenset({"lift-power"})
+    player.drawn.clear()
+    game.draw()
+    assert legend_lines(player) == [["POWER", "LIVE", "DARK"]]
+    game.pending = frozenset({"lab-lights"})  # nothing changes: no legend at all
+    player.drawn.clear()
+    game.draw()
+    assert legend_lines(player) == []
+    game.pending = frozenset()  # only the corridor goes dark
+    player.drawn.clear()
+    game.draw()
+    assert legend_lines(player) == [["DARK"]]
+
+
+def test_the_legend_swatches_sit_inside_the_drawer(player):
+    game = player.game
+    game.open_level(4)
+    game.modal = game.lesson = None
+    chamber = game.state.chamber
+    (console,) = chamber.consoles
+    game.state = replace(
+        initial_state(chamber, frozenset({"lab-lights"})), player=console
+    )
+    game.console, game.pending = True, frozenset({"lift-power"})
+    for _ in range(60):
+        game.draw()  # the drawer has slid in
+    x, y, width, height = game.layout.console_drawer()
+    boxes = []
+    player.fake.rectb = lambda *a: boxes.append(a)
+    from echo_shift.ui import cuedraw
+
+    swatches = []
+    original = cuedraw.legend_swatch
+    cuedraw.legend_swatch = lambda *a: (swatches.append(a), original(*a))
+    try:
+        game.draw()
+    finally:
+        cuedraw.legend_swatch = original
+    assert [kind for kind, *_ in swatches] == ["power", "live", "dark"]
+    for _, sx, sy, size in swatches:
+        assert x <= sx and sx + size <= x + width
+        assert y <= sy and sy + size <= y + height

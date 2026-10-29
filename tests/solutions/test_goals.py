@@ -6,12 +6,7 @@ import pytest
 
 from echo_shift.engine.loader import load
 from echo_shift.engine.search import Verdict, analyze, play
-from tests.solutions.test_solutions import (
-    LEVELS,
-    NUMBERS,
-    WING_CHAMBERS,
-    solution_steps,
-)
+from tests.solutions.test_solutions import LEVELS, NUMBERS, solution_steps
 
 WITH_GOALS = [n for n in NUMBERS if load(LEVELS / f"chamber_{n:02}.json").goals]
 
@@ -41,14 +36,8 @@ def test_chamber_ideas_follow_the_teaching_order():
 
 
 def test_difficulty_rises_with_the_chamber_number():
-    # The wing chambers walk a longer route than the large hub rooms do, so the
-    # fewest turns rise strictly within each group of layouts.
-    for group in (
-        WING_CHAMBERS,
-        [n for n in NUMBERS if n not in WING_CHAMBERS],
-    ):
-        turns = [load(LEVELS / f"chamber_{n:02}.json").goals.turns for n in group]
-        assert turns == sorted(set(turns)), turns  # strictly rising fewest turns
+    turns = [load(LEVELS / f"chamber_{n:02}.json").goals.turns for n in NUMBERS]
+    assert turns == sorted(set(turns)), turns  # strictly rising fewest turns
 
 
 @pytest.mark.parametrize("number", NUMBERS)

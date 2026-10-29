@@ -2,25 +2,19 @@
   "turns": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
         "lab-lights"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "right",
+    "left",
+    "left",
     "up",
+    "up",
+    "left",
     "wait",
     "enter",
-    "left",
-    "left",
     "left",
     "left",
     {
@@ -31,32 +25,28 @@
     "launch",
     "right",
     "right",
-    "wait",
+    "right",
+    "down",
+    "down",
     "right",
     "right"
   ],
   "recorded": [
     "left",
     "left",
-    "left",
-    "left",
     {
       "power": [
         "lab-lights"
       ]
     },
-    "right",
-    "right",
-    "right",
-    "right",
     "enter",
-    "right",
-    "right",
+    "left",
+    "left",
     "up",
+    "up",
+    "left",
     "wait",
     "enter",
-    "left",
-    "left",
     "left",
     "left",
     {
@@ -67,7 +57,9 @@
     "launch",
     "right",
     "right",
-    "wait",
+    "right",
+    "down",
+    "down",
     "right",
     "right"
   ]

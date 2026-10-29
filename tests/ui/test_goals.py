@@ -195,7 +195,7 @@ def test_targets_come_from_the_level_files():
     found = goals.targets(LEVELS, 8)  # chambers that do not exist are skipped
     assert sorted(found) == [1, 2, 3, 4, 5, 6]
     assert found[3] == goals.Target(Goals(TURNS, RECORDED), LIMIT)
-    assert found[6].goals == Goals(13, 4)
+    assert found[6].goals == Goals(16, 7)
 
 
 def test_level_select_draws_the_marks(player):

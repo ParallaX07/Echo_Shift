@@ -1,10 +1,12 @@
 """The scrolling camera: follow, clamp, centre, snap, hit-testing and markers."""
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from echo_shift.engine import recording
 from echo_shift.engine.model import (
     Chamber,
     Circuit,
@@ -14,6 +16,8 @@ from echo_shift.engine.model import (
     TileType,
     initial_state,
 )
+from echo_shift.engine.turn import InteractAtConsole, Move, Wait
+from echo_shift.paths import resource_path
 from echo_shift.ui import camera, cues, pointer
 from echo_shift.ui.camera import Camera
 from echo_shift.ui.layout import Layout, framed_bounds
@@ -487,3 +491,64 @@ def test_with_the_drawer_open_the_player_and_the_preview_stay_in_view(player, nu
             framed_bounds(chamber)[3] - framed_bounds(chamber)[1] + 1,
         )
     )
+
+
+MOVES = {
+    "up": Move(0, -1),
+    "right": Move(1, 0),
+    "down": Move(0, 1),
+    "left": Move(-1, 0),
+    "wait": Wait(),
+}
+
+
+def solution_steps(number):
+    path = resource_path("levels", "solutions", f"chamber_{number:02}.json")
+    return json.loads(path.read_text())["steps"]
+
+
+def run_steps(state, steps, number):
+    """Play solution tokens through the engine's own entry points."""
+    for token in steps:
+        if isinstance(token, dict):
+            state = recording.act(state, InteractAtConsole(frozenset(token["power"])))
+            state = state.state
+        elif token == "enter":
+            state = recording.enter(state)
+        elif token == "launch":
+            state = recording.launch(state)
+        else:
+            state = recording.act(state, MOVES[token]).state
+    return state
+
+
+@pytest.mark.parametrize("number", [3, 4, 5, 6])
+def test_the_player_and_a_running_echo_stay_in_view_when_both_fit(player, number):
+    game = player.game
+    game.open_level(number)
+    game.modal = game.lesson = None
+    chamber = game.state.chamber
+    steps = solution_steps(number)
+    launched = steps.index("launch") + 1
+    state = run_steps(initial_state(chamber), steps[:launched], number)
+    game.state = state
+    game.camera.reset()
+    seen_both = 0
+    for token in [None, *steps[launched:-1]]:
+        if token is not None:
+            state = run_steps(state, [token], number)
+            game.state = state
+        for _ in range(60):
+            game.draw()
+        cell, ox, oy = game.room_view
+        port_x, port_y, port_w, port_h = game.layout.room_viewport(False)
+        tiles = [state.player] + ([state.echo_position] if state.echo_position else [])
+        width = max(t.x for t in tiles) - min(t.x for t in tiles) + 1
+        height = max(t.y for t in tiles) - min(t.y for t in tiles) + 1
+        fits = width * cell <= port_w and height * cell <= port_h
+        for tile in tiles if fits else tiles[:1]:
+            left, top = ox + tile.x * cell, oy + tile.y * cell
+            assert port_x <= left and left + cell <= port_x + port_w, (token, tile)
+            assert port_y <= top and top + cell <= port_y + port_h, (token, tile)
+        seen_both += fits and len(tiles) == 2
+    assert seen_both  # the echo really was shown with the player
