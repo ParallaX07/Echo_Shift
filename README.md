@@ -426,7 +426,9 @@ To cut a release:
 4. `git push origin master v<version>`.
 
 The Linux packages can also be built locally from a PyInstaller `dist/app/`
-folder with `tools/build_appimage.py`. It needs
+folder with `tools/build_appimage.py`. On Linux, PyInstaller does not collect
+the SDL2 library that ships inside Pyxel, so a bare `dist/app/` only runs where
+SDL2 is installed; the script adds Pyxel's copy to both packages. It needs
 [appimagetool](https://github.com/AppImage/appimagetool); `zsyncmake` is needed
 for the `.zsync` file when you pass update information:
 

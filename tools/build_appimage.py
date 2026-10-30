@@ -1,6 +1,7 @@
 """Package a PyInstaller build as a Linux AppImage and a tar.gz."""
 
 import argparse
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -11,11 +12,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGING = ROOT / "packaging/linux"
+PYXEL = Path(importlib.util.find_spec("pyxel").submodule_search_locations[0])
 
 
 def copy_dist(dist: Path, dest: Path) -> None:
     shutil.copytree(dist, dest, symlinks=True)
     (dest / "app").rename(dest / "echo-shift")
+    # Pyxel falls back to its own SDL2 when the system has none, but
+    # PyInstaller does not collect that copy.
+    shutil.copytree(PYXEL / "libs", dest / "_internal/pyxel/libs", dirs_exist_ok=True)
 
 
 def build_appimage(args: argparse.Namespace, workdir: Path) -> None:
