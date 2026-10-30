@@ -1,0 +1,291 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYINSTALLER: pyinstaller==6.22.3
+  # The runners have no sound card; the dummy driver still lets the game start.
+  SDL_AUDIODRIVER: dummy
+
+jobs:
+  meta:
+    name: Version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::unexpected version '$version' in pyproject.toml"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in pyproject.toml"
+            exit 1
+          fi
+          if [ ! -f "docs/releases/$version.md" ]; then
+            echo "::error::docs/releases/$version.md is missing"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux
+    needs: meta
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+      APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+      REPO_OWNER: ${{ github.repository_owner }}
+      REPO_NAME: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1-mesa-dri zsync
+      - run: uv sync --locked
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Test
+        run: xvfb-run -a -s "-screen 0 1280x720x24" uv run pytest -q
+      - name: Build
+        run: |
+          uv run python tools/stage_build.py
+          uv run pyxel package build/app build/app/main.py
+          mkdir release
+          cp app.pyxapp "release/Echo_Shift-$VERSION.pyxapp"
+          uv run --with "$PYINSTALLER" python -m pyxel app2exe app.pyxapp
+      - name: Package
+        run: |
+          curl -fsSL -o appimagetool "$APPIMAGETOOL_URL"
+          echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum --check
+          chmod +x appimagetool
+          uv run python tools/build_appimage.py \
+            --dist dist/app \
+            --version "$VERSION" \
+            --update-info "gh-releases-zsync|$REPO_OWNER|$REPO_NAME|latest|Echo_Shift-*x86_64.AppImage.zsync" \
+            --appimagetool ./appimagetool \
+            --out release
+      - name: Check update information
+        run: |
+          appimage="release/Echo_Shift-$VERSION-x86_64.AppImage"
+          expected="gh-releases-zsync|$REPO_OWNER|$REPO_NAME|latest|Echo_Shift-*x86_64.AppImage.zsync"
+          actual=$(readelf -p .upd_info "$appimage" | sed -n 's/^ *\[ *0\] *//p')
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::update information is '$actual', expected '$expected'"
+            exit 1
+          fi
+          test -s "$appimage.zsync"
+      - name: Smoke test the AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: xvfb-run -a -s "-screen 0 1280x720x24" uv run python tools/smoke_test.py "release/Echo_Shift-$VERSION-x86_64.AppImage"
+      - name: Smoke test the tarball
+        run: |
+          unpacked=$(mktemp -d)
+          tar -xzf "release/Echo_Shift-$VERSION-linux-x86_64.tar.gz" -C "$unpacked"
+          xvfb-run -a -s "-screen 0 1280x720x24" uv run python tools/smoke_test.py "$unpacked/Echo_Shift-$VERSION/echo-shift"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux
+          path: release/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows
+    needs: meta
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      GALLIUM_DRIVER: llvmpipe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Test
+        run: uv run pytest -q
+      - name: Build
+        run: |
+          uv run python tools/stage_build.py
+          uv run pyxel package build/app build/app/main.py
+          uv run --with "$PYINSTALLER" python -m pyxel app2exe app.pyxapp
+      - name: Name the executable
+        run: |
+          mv dist/app "dist/Echo_Shift-$VERSION"
+          mv "dist/Echo_Shift-$VERSION/app.exe" "dist/Echo_Shift-$VERSION/EchoShift.exe"
+      # The runner has no GPU, so the smoke tests put Mesa's software OpenGL
+      # beside a scratch or test-installed copy. The shipped files stay as is.
+      - name: Fetch software OpenGL
+        env:
+          MESA_URL: https://github.com/pal1000/mesa-dist-win/releases/download/26.2.4/mesa3d-26.2.4-release-msvc.7z
+          MESA_SHA256: 351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695
+        run: |
+          curl -fsSL -o mesa.7z "$MESA_URL"
+          echo "$MESA_SHA256  mesa.7z" | sha256sum --check
+          7z x mesa.7z -omesa "x64/*.dll" > /dev/null
+      - name: Smoke test
+        run: |
+          cp -r "dist/Echo_Shift-$VERSION" smoke
+          cp mesa/x64/*.dll smoke/
+          uv run python tools/smoke_test.py smoke/EchoShift.exe
+      - name: Zip
+        run: |
+          mkdir release
+          uv run python -c 'import shutil, sys; shutil.make_archive(sys.argv[1], "zip", "dist", sys.argv[2])' "release/Echo_Shift-$VERSION-windows-x64" "Echo_Shift-$VERSION"
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DSourceDir=$PWD\dist\Echo_Shift-$env:VERSION" "/DOutputDir=$PWD\release" packaging\windows\echo-shift.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Install, upgrade, launch and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = "release\Echo_Shift-$env:VERSION-windows-x64-setup.exe"
+          $dir = "$env:RUNNER_TEMP\EchoShiftInstall"
+          $save = "$env:APPDATA\EchoShift\keep.txt"
+          New-Item -ItemType File -Force $save | Out-Null
+          $quiet = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir"
+          $p = Start-Process $setup -ArgumentList $quiet -Wait -PassThru
+          if ($p.ExitCode) { throw "install exited with $($p.ExitCode)" }
+          # An upgrade over an existing install must clear the old runtime.
+          New-Item -ItemType File "$dir\_internal\stale.txt" | Out-Null
+          $p = Start-Process $setup -ArgumentList $quiet -Wait -PassThru
+          if ($p.ExitCode) { throw "upgrade exited with $($p.ExitCode)" }
+          if (Test-Path "$dir\_internal\stale.txt") { throw "the upgrade left old files behind" }
+          Copy-Item mesa\x64\*.dll $dir
+          uv run python tools/smoke_test.py "$dir\EchoShift.exe"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $p = Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($p.ExitCode) { throw "uninstall exited with $($p.ExitCode)" }
+          for ($i = 0; $i -lt 60 -and (Test-Path "$dir\EchoShift.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$dir\EchoShift.exe") { throw "the uninstaller left EchoShift.exe behind" }
+          if (-not (Test-Path $save)) { throw "install or uninstall touched the save folder" }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows
+          path: release/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    needs: meta
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Test
+        run: uv run pytest -q
+      - name: Build
+        run: |
+          uv run python tools/stage_build.py
+          uv run pyxel package build/app build/app/main.py
+          uv run --with "$PYINSTALLER" python -m pyxel app2exe app.pyxapp
+      - name: Make the app bundle
+        run: |
+          if [ ! -d dist/app.app ]; then
+            echo "::error::PyInstaller did not produce dist/app.app"
+            ls -l dist
+            exit 1
+          fi
+          mv dist/app.app "dist/Echo Shift.app"
+          plist="dist/Echo Shift.app/Contents/Info.plist"
+          plutil -replace CFBundleName -string "Echo Shift" "$plist"
+          plutil -replace CFBundleDisplayName -string "Echo Shift" "$plist"
+          plutil -replace CFBundleIdentifier -string io.github.parallax07.echoshift "$plist"
+          plutil -replace CFBundleShortVersionString -string "$VERSION" "$plist"
+          plutil -replace CFBundleVersion -string "$VERSION" "$plist"
+          codesign --force --deep --sign - "dist/Echo Shift.app"
+          codesign --verify --deep --strict "dist/Echo Shift.app"
+      - name: Smoke test
+        run: |
+          executable=$(plutil -extract CFBundleExecutable raw -o - "dist/Echo Shift.app/Contents/Info.plist")
+          uv run python tools/smoke_test.py "dist/Echo Shift.app/Contents/MacOS/$executable"
+      - name: Zip
+        run: |
+          mkdir release
+          ditto -c -k --sequesterRsrc --keepParent "dist/Echo Shift.app" "release/Echo_Shift-$VERSION-macos-$ARCH.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-${{ matrix.arch }}
+          path: release/*
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    needs: [meta, linux, windows, macos]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: release
+          merge-multiple: true
+      - run: ls -l release
+      - name: Create the release
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "Echo Shift $VERSION" \
+            --notes-file "docs/releases/$VERSION.md" \
+            --verify-tag

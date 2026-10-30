@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Echo Shift
+Comment=A turn-based top-down puzzle game about cooperating with your own past moves
+Exec=echo-shift
+Icon=echo-shift
+Categories=Game;LogicGame;
+Terminal=false

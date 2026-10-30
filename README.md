@@ -217,7 +217,7 @@ take.
 | Tests | pytest |
 | Lint and format | ruff |
 | Image tooling | Pillow (development only, not shipped) |
-| Packaging | `pyxel package` and `pyxel app2exe` (on Windows) |
+| Packaging | `pyxel package` and `pyxel app2exe`; AppImage for Linux, Inno Setup installer for Windows |
 
 ## Architecture
 
@@ -331,15 +331,24 @@ drawn at render time with a palette remap, not with separate sprites.
 │   ├── process_asset.py  validate_assets.py  contact_sheet.py  pack_atlas.py
 │   ├── solve.py                # solve chambers: difficulty table, goals, traces
 │   ├── spike_process.py        # downscale filter comparison
-│   └── stage_build.py          # stage build/app/ for packaging
+│   ├── stage_build.py          # stage build/app/ for packaging
+│   ├── build_appimage.py       # package a PyInstaller build as AppImage and tar.gz
+│   ├── render_icon.py          # render the launcher icons from the player art
+│   └── smoke_test.py           # launch a built executable and check that it starts
+├── packaging/
+│   ├── linux/                  # AppImage launcher, desktop entry and icon
+│   └── windows/                # Inno Setup installer script and icon
 ├── tests/
 │   ├── engine/                 # turn order, timing, power, light, loader, echo
 │   ├── solutions/              # every chamber solution replays and needs its echo
 │   ├── assets/                 # manifest, processing, validation, atlas
 │   └── ui/                     # headless UI logic, menus, layout, tutorial
+├── .github/workflows/
+│   └── release.yml             # test, build, smoke-test and publish releases
 └── docs/
     ├── rules.md                # as-built rules with worked turn examples
-    └── tutorials.md            # guided lessons and the guide
+    ├── tutorials.md            # guided lessons and the guide
+    └── releases/               # one release note per version
 ```
 
 ## Development
@@ -359,25 +368,27 @@ recorded solution, validate every sprite and exercise the UI logic headlessly.
 
 The same commands work on Windows, macOS and Linux. Run them from the
 repository root on the platform you are building for: PyInstaller, which
-`app2exe` uses, cannot cross-compile, so a Windows executable has to be built
-on Windows.
+`app2exe` uses, cannot cross-compile, so each executable has to be built on its
+own platform.
 
 ```bash
 uv sync
 uv run python tools/stage_build.py                # copy the game and its resources to build/app/
 uv run pyxel package build/app build/app/main.py  # write app.pyxapp
 uv run pyxel play app.pyxapp                      # optional: try the packaged game
-uv run --with pyinstaller pyxel app2exe app.pyxapp
+uv run --with pyinstaller python -m pyxel app2exe app.pyxapp
 ```
 
-`app2exe` writes the game to `dist/app/`, with its bundled runtime under
-`dist/app/_internal`, and deletes the temporary `build/` folder when it
-finishes. Distribute the whole `dist/app/` folder.
+Run `app2exe` through `python -m pyxel` so that PyInstaller, added with
+`--with`, is visible to it. `app2exe` writes the game to `dist/app/`, with its
+bundled runtime under `dist/app/_internal`, and deletes the `build/` folder in
+the current directory when it finishes. Distribute the whole `dist/app/`
+folder.
 
 | Platform | Executable |
 |---|---|
 | Windows | `dist\app\app.exe` |
-| macOS | `dist/app/app` (PyInstaller may also write `dist/app.app`) |
+| macOS | `dist/app.app` (also `dist/app/app`) |
 | Linux | `dist/app/app` |
 
 The executable can run from any directory. It reads its resources from the
@@ -385,3 +396,44 @@ bundle and writes saves and logs to the per-user data directory above.
 
 `app.pyxapp` on its own is a portable package: anyone with Pyxel installed can
 run it on any platform with `pyxel play app.pyxapp`.
+
+### Releases
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds the
+game on native GitHub runners (Windows, macOS arm64 and Intel, and Ubuntu 22.04)
+after the test suite passes there. Each build is launched once as a smoke test
+(`tools/smoke_test.py`), and the Windows installer is installed, upgraded over
+itself and uninstalled. Pushing a tag `v<version>` that matches `version` in
+`pyproject.toml` publishes a GitHub Release with these files, using
+`docs/releases/<version>.md` as the notes:
+
+- `Echo_Shift-<version>-windows-x64-setup.exe`: an installer that upgrades an
+  existing install in place (`packaging/windows/echo-shift.iss`, Inno Setup)
+- `Echo_Shift-<version>-windows-x64.zip`: a folder with `EchoShift.exe`
+- `Echo_Shift-<version>-macos-arm64.zip` and `-macos-x86_64.zip`: `Echo Shift.app`
+- `Echo_Shift-<version>-x86_64.AppImage` and its `.zsync` file
+- `Echo_Shift-<version>-linux-x86_64.tar.gz`: a folder with `echo-shift`
+- `Echo_Shift-<version>.pyxapp`: the portable package
+
+Running the workflow by hand from the Actions tab is a dry run: it builds
+everything and uploads workflow artifacts without publishing a release.
+
+To cut a release:
+
+1. Bump `version` in `pyproject.toml` and run `uv lock`.
+2. Add `docs/releases/<version>.md`.
+3. Commit, then `git tag v<version>`.
+4. `git push origin master v<version>`.
+
+The Linux packages can also be built locally from a PyInstaller `dist/app/`
+folder with `tools/build_appimage.py`. It needs
+[appimagetool](https://github.com/AppImage/appimagetool); `zsyncmake` is needed
+for the `.zsync` file when you pass update information:
+
+```bash
+uv run python tools/build_appimage.py --version 0.1.0 --appimagetool ./appimagetool \
+    [--dist dist/app] [--out release] [--update-info "<zsync update string>"]
+```
+
+The launcher icons in `packaging/linux/` and `packaging/windows/` are rendered
+from the player art by `tools/render_icon.py`.

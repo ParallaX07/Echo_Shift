@@ -15,3 +15,7 @@ wheels/
 
 # Packaged game
 *.pyxapp
+
+# Release builds
+release/
+/appimagetool
