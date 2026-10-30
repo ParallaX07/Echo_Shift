@@ -12,6 +12,7 @@ from pathlib import Path
 from echo_shift.engine.loader import load
 from echo_shift.engine.model import Goals, State
 from echo_shift.ui import progress as saves
+from echo_shift.ui.panel import stat
 from echo_shift.ui.progress import Progress
 
 
@@ -46,18 +47,14 @@ class Run:
     def lines(self) -> list[str]:
         """The result-card lines: the run's cost and, when set, each target."""
         if self.goals is None:
-            return [f"TURNS: {self.turns}", f"RECORDED: {self.recorded}"]
-        lines = [
-            f"TURNS: {self.turns} / GOAL {self.goals.turns} "
-            + ("MET" if self.turns_met else "NOT MET")
-        ]
+            return [stat("TURNS", self.turns), stat("RECORDED", self.recorded)]
+        lines = [stat("TURNS", self.turns, self.goals.turns, self.turns_met)]
         if self.recorded_shown:
             lines.append(
-                f"RECORDED: {self.recorded} / GOAL {self.goals.recorded} "
-                + ("MET" if self.recorded_met else "NOT MET")
+                stat("RECORDED", self.recorded, self.goals.recorded, self.recorded_met)
             )
         else:
-            lines.append(f"RECORDED: {self.recorded}")
+            lines.append(stat("RECORDED", self.recorded))
         return lines
 
 

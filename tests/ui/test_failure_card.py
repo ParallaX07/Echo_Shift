@@ -43,8 +43,8 @@ def test_replay_failure_keeps_the_view_and_waits_for_a_choice(player):
     game.draw()
     text = shown(player)
     assert "ATTEMPT FAILED" in text
-    assert "Z Undo last move" in text and "R Retry from launch" in text
-    assert "C Restart chamber" in text and "ANY OTHER KEY: RETRY FROM LAUNCH" in text
+    assert "Z | Undo last move" in text and "R | Retry from launch" in text
+    assert "C | Restart chamber" in text and "ANY OTHER KEY: RETRY FROM LAUNCH" in text
     assert game.state is before  # nothing applied yet
     assert game.attempt.resets == 1
 

@@ -72,8 +72,8 @@ def test_goal_run_meets_both_goals_and_shows_them_on_the_card(player):
     player.drawn.clear()
     game.draw()
     text = " ".join(player.drawn)
-    assert f"TURNS: {TURNS}" in text and f"GOAL {TURNS}" in text
-    assert f"RECORDED: {RECORDED}" in text
+    assert f"TURNS {TURNS}  / GOAL {TURNS} MET" in text
+    assert f"RECORDED {RECORDED}  / GOAL {RECORDED} MET" in text
     assert saved(player).goals["3"] == {"turns": True, "recorded": True}
 
 

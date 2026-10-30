@@ -31,6 +31,7 @@ from echo_shift.ui import (
     guide,
     icon,
     motion,
+    panel,
     pointer,
     preview,
     progress,
@@ -2045,22 +2046,39 @@ class Game:
 
         `rows` maps line indexes to the "row:" keys that make those lines
         clickable; a hovered row gets an outline. `measure` sizes the card for
-        those lines instead, so it does not grow as lines appear.
+        those lines instead, so it does not grow as lines appear. Lines from
+        `panel` draw as key caps, check boxes, meters and badges.
         """
         _, _, width, _ = drawer or self.layout.overlay()
         pad = max(18, self.layout.cell // 4)
+        inner = width - 2 * pad
         scale = 1 if self.layout.height < 600 else self.layout.text_scale
-        footer_scale = scale
-        footer_height = self.wrapped_height(footer, width - 2 * pad, footer_scale)
         while True:
             title_scale = max(2, scale + 1)
-            title_height = self.wrapped_height(title, width - 2 * pad, title_scale)
+            title_height = self.wrapped_height(title, inner, title_scale)
             gap = gap_units * scale
-            body_height = sum(
-                self.wrapped_height(line, width - 2 * pad, scale) + gap
-                for line in measure or lines
+            sized = measure or lines
+            self.key_column = max(
+                (
+                    self.cap_width(line.key, scale)
+                    for line in [*sized, *lines]
+                    if getattr(line, "kind", "") == "menu"
+                ),
+                default=0,
             )
-            height = 2 * pad + title_height + body_height + footer_height + 36
+            body_height = sum(
+                self.block_height(line, inner, scale)
+                + self.block_gap(sized, index, gap, scale)
+                for index, line in enumerate(sized)
+            )
+            footer_height = self.block_height(footer, inner, scale) if footer else 0
+            height = (
+                2 * pad
+                + title_height
+                + body_height
+                + footer_height
+                + (36 if footer else 8)
+            )
             if (
                 height <= (drawer[3] if drawer else self.layout.room_h - 16)
                 or scale == 1
@@ -2072,14 +2090,34 @@ class Game:
         else:
             x = (self.layout.width - width) // 2
             y = self.layout.room_y + max(0, (self.layout.room_h - height) // 2)
-            pyxel.rect(x + 6, y + 6, width, height, 5)
-        pyxel.rect(x, y, width, height, 1)
-        pyxel.rectb(x, y, width, height, 12)
-        pyxel.rect(x, y, min(width // 5, pad * 4), max(3, self.layout.text_scale), 9)
-        cursor = (
-            self.wrapped(x + pad, y + pad, title, width - 2 * pad, 10, title_scale) + 6
+            pyxel.dither(0.5)
+            pyxel.rect(x + 6, y + 6, width, height, 0)
+            pyxel.dither(1.0)
+        self.draw_frame(x, y, width, height, pad)
+        mark = max(4, self.line_height(title_scale) // 3)
+        alarm = title == "ATTEMPT FAILED"
+        title_y = y + pad
+        pyxel.rect(
+            x + pad,
+            title_y + (self.line_height(title_scale) - mark) // 2 - 1,
+            mark,
+            mark,
+            8 if alarm else 9,
         )
-        pyxel.rect(x + pad, cursor, width - 2 * pad, max(1, self.layout.text_scale), 5)
+        cursor = (
+            self.wrapped(
+                x + pad + mark * 2,
+                title_y,
+                title,
+                inner - mark * 2,
+                8 if alarm else 10,
+                title_scale,
+            )
+            + 6
+        )
+        rule = max(1, self.layout.text_scale)
+        pyxel.rect(x + pad, cursor, inner, rule, 5)
+        pyxel.rect(x + pad, cursor, min(inner, pad * 3), rule, 12)
         cursor += 14
         if self.modal == "lesson_choice":
             self.choice_hits = []
@@ -2087,59 +2125,277 @@ class Game:
         for index, line in enumerate(lines):
             line_top = cursor
             self.panel_tops.append(line_top)
-            accent = (
-                8
-                if line.startswith("OVER BUDGET")
-                else 13
-                if index in dim
-                else 10
-                if title == "POWER CONSOLE" and "*" in line
-                else 7
-            )
-            cursor = (
-                self.wrapped(x + pad, cursor, line, width - 2 * pad, accent, scale)
-                + gap
-            )
-            if rows and index in rows:
-                rect = (x + pad, line_top, width - 2 * pad, cursor - line_top)
-                self.ui_hits.append((rect, "row:" + rows[index]))
-                if self.menu_hit(rect):
-                    pyxel.rectb(*rect, 10)
-            if self.modal == "lesson_choice" and line.startswith(
-                ("START GUIDED LESSON:", "PLAY FREELY:")
-            ):
-                rect = (
-                    x + pad - 6,
-                    line_top - 6,
-                    width - 2 * pad + 12,
-                    cursor - line_top,
-                )
+            block = self.block_height(line, inner, scale)
+            rect = (x + pad, line_top, inner, block)
+            hot = bool(rows and index in rows) and self.menu_hit(rect)
+            kind = getattr(line, "kind", "text")
+            if kind == "choice":
                 self.choice_hits.append(rect)
-                pyxel.rectb(
-                    *rect,
-                    10 if len(self.choice_hits) == 1 or self.menu_hit(rect) else 5,
+                hot = len(self.choice_hits) == 1 or self.menu_hit(rect)
+            if kind == "text":
+                accent = (
+                    8 if line.startswith("OVER BUDGET") else 13 if index in dim else 7
                 )
+                self.wrapped(x + pad, line_top, line, inner, accent, scale)
+            else:
+                self.draw_block(line, rect, scale, hot)
+            cursor = line_top + block + self.block_gap(lines, index, gap, scale)
+            if rows and index in rows:
+                self.ui_hits.append((rect, "row:" + rows[index]))
+                if hot and kind == "text":
+                    pyxel.rectb(*rect, 10)
             if title == "POWER CONSOLE":
                 for circuit in self.state.chamber.circuits:
-                    if circuit.id.upper() in line and " UNIT" in line:
-                        self.ui_hits.append(
-                            (
-                                (x + pad, line_top, width - 2 * pad, cursor - line_top),
-                                "circuit:" + circuit.id,
-                            )
-                        )
+                    if kind == "check" and line.name == circuit.id.upper():
+                        self.ui_hits.append((rect, "circuit:" + circuit.id))
                 if line.startswith("PENDING LOAD"):
-                    self.ui_hits.append(
-                        (
-                            (x + pad, line_top, width - 2 * pad, cursor - line_top),
-                            "power",
-                        )
-                    )
-        footer_y = y + height - pad - footer_height
+                    self.ui_hits.append((rect, "power"))
+        if footer:
+            footer_y = y + height - pad - footer_height
+            pyxel.rect(x + pad, footer_y - 11, inner, rule, 5)
+            if getattr(footer, "kind", "") == "keys":
+                self.draw_block(
+                    footer, (x + pad, footer_y, inner, footer_height), scale
+                )
+            else:
+                self.wrapped(x + pad, footer_y, footer, inner, 12, scale)
+
+    def draw_frame(self, x: int, y: int, width: int, height: int, pad: int) -> None:
+        """Card body, border, corner brackets and the orange tab."""
+        pyxel.rect(x, y, width, height, 1)
+        pyxel.rectb(x, y, width, height, 12)
+        pyxel.rectb(x + 3, y + 3, width - 6, height - 6, 5)
+        arm = max(10, pad // 2)
+        thick = max(2, self.layout.text_scale + 1)
+        for cx, cy, sx, sy in (
+            (x, y, 1, 1),
+            (x + width, y, -1, 1),
+            (x, y + height, 1, -1),
+            (x + width, y + height, -1, -1),
+        ):
+            left = cx if sx > 0 else cx - arm
+            top = cy if sy > 0 else cy - thick
+            pyxel.rect(left, top, arm, thick, 12)
+            left = cx if sx > 0 else cx - thick
+            top = cy if sy > 0 else cy - arm
+            pyxel.rect(left, top, thick, arm, 12)
         pyxel.rect(
-            x + pad, footer_y - 11, width - 2 * pad, max(1, self.layout.text_scale), 5
+            x + arm + 4, y, min(width // 5, pad * 4), max(3, self.layout.text_scale), 9
         )
-        self.wrapped(x + pad, footer_y, footer, width - 2 * pad, 12, footer_scale)
+
+    ROW_KINDS = frozenset({"menu", "check"})
+
+    def block_gap(self, lines: list[str], index: int, gap: int, scale: int) -> int:
+        """Rows of one list sit close together; everything else keeps `gap`."""
+        kind = getattr(lines[index], "kind", "text")
+        after = getattr(lines[index + 1], "kind", "") if index + 1 < len(lines) else ""
+        if kind in self.ROW_KINDS and after == kind:
+            return max(2, 2 * scale)
+        if kind in ("stat", "meter") and after in ("stat", "meter"):
+            return max(4, 4 * scale)
+        return gap
+
+    def row_inset(self, scale: int) -> int:
+        return max(3, self.line_height(scale) // 4)
+
+    def cap_width(self, key: str, scale: int) -> int:
+        """Width of a key cap box around `key` (0 for no key)."""
+        if not key:
+            return 0
+        return len(key) * self.char_width(scale) + 2 * max(3, 2 * scale)
+
+    def draw_cap(self, x: int, y: int, key: str, scale: int, on: bool = True) -> int:
+        """A boxed key name like the bar buttons'; returns its right edge."""
+        width = self.cap_width(key, scale)
+        height = self.line_height(scale) + 3
+        pyxel.rect(x, y - 3, width, height, 1)
+        pyxel.rectb(x, y - 3, width, height, 12 if on else 5)
+        self.text(x + max(3, 2 * scale), y, key, 10 if on else 13, scale)
+        return x + width
+
+    def note_fits(self, line, width: int, scale: int) -> bool:
+        char = self.char_width(scale)
+        used = self.key_column + char + len(line.label) * char + 3 * char
+        return used + len(line.note) * char <= width - 2 * self.row_inset(scale)
+
+    def keys_rows(
+        self, pairs, width: int, scale: int
+    ) -> list[list[tuple[str, str, int]]]:
+        """Lay key caps out in rows that fit `width`: (key, label, x) each."""
+        char = self.char_width(scale)
+        rows, row, x = [], [], 0
+        for key, label in pairs:
+            span = self.cap_width(key, scale) + (char if key else 0) + len(label) * char
+            if row and x + span > width:
+                rows.append(row)
+                row, x = [], 0
+            row.append((key, label, x))
+            x += span + 2 * char
+        return rows + [row] if row else rows
+
+    def block_height(self, line: str, width: int, scale: int) -> int:
+        """Height a panel line takes, its row padding included."""
+        kind = getattr(line, "kind", "text")
+        lh, inset = self.line_height(scale), self.row_inset(scale)
+        if kind == "menu":
+            extra = 0
+            if line.note and not self.note_fits(line, width, scale):
+                indent = self.key_column + self.char_width(scale)
+                extra = self.wrapped_height(line.note, width - indent - inset, scale)
+            return lh + extra + 2 * inset
+        if kind == "check":
+            return lh + 2 * inset
+        if kind == "choice":
+            body = self.wrapped_height(line.body, width - 4 * inset, scale)
+            return lh + body + 4 * inset
+        if kind == "callout":
+            body = self.wrapped_height(line.body, width - 5 * inset, scale)
+            return lh + body + 3 * inset
+        if kind == "stat":
+            return lh + 2
+        if kind == "meter":
+            return lh + inset + max(4, 3 * scale)
+        if kind == "tabs":
+            pairs = [("", f" {name} ") for name in line.names]
+            count = len(self.keys_rows(pairs, width, scale))
+            return count * (lh + 2) + max(0, count - 1) * inset
+        if kind == "keys":
+            count = len(self.keys_rows(line.pairs, width, scale))
+            return count * (lh + 2) + max(0, count - 1) * inset
+        return self.wrapped_height(line, width, scale)
+
+    def draw_row_well(self, rect, selected: bool, hot: bool, scale: int) -> None:
+        """The selected row's dark well and accent bar; a hovered row's outline."""
+        x, y, width, height = rect
+        if selected:
+            pyxel.rect(x, y, width, height, 0)
+            pyxel.rect(x, y, max(3, 2 * scale), height, 10)
+        if selected or hot:
+            pyxel.rectb(x, y, width, height, 10 if hot else 12)
+
+    def draw_block(self, line, rect, scale: int, hot: bool = False) -> None:
+        x, y, width, height = rect
+        kind = line.kind
+        char, lh, inset = (
+            self.char_width(scale),
+            self.line_height(scale),
+            self.row_inset(scale),
+        )
+        if kind == "menu":
+            self.draw_row_well(rect, line.selected, hot, scale)
+            left, ty = x + inset + max(3, 2 * scale), y + inset
+            if line.key:
+                self.draw_cap(left, ty, line.key, scale, line.enabled)
+            label_x = left + self.key_column + (char if self.key_column else 0)
+            ink = (10 if line.selected else 7) if line.enabled else 13
+            self.text(label_x, ty, line.label, ink, scale)
+            if line.value:
+                value_x = x + width - inset - len(line.value) * char
+                ink = {"ON": 11, "OFF": 6}.get(line.value, 12)
+                self.text(value_x, ty, line.value, ink, scale)
+            elif line.note:
+                if self.note_fits(line, width, scale):
+                    note_x = x + width - inset - len(line.note) * char
+                    self.text(note_x, ty, line.note, 13, scale)
+                else:
+                    self.wrapped(
+                        label_x,
+                        ty + lh,
+                        line.note,
+                        x + width - inset - label_x,
+                        13,
+                        scale,
+                    )
+        elif kind == "check":
+            self.draw_row_well(rect, line.selected, hot, scale)
+            ty = y + inset
+            side = lh - 4
+            bx = x + inset + max(3, 2 * scale)
+            by = ty + (lh - side) // 2
+            pyxel.rect(bx, by, side, side, 1)
+            pyxel.rectb(bx, by, side, side, 7 if line.selected else 12)
+            if line.checked:
+                pyxel.rect(bx + 3, by + 3, side - 6, side - 6, 11)
+            name_x = bx + side + char
+            self.text(name_x, ty, line.name, 10 if line.selected else 7, scale)
+            amount_x = x + width - inset - len(line.amount) * char
+            self.text(amount_x, ty, line.amount, 11 if line.checked else 13, scale)
+            if line.target:
+                tip = x - max(4, inset)
+                mid = ty + lh // 2
+                size = max(4, lh // 3)
+                pyxel.tri(tip - size, mid - size, tip - size, mid + size, tip, mid, 9)
+        elif kind == "choice":
+            if hot:
+                pyxel.rect(x, y, width, height, 0)
+                pyxel.rect(x, y, max(3, 2 * scale), height, 10)
+            pyxel.rectb(x, y, width, height, 10 if hot else 5)
+            left = x + 2 * inset
+            self.text(left, y + inset * 2, line.head, 10 if hot else 7, scale)
+            if line.key:
+                cap_x = x + width - 2 * inset - self.cap_width(line.key, scale)
+                self.draw_cap(cap_x, y + inset * 2, line.key, scale)
+            self.wrapped(
+                left, y + inset * 2 + lh, line.body, width - 4 * inset, 6, scale
+            )
+        elif kind == "callout":
+            pyxel.rect(x, y, width, height, 0)
+            pyxel.rect(x, y, max(3, 2 * scale), height, 9)
+            left = x + 2 * inset + max(3, 2 * scale)
+            self.text(left, y + inset, line.head, 9, scale)
+            self.wrapped(
+                left, y + inset + lh, line.body, x + width - inset - left, 7, scale
+            )
+        elif kind == "stat":
+            # Laid out from the right edge, drawn left to right as it reads.
+            badge = "" if line.met is None else "MET" if line.met else "NOT MET"
+            badge_w = len(badge) * char + 2 * max(3, 2 * scale) if badge else 0
+            tail = " / " + line.goal if line.goal else ""
+            badge_x = x + width - badge_w
+            tail_x = badge_x - (char if badge else 0) - len(tail) * char
+            value_x = tail_x - len(line.value) * char
+            ink = {"good": 11, "warn": 9, "danger": 8}.get(line.tone, 7)
+            self.text(x, y, line.label, 13, scale)
+            self.text(value_x, y, line.value, ink, scale)
+            if tail:
+                self.text(tail_x, y, tail, 13, scale)
+            if badge:
+                pyxel.rect(badge_x, y - 1, badge_w, lh + 2, 11 if line.met else 9)
+                self.text(badge_x + max(3, 2 * scale), y, badge, 1, scale)
+        elif kind == "meter":
+            over = line.used > line.total
+            self.text(x, y, line.label, 13, scale)
+            value = f"{line.used}/{line.total}"
+            self.text(x + width - len(value) * char, y, value, 8 if over else 7, scale)
+            bar_y, bar_h = y + lh + inset // 2, max(4, 3 * scale)
+            pyxel.rect(x, bar_y, width, bar_h, 0)
+            fill = round(width * min(line.used, line.total) / max(1, line.total))
+            pyxel.rect(x, bar_y, width if over else fill, bar_h, 8 if over else 11)
+            pyxel.rectb(x, bar_y, width, bar_h, 13)
+        elif kind == "tabs":
+            pairs = [("", f" {name} ") for name in line.names]
+            for row_index, row in enumerate(self.keys_rows(pairs, width, scale)):
+                ty = y + 1 + row_index * (lh + 2 + inset)
+                for _, label, offset in row:
+                    name = label.strip()
+                    on = line.names.index(name) == line.current
+                    span = len(label) * char
+                    if on:
+                        pyxel.rect(x + offset, ty - 1, span, lh + 2, 12)
+                    else:
+                        pyxel.rectb(x + offset, ty - 1, span, lh + 2, 13)
+                    self.text(x + offset + char, ty, name, 1 if on else 6, scale)
+        elif kind == "keys":
+            for row_index, row in enumerate(self.keys_rows(line.pairs, width, scale)):
+                ty = y + 1 + row_index * (lh + 2 + inset)
+                for key, label, offset in row:
+                    left = x + offset
+                    if key:
+                        left = self.draw_cap(left, ty, key, scale) + char
+                    self.text(left, ty, label, 6, scale)
+
+    def key_legend(self, actions, ids: tuple[str, ...]) -> panel.Keys:
+        return panel.keys(controls.legend_pairs(actions, ids))
 
     def draw_legend(self, legend, index: int, left: int) -> None:
         """Colour swatches in the columns the legend line leaves blank."""
@@ -2180,26 +2436,46 @@ class Game:
         )
         keys = self.actions()
         lines = [
-            controls.legend(
-                keys, ("nav_prev", "nav_next", "toggle", "apply", "close")
-            ).upper()
+            self.key_legend(keys, ("nav_prev", "nav_next", "toggle", "apply", "close"))
         ]
         if self.lesson is not None and self.lesson.current is not None:
             lines = [
-                f"STEP {self.lesson.index + 1}/{len(self.lesson.steps)}: {self.lesson.current.say('objective')}"
+                panel.callout(
+                    f"STEP {self.lesson.index + 1}/{len(self.lesson.steps)}",
+                    self.lesson.current.say("objective"),
+                )
             ] + lines
         rows = {
             len(lines) + index: "circuit:" + circuit.id
             for index, circuit in enumerate(circuits)
         }
+        target = (
+            self.lesson.current.target.get("id")
+            if self.lesson is not None and self.lesson.current is not None
+            else None
+        )
         lines += [
-            f"{'>' if index == self.selection else ' '} {'*' if self.lesson is not None and self.lesson.current is not None and self.lesson.current.target.get('id') == circuit.id else ' '} [{'X' if circuit.id in self.pending else ' '}] {circuit.id.upper()}  {circuit.load} UNIT{'' if circuit.load == 1 else 'S'}"
+            panel.check(
+                circuit.id.upper(),
+                circuit.load,
+                circuit.id in self.pending,
+                index == self.selection,
+                target == circuit.id,
+            )
             for index, circuit in enumerate(circuits)
         ]
-        lines += [f"PENDING LOAD {pending_load}/{power.capacity_of(self.state)}"]
+        lines.append(
+            panel.meter("PENDING LOAD", pending_load, power.capacity_of(self.state))
+        )
         if not configured.ok:
             lines.append("OVER BUDGET - CANNOT APPLY")
-        lines.append("WILL GO DARK: " + (", ".join(dark).upper() if dark else "NONE"))
+        lines.append(
+            panel.stat(
+                "WILL GO DARK",
+                ", ".join(dark).upper() if dark else "NONE",
+                tone="warn" if dark else "good",
+            )
+        )
         legend_index = len(lines)
         if live := sorted(
             conduit.id
@@ -2207,13 +2483,19 @@ class Game:
             if conduit.circuit_id in self.pending
             and conduit.circuit_id not in self.state.powered_circuits
         ):
-            lines.append("WILL GO LIVE: " + ", ".join(live).upper())
+            lines.append(
+                panel.stat("WILL GO LIVE", ", ".join(live).upper(), tone="danger")
+            )
         legend = cuedraw.legend_items(cues.console_preview(self.state, self.pending))
         if legend:  # a line of blanks keeps the room for the swatches drawn below
             legend_index = len(lines)
             lines.append(cuedraw.legend_text(legend))
         rows[len(lines)] = "apply"
-        lines.append(f"  {controls.cap('apply')} {controls.apply_label(self.state)}")
+        lines.append(
+            panel.menu(
+                controls.cap("apply"), controls.apply_label(self.state), "", False, True
+            )
+        )
         x, y, width, height = self.layout.console_drawer()
         hidden = self.motion.drawer_hidden() or 0.0
         slid = round(hidden * width)
@@ -2222,7 +2504,7 @@ class Game:
         self.draw_panel(
             "POWER CONSOLE",
             lines,
-            controls.legend(keys, ("undo", "guide", "hint")).upper(),
+            self.key_legend(keys, ("undo", "guide", "hint")),
             (x + slid, y, width, height),
             rows,
         )
@@ -2588,10 +2870,18 @@ class Game:
             self.draw_panel(
                 f"CHAMBER {self.level:02} / LEARN TO PLAY",
                 [
-                    "START GUIDED LESSON: step-by-step explanations with checked actions.",
-                    f"PLAY FREELY: solve the chamber on your own. {controls.key_text('guide')} opens the guide and {controls.key_text('hint')} reveals a hint.",
+                    panel.choice(
+                        "START GUIDED LESSON",
+                        "step-by-step explanations with checked actions.",
+                        controls.find(keys, "confirm").key,
+                    ),
+                    panel.choice(
+                        "PLAY FREELY",
+                        f"solve the chamber on your own. {controls.key_text('guide')} opens the guide and {controls.key_text('hint')} reveals a hint.",
+                        controls.find(keys, "free_play").key,
+                    ),
                 ],
-                controls.legend(keys, ("confirm", "free_play")).upper(),
+                "",
             )
         elif self.modal == "guide":
             self.draw_guide()
@@ -2608,7 +2898,7 @@ class Game:
                 if self.lesson is not None
                 else "You reached the running elevator. Choose a guided lesson on your next visit to review each mechanic.",
                 *(self.run.lines() if self.run else ()),
-                f"HINTS USED: {len(self.seen_hints)}",
+                panel.stat("HINTS USED", len(self.seen_hints)),
             ]
             self.draw_panel(
                 f"CHAMBER {self.level} COMPLETE",
@@ -2639,10 +2929,15 @@ class Game:
         lines = []
         for index, action_id in enumerate(action_ids):
             action = keys[action_id]
-            cap = f"{action.key} " if action.key else ""
-            note = "" if action.enabled else f" - {action.reason}"
-            marker = ">" if index == selected else " "
-            lines.append(f"{marker} {cap}{action.label}{note}")
+            lines.append(
+                panel.menu(
+                    action.key,
+                    action.label,
+                    "" if action.enabled else action.reason,
+                    index == selected,
+                    action.enabled,
+                )
+            )
         return lines
 
     def draw_pause(self) -> None:
@@ -2653,9 +2948,7 @@ class Game:
         self.draw_panel(
             "PAUSED",
             self.menu_lines(PAUSE_ITEMS, self.pause_index),
-            controls.legend(
-                keys, ("nav_prev", "nav_next", "confirm", "fullscreen")
-            ).upper(),
+            self.key_legend(keys, ("nav_prev", "nav_next", "confirm", "fullscreen")),
             rows={i: "pause:" + a for i, a in enumerate(PAUSE_ITEMS)},
         )
 
@@ -2663,29 +2956,29 @@ class Game:
         keys = {action.id: action for action in self.actions()}
         lines = []
         for index, item in enumerate(SETTINGS_ITEMS):
-            marker = ">" if index == self.settings_index else " "
-            label = keys[item].label
-            if item == "close":
-                lines.append(f"{marker} {label}")
-            else:
-                lines.append(f"{marker} {label}: {self.settings_value(item)}")
+            lines.append(
+                panel.menu(
+                    "",
+                    keys[item].label,
+                    "",
+                    index == self.settings_index,
+                    True,
+                    "" if item == "close" else self.settings_value(item),
+                )
+            )
         self.draw_panel(
             "SETTINGS",
             lines,
-            controls.legend(
+            self.key_legend(
                 list(keys.values()),
                 ("row_prev", "row_next", "value_down", "value_up", "close"),
-            ).upper(),
+            ),
             rows={i: "setting:" + item for i, item in enumerate(SETTINGS_ITEMS)},
         )
 
     def draw_guide(self) -> None:
         page = guide.PAGE_IDS[self.guide_page]
-        names = [
-            f"[{name}]" if i == self.guide_page else name
-            for i, (_, name) in enumerate(guide.PAGES)
-        ]
-        lines = [" ".join(names)]
+        lines = [panel.tabs([name for _, name in guide.PAGES], self.guide_page)]
         lines += guide.page_lines(
             page,
             self.state,
@@ -2703,15 +2996,27 @@ class Game:
             len(lines) + 1: "guide:next",
             len(lines) + 2: "guide:close",
         }
-        lines += [
-            f"< {controls.find(keys, 'nav_prev').label}: {previous}",
-            f"> {controls.find(keys, 'nav_next').label}: {following}",
-            controls.find(keys, "close").label,
-        ]
+        for action_id, mark, page_name in (
+            ("nav_prev", "<", previous),
+            ("nav_next", ">", following),
+            ("close", "", ""),
+        ):
+            action = controls.find(keys, action_id)
+            label = f"{action.label}: {page_name}" if page_name else action.label
+            lines.append(
+                panel.menu(
+                    action.key,
+                    label,
+                    "",
+                    False,
+                    True,
+                    text=f"{mark} {label}" if mark else label,
+                )
+            )
         self.draw_panel(
             f"GUIDE {self.guide_page + 1}/{count} / {guide.title(page)}",
             lines,
-            controls.legend(keys, ("nav_prev", "nav_next", "hint", "close")).upper(),
+            self.key_legend(keys, ("nav_prev", "nav_next", "hint", "close")),
             rows=rows,
             gap_units=5,
         )

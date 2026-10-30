@@ -508,13 +508,18 @@ def find(actions: list[Action], action_id: str) -> Action:
     return next(action for action in actions if action.id == action_id)
 
 
+def legend_pairs(actions: list[Action], ids: tuple[str, ...]) -> list[tuple[str, str]]:
+    """(key, label) for the enabled actions among `ids`."""
+    by_id = {action.id: action for action in actions}
+    return [
+        (by_id[i].key, by_id[i].label) for i in ids if i in by_id and by_id[i].enabled
+    ]
+
+
 def legend(actions: list[Action], ids: tuple[str, ...]) -> str:
     """One line of "Key Label" pairs for the enabled actions among `ids`."""
-    by_id = {action.id: action for action in actions}
     return "  ".join(
-        f"{by_id[i].key} {by_id[i].label}" if by_id[i].key else by_id[i].label
-        for i in ids
-        if i in by_id and by_id[i].enabled
+        f"{key} {label}" if key else label for key, label in legend_pairs(actions, ids)
     )
 
 

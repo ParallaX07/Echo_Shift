@@ -768,13 +768,11 @@ def test_the_failure_cards_unavailable_retry_row_is_dimmed(player):
     game.motion.snap()
     assert not controls.find(game.actions(), "retry").enabled
     inks = {}
-    game.wrapped = lambda x, y, value, width, color=7, scale=None: (
-        inks.__setitem__(value, color) or y
-    )
+    game.text = lambda x, y, value, color=7, scale=None: inks.__setitem__(value, color)
     game.draw()
-    assert inks[next(k for k in inks if "Retry from launch" in k)] == 13
-    assert inks[next(k for k in inks if "Undo last move" in k)] == 7
-    assert inks[next(k for k in inks if "Restart chamber" in k)] == 7
+    assert inks["Retry from launch"] == 13
+    assert inks["Undo last move"] == 7
+    assert inks["Restart chamber"] == 7
 
 
 def test_the_failure_card_follows_the_zap_and_keys_still_work(player):
