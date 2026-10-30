@@ -36,6 +36,11 @@ def test_first_chamber_unlocks_second_and_navigation_works(tmp_path, monkeypatch
     monkeypatch.setattr(app, "pyxel", fake)
     monkeypatch.setattr(cuedraw, "pyxel", fake)
     monkeypatch.setattr(app, "Atlas", lambda: SimpleNamespace(draw=lambda *args: None))
+    monkeypatch.setattr(
+        app,
+        "Display",
+        lambda: SimpleNamespace(desktop_size=lambda: (1280, 720), window=lambda: None),
+    )
     monkeypatch.setattr(app, "user_data_dir", lambda: tmp_path)
     monkeypatch.setattr(progress, "user_data_dir", lambda: tmp_path)
     monkeypatch.setattr(telemetry, "user_data_dir", lambda: tmp_path)
